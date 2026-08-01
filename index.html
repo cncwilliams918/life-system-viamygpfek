@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-01T19:03:20Z';
+  var PAGE_VERSION='2026-08-01T22:00:41Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1622,6 +1622,16 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
   return;});
 app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.a;
   if(t.id==='importfile'){handleImportFile(t.files&&t.files[0]);return;}
+  if(a==='fnew'&&t.dataset.f==='unit'){
+    // switching to a countable unit (scoop/slice/bar/packet/serving) mid-entry — the macros
+    // already scanned/typed represent whatever the old serving was, so just re-anchor the
+    // serving number to 1 rather than leaving a stale "30" sitting next to "scoop"
+    if(isCountableUnit(t.value)){
+      var servingInput=app.querySelector('[data-a="fnew"][data-f="serving"]');
+      if(servingInput)servingInput.value='1';
+    }
+    return;
+  }
   if(a==='fin'&&t.type==='date'){state.finance[t.dataset.k]=t.value;save();refreshFin();return;}
   if(a==='btime2'){setBlockTime2(t.dataset.rid,t.dataset.bid,t.dataset.which,t.value);return;}
   if(a==='sleepset'){state.sleep[t.dataset.k]=t.value;save();render();return;}
