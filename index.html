@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-01T18:23:07Z';
+  var PAGE_VERSION='2026-08-01T18:31:36Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1370,7 +1370,10 @@ async function lookupBarcode(code){
   var p=data.product,n=p.nutriments||{};
   var name=p.product_name||p.generic_name||('Product '+code);
   var servingG=parseFloat(p.serving_quantity);
-  var hasServingG=!isNaN(servingG)&&servingG>0;
+  // serving_quantity isn't always grams — drinks report it in ml (e.g. Monster: 500 "ml"), and
+  // treating that as grams produced nonsense like "473.176g". Only trust it when explicitly grams.
+  var servingUnitIsGrams=(p.serving_quantity_unit||'').toLowerCase()==='g';
+  var hasServingG=servingUnitIsGrams&&!isNaN(servingG)&&servingG>0;
   var has100g=n['energy-kcal_100g']!==undefined||n.proteins_100g!==undefined||n.carbohydrates_100g!==undefined||n.fat_100g!==undefined;
   var hasServingNutrients=n['energy-kcal_serving']!==undefined||n.proteins_serving!==undefined||n.carbohydrates_serving!==undefined||n.fat_serving!==undefined;
   if(!has100g&&!hasServingNutrients)return null;
