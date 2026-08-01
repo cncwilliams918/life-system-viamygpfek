@@ -1,3 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Life System</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Life System">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#ffffff">
+</head>
+<body>
 <div id="app"><div style="font-family:monospace;color:#626d7a;padding:40px 4px">Loading…</div></div>
 <style>
 #app{--bg:#ffffff;--panel:#ffffff;--panel2:#f4f6f7;--line:#d8dee1;--lines:#e9edee;--ink:#073b4c;--dim:#4f6b76;--faint:#93a5ac;--teal:#06d6a0;--sig:#ffd166;--vio:#118ab2;--grn:#06d6a0;--slip:#ef476f;--m-p:#0aa47c;--m-c:#c79320;--m-f:#1077a0;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);font-family:var(--sans);line-height:1.5;max-width:920px;margin:0 auto}
@@ -1437,3 +1450,5 @@ app.addEventListener('blur',function(e){var t=e.target,a=t.dataset&&t.dataset.a;
 (async function(){state=await loadState();UNDO.push(JSON.stringify(state));render();})();
 })();
 </script>
+</body>
+</html>
