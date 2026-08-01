@@ -1,0 +1,35 @@
+LIFE SYSTEM — XP REFERENCE
+Last updated: 2026-07-28
+
+This file tracks every XP source in goal-tree.html and its current value.
+Update this file any time an XP amount or mechanic changes in the app.
+
+ROUTINE CHECK-INS
+  XP per check-in depends on the routine's difficulty (5-dot rating, set on the Routines tab):
+    Level 1 (1 dot)   10 XP
+    Level 2 (2 dots)  20 XP
+    Level 3 (3 dots)  30 XP  <- default for new/unrated routines
+    Level 4 (4 dots)  40 XP
+    Level 5 (5 dots)  50 XP
+  Streak bonus: 20% of the difficulty XP, per day of that routine's longest streak
+    e.g. Level 3 (30xp) -> 6 XP per day of longest streak
+  Unchecking a check-in removes its XP immediately (XP is always a live reflection
+  of current data, not a permanent ledger — this applies everywhere below too).
+
+PERFECT DAY BONUS
+  +25 XP on any day where every currently-active, scheduled routine got checked in.
+  Deliberately hidden: no progress counter shown beforehand. Only reveals itself
+  as a one-line note in the Goals-tab reward summary after it's been earned that day.
+
+TO-DO LIST
+  Opening the To-dos tab:     +1 XP, once per calendar day, completely silent (never shown)
+  Creating a to-do:           +1 XP per to-do that currently exists
+  Completing a to-do:         +3 XP per to-do currently marked done
+    (unchecking a completed to-do removes its +3, same live-derivation rule as above)
+
+LEVELING CURVE
+  Level N requires 50*N XP to advance to level N+1 (cumulative — Level 1->2 needs
+  50 XP, Level 2->3 needs 100 more, Level 3->4 needs 150 more, etc.)
+
+CHECK-IN MILESTONE BADGES (cosmetic, no XP attached)
+  10 / 50 / 100 / 250 / 500 total routine check-ins across all routines.
