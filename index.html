@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-01T17:55:34Z';
+  var PAGE_VERSION='2026-08-01T18:02:58Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1401,9 +1401,14 @@ function openScanner(){
   });
 }
 function closeScanner(){
-  var qr=window.__activeScanner,overlay=document.getElementById('scanoverlay');
-  function remove(){if(overlay&&overlay.parentNode)overlay.parentNode.removeChild(overlay);window.__activeScanner=null;}
-  if(qr){qr.stop().then(function(){qr.clear();remove();}).catch(remove);}
+  var qr=window.__activeScanner,overlay=document.getElementById('scanoverlay'),removed=false;
+  function remove(){if(removed)return;removed=true;if(overlay&&overlay.parentNode)overlay.parentNode.removeChild(overlay);window.__activeScanner=null;}
+  if(qr){
+    // qr.stop() can hang indefinitely if the camera never actually started (e.g. permission
+    // denied) — don't trust it to always settle, back it with a hard timeout either way
+    try{qr.stop().then(function(){try{qr.clear();}catch(e){}remove();}).catch(remove);}catch(e){remove();}
+    setTimeout(remove,1200);
+  }
   else remove();
 }
 async function onBarcodeScanned(code){
