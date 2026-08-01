@@ -12,12 +12,13 @@
 <meta name="apple-mobile-web-app-title" content="Life System">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#ffffff">
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 // meta no-cache tags aren't reliably honored by every engine (confirmed in testing) —
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-01T15:30:57Z';
+  var PAGE_VERSION='2026-08-01T17:55:34Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -319,6 +320,15 @@ textarea{resize:vertical;min-height:52px}
 .fcnote.warn{color:var(--slip)}
 .foodadd{border:1px dashed var(--line);border-radius:8px;padding:12px;background:var(--panel2);margin-bottom:18px}
 .foodadd>input{font-size:13px;margin-bottom:9px}
+.scanbtn{font-family:var(--mono);font-size:12px;border:1px solid var(--teal);border-radius:6px;padding:8px 0;color:var(--teal);width:100%;margin-bottom:9px}
+.scanbtn:hover{background:rgba(6,214,160,.12)}
+.scanoverlay{position:fixed;inset:0;background:rgba(7,59,76,.92);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
+.scanbox{background:var(--panel);border-radius:12px;padding:16px;max-width:360px;width:100%}
+.scanhead{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:13px;color:var(--ink);margin-bottom:10px}
+.scanhead button{font-size:20px;line-height:1;color:var(--faint);width:auto}
+.scanhead button:hover{color:var(--slip)}
+#reader{border-radius:8px;overflow:hidden;background:#000}
+.scanhint{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:10px;text-align:center}
 .foodgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
 .foodgrid label{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);display:flex;flex-direction:column;gap:4px}
 .foodgrid input,.foodgrid select{font-family:var(--mono);font-size:13px;padding:6px 8px}
@@ -1327,6 +1337,7 @@ function buildFoods(){
   var foods=sorted.map(foodCard).join('');
   var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search foods…">':'';
   var addForm='<div class="foodadd">'
+    +'<button type="button" class="scanbtn" data-a="scanbarcode">📷 Scan barcode</button>'
     +'<input data-a="fnew" data-f="name" placeholder="Food name">'
     +'<div class="foodgrid">'
     +'<label>Serving<input type="number" step="any" data-a="fnew" data-f="serving" placeholder="100"></label>'
@@ -1347,6 +1358,68 @@ function addFood(){
   state.health.foods=state.health.foods||[];
   state.health.foods.push({id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),tmac:'protein',tamt:''});
   save();render();
+}
+// barcode scanner — runs outside the normal render() cycle (it manages its own
+// overlay+camera element directly) since a re-render would tear down the video
+// feed mid-scan. Nutrition lookup uses Open Food Facts, no key required.
+async function lookupBarcode(code){
+  var res=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json');
+  if(!res.ok)throw new Error('lookup failed');
+  var data=await res.json();
+  if(data.status!==1||!data.product)return null;
+  var p=data.product,n=p.nutriments||{};
+  if(n['energy-kcal_100g']===undefined&&n.proteins_100g===undefined&&n.carbohydrates_100g===undefined&&n.fat_100g===undefined)return null;
+  return {
+    name:p.product_name||p.generic_name||('Product '+code),
+    serving:100,unit:'g',
+    calories:Math.round(num(n['energy-kcal_100g'])),
+    protein:num(n.proteins_100g),carbs:num(n.carbohydrates_100g),fat:num(n.fat_100g)
+  };
+}
+function fillFoodForm(info){
+  var set=function(f,v){var el=app.querySelector('[data-a="fnew"][data-f="'+f+'"]');if(el)el.value=v;};
+  set('name',info.name);set('serving',info.serving);set('protein',info.protein);set('carbs',info.carbs);set('fat',info.fat);set('calories',info.calories);
+  var unitSel=app.querySelector('[data-a="fnew"][data-f="unit"]');if(unitSel)unitSel.value=info.unit;
+  var nameInput=app.querySelector('[data-a="fnew"][data-f="name"]');
+  if(nameInput){nameInput.scrollIntoView({behavior:'smooth',block:'center'});nameInput.focus();}
+}
+function openScanner(){
+  if(typeof Html5Qrcode==='undefined'){alert('Scanner failed to load — check your connection and try again.');return;}
+  var overlay=document.createElement('div');
+  overlay.id='scanoverlay';overlay.className='scanoverlay';
+  overlay.innerHTML='<div class="scanbox"><div class="scanhead"><span>Scan a barcode</span><button type="button" id="scancancel">×</button></div><div id="reader"></div><div class="scanhint" id="scanhint">Point your camera at the barcode.</div></div>';
+  document.body.appendChild(overlay);
+  document.getElementById('scancancel').addEventListener('click',closeScanner);
+  var qr=new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E]});
+  window.__activeScanner=qr;
+  qr.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:150}},
+    function(decodedText){onBarcodeScanned(decodedText);},
+    function(){}
+  ).catch(function(err){
+    var hint=document.getElementById('scanhint');
+    if(hint)hint.textContent='Could not access the camera — check camera permission for this site.';
+  });
+}
+function closeScanner(){
+  var qr=window.__activeScanner,overlay=document.getElementById('scanoverlay');
+  function remove(){if(overlay&&overlay.parentNode)overlay.parentNode.removeChild(overlay);window.__activeScanner=null;}
+  if(qr){qr.stop().then(function(){qr.clear();remove();}).catch(remove);}
+  else remove();
+}
+async function onBarcodeScanned(code){
+  var qr=window.__activeScanner;
+  try{if(qr)await qr.pause(true);}catch(e){}
+  var hint=document.getElementById('scanhint');
+  if(hint)hint.textContent='Found it — looking up nutrition info…';
+  try{
+    var info=await lookupBarcode(code);
+    closeScanner();
+    if(!info){alert('No usable nutrition info found for that barcode. You can still add it manually below.');return;}
+    fillFoodForm(info);
+  }catch(e){
+    closeScanner();
+    alert('Barcode lookup failed — check your connection and try again, or add it manually.');
+  }
 }
 function buildHealth(){
   var today=todayStr();
@@ -1428,6 +1501,7 @@ app.addEventListener('click',function(e){
   }
   else if(a==='hdel'){state.health.entries=(state.health.entries||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='foodadd'){addFood();}
+  else if(a==='scanbarcode'){openScanner();}
   else if(a==='fooddel'){state.health.foods=(state.health.foods||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='foodlog'){addFoodLog(t.dataset.id);}
   else if(a==='logdel'){state.health.log=(state.health.log||[]).filter(function(x){return x.id!==t.dataset.id;});syncTodayMacros();save();render();}
