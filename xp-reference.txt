@@ -1,5 +1,5 @@
 LIFE SYSTEM — XP REFERENCE
-Last updated: 2026-07-28
+Last updated: 2026-08-01
 
 This file tracks every XP source in goal-tree.html and its current value.
 Update this file any time an XP amount or mechanic changes in the app.
@@ -31,5 +31,5 @@ LEVELING CURVE
   Level N requires 50*N XP to advance to level N+1 (cumulative — Level 1->2 needs
   50 XP, Level 2->3 needs 100 more, Level 3->4 needs 150 more, etc.)
 
-CHECK-IN MILESTONE BADGES (cosmetic, no XP attached)
-  10 / 50 / 100 / 250 / 500 total routine check-ins across all routines.
+REMOVED (2026-08-01): check-in milestone badges (10/50/100/250/500 total
+check-ins). Was cosmetic only, no XP attached — removed at user's request.

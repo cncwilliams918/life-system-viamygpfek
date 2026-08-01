@@ -222,10 +222,6 @@ textarea{resize:vertical;min-height:52px}
 .beststreak{margin-top:10px;font-size:13px;color:var(--dim)}
 .beststreak.faint{color:var(--faint)}
 .beststreak b{color:var(--ink)}
-.badgerow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.badge{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;color:var(--dim);background:var(--panel)}
-.badge:not(.locked){border-color:var(--grn);color:var(--grn)}
-.badge.locked{color:var(--faint);opacity:.55}
 .perfectday{margin-top:10px;font-size:13px;color:var(--sig)}
 .rchklist{display:flex;flex-direction:column;gap:6px;margin-top:6px}
 .rchk{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--dim)}
@@ -570,7 +566,6 @@ function rLongest(r){
 }
 var DIFF=[{level:1,xp:10},{level:2,xp:20},{level:3,xp:30},{level:4,xp:40},{level:5,xp:50}];
 function diffInfo(level){return DIFF.filter(function(d){return d.level===level;})[0]||DIFF[2];}
-function totalCheckins(){var c=0;(state.routines||[]).forEach(function(r){c+=(r.dates||[]).length;});return c;}
 function perfectDays(){
   // a date is "perfect" when every currently-active routine scheduled that day was checked in
   var routines=(state.routines||[]).filter(function(r){return r.active!==false;});
@@ -603,8 +598,6 @@ function levelInfo(){
   while(xp>=need){xp-=need;lvl++;need=50*lvl;}
   return {level:lvl,into:xp,need:need};
 }
-var BADGES=[{n:10,label:'10 check-ins'},{n:50,label:'50 check-ins'},{n:100,label:'100 check-ins'},{n:250,label:'250 check-ins'},{n:500,label:'500 check-ins'}];
-
 function render(){
   var html=tabbar();
   if(state.tab==='routines')html+=buildRt();
@@ -648,16 +641,14 @@ function routineCheckRow(r){
 }
 function rewardSummaryHtml(){
   var lv=levelInfo();
-  var totalC=totalCheckins();
   var bestStreak=0,bestTitle='';
   state.routines.forEach(function(r){if(r.active===false)return;var s=rStreak(r);if(s>bestStreak){bestStreak=s;bestTitle=r.title;}});
-  var badgeHtml=BADGES.map(function(b){var on=totalC>=b.n;return '<span class="badge'+(on?'':' locked')+'">'+(on?'✓ ':'○ ')+b.label+'</span>';}).join('');
   var pct=Math.round(lv.into/lv.need*100);
   var perfectToday=perfectDays().indexOf(dkey(todayDate()))>-1;
   return '<div class="trksum"><div class="lvlrow"><span class="lvltag">Level '+lv.level+'</span><div class="xpbar"><div class="xpfill" style="width:'+pct+'%"></div></div><span class="xptxt">'+lv.into+' / '+lv.need+' XP</span></div>'
     +(bestStreak?'<div class="beststreak">🔥 Best active streak — <b>'+esc(bestTitle)+'</b> · '+bestStreak+' day'+(bestStreak===1?'':'s')+'</div>':'<div class="beststreak faint">No active streaks yet — check in on a routine below to start one.</div>')
     +(perfectToday?'<div class="perfectday">🌟 Perfect day — every routine checked in. Bonus XP banked.</div>':'')
-    +'<div class="badgerow">'+badgeHtml+'</div></div>';
+    +'</div>';
 }
 function buildTree(){
   var gc=state.goals.map(function(g){
