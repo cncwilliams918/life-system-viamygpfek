@@ -30,6 +30,16 @@ textarea{resize:vertical;min-height:52px}
 .tab{font-family:var(--mono);font-size:13px;padding:8px 16px;border-radius:7px;border:1px solid var(--line);color:var(--dim)}
 .tab:hover{border-color:var(--dim);color:var(--ink)}
 .tab.on{background:var(--panel2);border-color:var(--dim);color:var(--ink)}
+.hamburger{display:none}
+@media(max-width:680px){
+  .tabbar{display:none}
+  .hamburger{display:flex;align-items:center;gap:8px;width:100%;font-family:var(--mono);font-size:13px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--ink);margin-bottom:8px;background:var(--panel2)}
+  .hamlabel{margin-left:auto;color:var(--dim)}
+  .mobiledrop{display:flex;flex-direction:column;gap:4px;border:1px solid var(--line);border-radius:8px;padding:6px;margin:-4px 0 10px;background:var(--panel)}
+  .mobiledropitem{font-family:var(--mono);font-size:13.5px;text-align:left;padding:10px 11px;border-radius:6px;color:var(--dim);width:100%}
+  .mobiledropitem:hover{background:var(--panel2)}
+  .mobiledropitem.on{background:var(--panel2);color:var(--ink);font-weight:600}
+}
 .hrow{display:flex;align-items:baseline;gap:12px;padding:16px 2px 4px;flex-wrap:wrap}
 .hrow h1{font-size:23px}
 .hrow .addbtn{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:7px 12px}
@@ -632,15 +642,14 @@ function render(){
   var ed=app.querySelector('[data-e="1"]');if(ed){ed.focus();if(ed.select)ed.select();}
 }
 
+var TABS=[['goals','Goals'],['todos','To-dos'],['routines','Routines'],['schedule','Weekly Schedule'],['health','Health'],['money','Finances']];
+var mobileMenuOpen=false;
 function tabbar(){
-  return '<div class="brand">Life System</div><div class="tabbar">'
-    +'<button class="tab'+(state.tab==='goals'?' on':'')+'" data-a="tab" data-t="goals">Goals</button>'
-    +'<button class="tab'+(state.tab==='todos'?' on':'')+'" data-a="tab" data-t="todos">To-dos</button>'
-    +'<button class="tab'+(state.tab==='routines'?' on':'')+'" data-a="tab" data-t="routines">Routines</button>'
-    +'<button class="tab'+(state.tab==='schedule'?' on':'')+'" data-a="tab" data-t="schedule">Weekly Schedule</button>'
-    +'<button class="tab'+(state.tab==='health'?' on':'')+'" data-a="tab" data-t="health">Health</button>'
-    +'<button class="tab'+(state.tab==='money'?' on':'')+'" data-a="tab" data-t="money">Finances</button>'
-    +'</div>';
+  var btns=TABS.map(function(x){return '<button class="tab'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'">'+x[1]+'</button>';}).join('');
+  var cur=TABS.filter(function(x){return x[0]===state.tab;})[0];
+  var hamburger='<button class="hamburger" data-a="togglemenu">☰ <span class="hamlabel">'+esc(cur?cur[1]:'Menu')+'</span></button>';
+  var drop=mobileMenuOpen?'<div class="mobiledrop">'+TABS.map(function(x){return '<button class="mobiledropitem'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'">'+x[1]+'</button>';}).join('')+'</div>':'';
+  return '<div class="brand">Life System</div><div class="tabbar">'+btns+'</div>'+hamburger+drop;
 }
 
 function routineCheckRow(r){
@@ -1320,6 +1329,7 @@ app.addEventListener('click',function(e){
   }
   if(a==='tab'){
     state.tab=t.dataset.t;
+    mobileMenuOpen=false;
     if(state.tab==='goals')state.view={page:'tree'};
     if(state.tab==='todos'){
       state.todoOpenDays=state.todoOpenDays||[];
@@ -1328,6 +1338,7 @@ app.addEventListener('click',function(e){
     }
     state.editing=null;save();render();
   }
+  else if(a==='togglemenu'){mobileMenuOpen=!mobileMenuOpen;render();}
   else if(a==='open'){state.view={page:'detail',goalId:t.dataset.g,subId:t.dataset.s};state.editing=null;render();}
   else if(a==='back'){state.view={page:'tree'};state.editing=null;render();}
   else if(a==='egt'){state.editing='g:'+t.dataset.g;render();}
