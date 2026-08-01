@@ -12,6 +12,24 @@
 <meta name="apple-mobile-web-app-title" content="Life System">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#ffffff">
+<script>
+// meta no-cache tags aren't reliably honored by every engine (confirmed in testing) —
+// this is the real fallback: fetch the version marker with cache explicitly disabled
+// (which IS reliably honored), and self-reload once if this page is stale.
+(function(){
+  var PAGE_VERSION='2026-08-01T14:59:35Z';
+  try{
+    if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
+    fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
+      v=v.trim();
+      if(v&&v!==PAGE_VERSION){
+        sessionStorage.setItem('lifesys_reloaded_for',v);
+        location.reload();
+      }
+    }).catch(function(){});
+  }catch(e){}
+})();
+</script>
 </head>
 <body>
 <div id="app"><div style="font-family:monospace;color:#626d7a;padding:40px 4px">Loading…</div></div>
