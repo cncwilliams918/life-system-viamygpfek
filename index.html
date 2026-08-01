@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-01T22:00:41Z';
+  var PAGE_VERSION='2026-08-01T23:54:41Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -46,9 +46,12 @@ input[type=checkbox]{width:auto;accent-color:var(--ac,var(--teal))}
 textarea{resize:vertical;min-height:52px}
 .brand{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);padding:4px 2px 10px}
 .tabbar{display:flex;gap:6px;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:4px;flex-wrap:wrap}
-.tab{font-family:var(--mono);font-size:13px;padding:8px 16px;border-radius:7px;border:1px solid var(--line);color:var(--dim)}
+.tab{font-family:var(--mono);font-size:13px;padding:8px 16px;border-radius:7px;border:1px solid var(--line);color:var(--dim);display:inline-flex;align-items:center;gap:7px}
 .tab:hover{border-color:var(--dim);color:var(--ink)}
 .tab.on{background:var(--panel2);border-color:var(--dim);color:var(--ink)}
+.tabicon{width:16px;height:16px;object-fit:contain;flex:none}
+.mobiledropitem{display:inline-flex;align-items:center;gap:8px}
+.mobiledropicon{width:18px;height:18px;object-fit:contain;flex:none}
 .hamburger{display:none}
 @media(max-width:680px){
   .tabbar{display:none}
@@ -705,13 +708,13 @@ function render(){
   var ed=app.querySelector('[data-e="1"]');if(ed){ed.focus();if(ed.select)ed.select();}
 }
 
-var TABS=[['goals','Goals'],['todos','To-dos'],['routines','Routines'],['schedule','Weekly Schedule'],['health','Health'],['money','Finances']];
+var TABS=[['goals','Goals','Images/goals.png'],['todos','To-dos','Images/todos.png'],['routines','Routines','Images/routines.png'],['schedule','Weekly Schedule','Images/schedule.png'],['health','Health','Images/health.png'],['money','Finances','Images/finances.png']];
 var mobileMenuOpen=false;
 function tabbar(){
-  var btns=TABS.map(function(x){return '<button class="tab'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'">'+x[1]+'</button>';}).join('');
+  var btns=TABS.map(function(x){return '<button class="tab'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'"><img class="tabicon" src="'+x[2]+'" alt="">'+x[1]+'</button>';}).join('');
   var cur=TABS.filter(function(x){return x[0]===state.tab;})[0];
   var hamburger='<button class="hamburger" data-a="togglemenu"><span class="hamlabel">'+esc(cur?cur[1]:'Menu')+'</span><span class="hamicon">☰</span></button>';
-  var drop=mobileMenuOpen?'<div class="mobiledrop">'+TABS.map(function(x){return '<button class="mobiledropitem'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'">'+x[1]+'</button>';}).join('')+'</div>':'';
+  var drop=mobileMenuOpen?'<div class="mobiledrop">'+TABS.map(function(x){return '<button class="mobiledropitem'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'"><img class="mobiledropicon" src="'+x[2]+'" alt="">'+x[1]+'</button>';}).join('')+'</div>':'';
   return '<div class="brand">Life System</div><div class="tabbar">'+btns+'</div>'+hamburger+drop;
 }
 
