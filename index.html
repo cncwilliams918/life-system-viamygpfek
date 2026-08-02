@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T22:30:09Z';
+  var PAGE_VERSION='2026-08-02T22:44:29Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -96,7 +96,7 @@ html,body{background:var(--ground);margin:0;overflow-x:hidden;-webkit-tap-highli
 #app h1,#app h2,#app h3{margin:0;font-weight:600;letter-spacing:-.01em}
 #app p{margin:0}
 button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit;transition:transform .12s cubic-bezier(.34,1.56,.64,1);touch-action:manipulation}
-.plusicon{display:inline-block;width:.8em;height:.8em;vertical-align:.02em;margin-right:.3em;background-color:currentColor;
+.plusicon{display:inline-block;width:1.15em;height:1.15em;vertical-align:-.15em;margin-right:.3em;background-color:currentColor;
   -webkit-mask:url(Images/Plus.png) center/contain no-repeat;mask:url(Images/Plus.png) center/contain no-repeat}
 button:active{transform:scale(1.08)}
 input,textarea,select{background:var(--surface-3);border:none;color:var(--on-surface);border-radius:12px;padding:8px 10px;font-family:var(--sans);font-size:14px;width:100%}
