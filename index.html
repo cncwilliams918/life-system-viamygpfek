@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T18:41:35Z';
+  var PAGE_VERSION='2026-08-02T19:07:15Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1654,17 +1654,34 @@ function buildHealth(){
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
 
 // events
+// Web Audio, not <audio>: HTMLMediaElement playback (even pooled/preloaded)
+// re-seeks and re-primes its pipeline on every play(), which on mobile shows
+// up as ~1s of audible lag behind the tap. Decoding once into an AudioBuffer
+// and firing a fresh BufferSourceNode per tap plays with ~0 latency instead.
 var POP_SRC='Sounds/Life%20System%20Sounds%20-%20Pop.wav';
-// A pool of pre-decoded elements, built once at load, so a tap just rewinds
-// and replays instead of paying mobile's slow first-decode cost every time.
-var POP_POOL=[0,1,2,3].map(function(){var a=new Audio(POP_SRC);a.preload='auto';return a;});
-var POP_IDX=0;
+var POP_CTX=null,POP_BUFFER=null;
+function loadPop(){
+  if(POP_CTX)return;
+  var AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return;
+  POP_CTX=new AC();
+  fetch(POP_SRC).then(function(r){return r.arrayBuffer();})
+    .then(function(buf){return POP_CTX.decodeAudioData(buf);})
+    .then(function(decoded){POP_BUFFER=decoded;})
+    .catch(function(){});
+}
+loadPop();
 function playPop(){
   if(state.settings&&state.settings.sound===false)return;
+  if(!POP_CTX||!POP_BUFFER)return;
+  if(POP_CTX.state==='suspended')POP_CTX.resume();
   var vol=(state.settings&&state.settings.volume!=null)?state.settings.volume:70;
-  var snd=POP_POOL[POP_IDX];POP_IDX=(POP_IDX+1)%POP_POOL.length;
-  snd.pause();snd.currentTime=0;snd.volume=vol/100;
-  snd.play().catch(function(){});
+  var src=POP_CTX.createBufferSource();
+  var gain=POP_CTX.createGain();
+  gain.gain.value=vol/100;
+  src.buffer=POP_BUFFER;
+  src.connect(gain).connect(POP_CTX.destination);
+  src.start(0);
 }
 app.addEventListener('click',function(e){
   if(e.target.closest('button'))playPop();
