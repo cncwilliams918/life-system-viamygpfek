@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T22:20:55Z';
+  var PAGE_VERSION='2026-08-02T22:24:04Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -96,7 +96,8 @@ html,body{background:var(--ground);margin:0;overflow-x:hidden;-webkit-tap-highli
 #app h1,#app h2,#app h3{margin:0;font-weight:600;letter-spacing:-.01em}
 #app p{margin:0}
 button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit;transition:transform .12s cubic-bezier(.34,1.56,.64,1);touch-action:manipulation}
-.plusicon{width:.8em;height:.8em;vertical-align:.02em;margin-right:.3em}
+.plusicon{display:inline-block;width:.8em;height:.8em;vertical-align:.02em;margin-right:.3em;background-color:currentColor;
+  -webkit-mask:url(Images/Plus.png) center/contain no-repeat;mask:url(Images/Plus.png) center/contain no-repeat}
 button:active{transform:scale(1.08)}
 input,textarea,select{background:var(--surface-3);border:none;color:var(--on-surface);border-radius:12px;padding:8px 10px;font-family:var(--sans);font-size:14px;width:100%}
 input[type=time],input[type=date]{color-scheme:dark;font-family:var(--mono);font-size:13px}
@@ -119,7 +120,7 @@ textarea{resize:vertical;min-height:52px}
 /* Only the PNGs' alpha is used, so their own color is irrelevant. Without mask
    support the fill would paint as a solid square — blank it instead. */
 @supports not ((-webkit-mask-image:url(#i)) or (mask-image:url(#i))){
-  .tabicon,.mobiledropicon{background-color:transparent}
+  .tabicon,.mobiledropicon,.plusicon{background-color:transparent}
 }
 .settingsbtn{flex:none;width:40px;height:40px;border-radius:12px;background:none;color:var(--on-ground);display:flex;align-items:center;justify-content:center}
 .settingsbtn:hover{background:var(--on-ground-wash)}
@@ -817,7 +818,7 @@ function applyBands(){
 
 var TABS=[['goals','Goals','Images/goals.png'],['todos','To-dos','Images/todos.png'],['routines','Routines','Images/routines.png'],['schedule','Weekly Schedule','Images/schedule.png'],['health','Health','Images/health.png'],['money','Finances','Images/finances.png']];
 var mobileMenuOpen=false;
-var PLUS_ICON='<img class="plusicon" src="Images/Plus.png" alt="+">';
+var PLUS_ICON='<span class="plusicon"></span>';
 var SETTINGS_ICON='<svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
 function tabbar(){
   var btns=TABS.map(function(x){return '<button class="tab'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'"><span class="tabicon" style="--icon:url('+x[2]+')"></span>'+x[1]+'</button>';}).join('');
