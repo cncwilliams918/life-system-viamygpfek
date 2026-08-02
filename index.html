@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T12:36:25Z';
+  var PAGE_VERSION='2026-08-02T12:46:06Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -60,6 +60,7 @@
   --on-surface:#daf1de;          /* mint — primary text on a block */
   --on-surface-dim:#b3d4bd;      /* secondary text on a block */
   --on-surface-faint:#8eb69b;    /* tertiary/muted text on a block */
+  --surface-3:#235347;           /* lifted fill for a selected control (the active tab) */
   --outline:#235347;             /* border for fill-less outline buttons */
   --divider:#235347;             /* structural hairlines: grid lines, row separators */
 
@@ -101,22 +102,31 @@ input[type=checkbox]{width:auto;accent-color:var(--ac,var(--accent))}
 textarea{resize:vertical;min-height:52px}
 .brand{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-dim);padding:4px 2px 10px}
 .tabbar{display:flex;gap:6px;padding-bottom:12px;margin-bottom:4px;flex-wrap:wrap}
-.tab{font-family:var(--sans);font-weight:600;letter-spacing:-.01em;font-size:16px;padding:8px 16px;border-radius:14px;border:1px solid transparent;background:var(--surface);color:var(--on-surface-dim);display:inline-flex;align-items:center;gap:7px}
-.tab:hover{border-color:var(--on-surface);color:var(--on-surface)}
-.tab.on{background:var(--surface-2);border-color:var(--on-surface);color:var(--on-surface)}
-.tabicon{width:22px;height:22px;object-fit:contain;flex:none}
+/* Unselected tabs sit bare on the ground; selecting one fills it. The icons are
+   masks painted with currentColor, so they follow the label in either state. */
+.tab{font-family:var(--sans);font-weight:600;letter-spacing:-.01em;font-size:16px;padding:8px 16px;border-radius:14px;border:1px solid transparent;background:none;color:var(--on-ground);display:inline-flex;align-items:center;gap:7px}
+.tab:hover{background:var(--on-ground-wash)}
+.tab.on{background:var(--surface-3);color:var(--on-surface)}
+.tabicon,.mobiledropicon{flex:none;background-color:currentColor;
+  -webkit-mask:var(--icon) center/contain no-repeat;mask:var(--icon) center/contain no-repeat}
+.tabicon{width:22px;height:22px}
 .mobiledropitem{display:inline-flex;align-items:center;gap:8px}
-.mobiledropicon{width:24px;height:24px;object-fit:contain;flex:none}
+.mobiledropicon{width:24px;height:24px}
+/* Only the PNGs' alpha is used, so their own color is irrelevant. Without mask
+   support the fill would paint as a solid square — blank it instead. */
+@supports not ((-webkit-mask-image:url(#i)) or (mask-image:url(#i))){
+  .tabicon,.mobiledropicon{background-color:transparent}
+}
 .hamburger{display:none}
 @media(max-width:680px){
   .tabbar{display:none}
-  .hamburger{display:flex;align-items:center;gap:8px;width:100%;font-family:var(--mono);font-size:13px;border-radius:16px;padding:10px 12px;color:var(--on-surface);margin-bottom:8px;background:var(--surface-2)}
-  .hamlabel{color:var(--on-surface-dim)}
+  .hamburger{display:flex;align-items:center;gap:8px;width:100%;font-family:var(--mono);font-size:13px;border-radius:16px;padding:10px 12px;color:var(--on-ground);margin-bottom:8px;background:none;border:1px solid var(--on-ground-outline)}
+  .hamlabel{color:var(--on-ground)}
   .hamicon{margin-left:auto}
   .mobiledrop{display:flex;flex-direction:column;gap:4px;border-radius:16px;padding:6px;margin:-4px 0 10px;background:var(--surface)}
-  .mobiledropitem{font-family:var(--sans);font-weight:600;letter-spacing:-.01em;font-size:16px;text-align:left;padding:10px 11px;border-radius:12px;color:var(--on-surface-dim);width:100%}
+  .mobiledropitem{font-family:var(--sans);font-weight:600;letter-spacing:-.01em;font-size:16px;text-align:left;padding:10px 11px;border-radius:12px;color:var(--on-surface);width:100%}
   .mobiledropitem:hover{background:var(--surface-2)}
-  .mobiledropitem.on{background:var(--surface-2);color:var(--on-surface);font-weight:600}
+  .mobiledropitem.on{background:var(--surface-3);color:var(--on-surface);font-weight:600}
 }
 .hrow{display:flex;align-items:baseline;gap:12px;padding:16px 2px 4px;flex-wrap:wrap}
 .hrow h1{font-size:23px}
@@ -807,10 +817,10 @@ function applyBands(){
 var TABS=[['goals','Goals','Images/goals.png'],['todos','To-dos','Images/todos.png'],['routines','Routines','Images/routines.png'],['schedule','Weekly Schedule','Images/schedule.png'],['health','Health','Images/health.png'],['money','Finances','Images/finances.png']];
 var mobileMenuOpen=false;
 function tabbar(){
-  var btns=TABS.map(function(x){return '<button class="tab'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'"><img class="tabicon" src="'+x[2]+'" alt="">'+x[1]+'</button>';}).join('');
+  var btns=TABS.map(function(x){return '<button class="tab'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'"><span class="tabicon" style="--icon:url('+x[2]+')"></span>'+x[1]+'</button>';}).join('');
   var cur=TABS.filter(function(x){return x[0]===state.tab;})[0];
   var hamburger='<button class="hamburger" data-a="togglemenu"><span class="hamlabel">'+esc(cur?cur[1]:'Menu')+'</span><span class="hamicon">☰</span></button>';
-  var drop=mobileMenuOpen?'<div class="mobiledrop">'+TABS.map(function(x){return '<button class="mobiledropitem'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'"><img class="mobiledropicon" src="'+x[2]+'" alt="">'+x[1]+'</button>';}).join('')+'</div>':'';
+  var drop=mobileMenuOpen?'<div class="mobiledrop">'+TABS.map(function(x){return '<button class="mobiledropitem'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'"><span class="mobiledropicon" style="--icon:url('+x[2]+')"></span>'+x[1]+'</button>';}).join('')+'</div>':'';
   return '<div class="brand">Life System</div><div class="tabbar">'+btns+'</div>'+hamburger+drop;
 }
 
