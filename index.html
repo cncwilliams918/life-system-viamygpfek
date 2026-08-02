@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T19:14:35Z';
+  var PAGE_VERSION='2026-08-02T19:29:11Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1654,6 +1654,11 @@ function buildHealth(){
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
 
 // events
+// iOS Safari only simulates :active state on a sustained touch, not a quick
+// tap, unless some element on the page has a touchstart listener. This one
+// does nothing itself — its only job is to turn that behavior on so the
+// button press-pop animation actually plays on a normal tap.
+document.addEventListener('touchstart',function(){},{passive:true});
 // Web Audio, not <audio>: HTMLMediaElement playback (even pooled/preloaded)
 // re-seeks and re-primes its pipeline on every play(), which on mobile shows
 // up as ~1s of audible lag behind the tap. Decoding once into an AudioBuffer
