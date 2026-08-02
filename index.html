@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T16:50:28Z';
+  var PAGE_VERSION='2026-08-02T17:32:46Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -125,6 +125,7 @@ textarea{resize:vertical;min-height:52px}
 /* Settings is a popover, not a page — it blurs and dims whatever's behind it. */
 .settingsoverlay{position:fixed;inset:0;background:rgba(5,31,32,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
 .settingscard{background:var(--surface);border-radius:22px;padding:20px;max-width:380px;width:100%;max-height:85vh;overflow-y:auto}
+.settingscard.wide{max-width:460px}
 .settingshead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .settingshead h3{font-size:18px;font-weight:600;color:var(--on-surface)}
 .settingsclose{width:32px;height:32px;border-radius:10px;color:var(--on-surface-faint);font-size:18px;display:flex;align-items:center;justify-content:center;flex:none}
@@ -1376,12 +1377,20 @@ function mealCard(m){
     +'</div>'
     +'<div class="mlfoot">'+adder+'<button class="mllog" data-a="logmeal" data-id="'+m.id+'">+ Log meal</button></div></div>';
 }
+var mealAddOpen=false;
+function mealAddHtml(){
+  return '<div class="settingsoverlay"><div class="settingscard">'
+    +'<div class="settingshead"><h3>Add a meal</h3><button class="settingsclose" data-a="closemealadd">×</button></div>'
+    +'<div class="mealadd"><input data-a="mealn" placeholder="New meal… e.g. Breakfast"><button data-a="addmeal">Create meal</button></div>'
+    +'</div></div>';
+}
 function buildMeals(){
   var cards=(state.health.meals||[]).map(mealCard).join('');
+  var addBtn='<button type="button" class="blockaddbtn" data-a="openmealadd">+ Add a meal</button>';
   return '<div class="ph"><h3>Meals</h3></div>'
     +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
-    +'<div class="mealadd"><input data-a="mealn" placeholder="New meal… e.g. Breakfast"><button data-a="addmeal">Create meal</button></div>'
-    +(cards||'<div class="tempty">No meals yet.</div>');
+    +addBtn+(cards||'<div class="tempty">No meals yet.</div>')
+    +(mealAddOpen?mealAddHtml():'');
 }
 function addMeal(){
   var ti=app.querySelector('[data-a="mealn"]');if(!ti)return;
@@ -1498,11 +1507,11 @@ function buildPastDays(){
   }).join('');
   return '<div class="fincard"><h3>Previous days</h3><div class="pdlist">'+rows+'</div></div>';
 }
-function buildFoods(){
-  var sorted=(state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});
-  var foods=sorted.map(foodCard).join('');
-  var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search foods…">':'';
-  var addForm='<div class="foodadd">'
+var foodAddOpen=false;
+function foodAddHtml(){
+  return '<div class="settingsoverlay"><div class="settingscard wide">'
+    +'<div class="settingshead"><h3>Add a food</h3><button class="settingsclose" data-a="closefoodadd">×</button></div>'
+    +'<div class="foodadd">'
     +'<button type="button" class="scanbtn" data-a="scanbarcode">📷 Scan barcode</button>'
     +'<input data-a="fnew" data-f="name" placeholder="Food name">'
     +'<div class="foodgrid">'
@@ -1512,10 +1521,18 @@ function buildFoods(){
     +'<label>Carbs (g)<input type="number" step="0.1" data-a="fnew" data-f="carbs" placeholder="0"></label>'
     +'<label>Fat (g)<input type="number" step="0.1" data-a="fnew" data-f="fat" placeholder="0"></label>'
     +'<label>Calories<input type="number" step="1" data-a="fnew" data-f="calories" placeholder="0"></label>'
-    +'</div><button data-a="foodadd">Add food</button></div>';
+    +'</div><button data-a="foodadd">Add food</button></div>'
+    +'</div></div>';
+}
+function buildFoods(){
+  var sorted=(state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});
+  var foods=sorted.map(foodCard).join('');
+  var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search foods…">':'';
+  var addBtn='<button type="button" class="blockaddbtn" data-a="openfoodadd">+ Add a food</button>';
   return '<div class="ph"><h3>Foods</h3></div>'
     +'<div class="sub2">Save a food once with its label numbers, then work backwards — say how much of a macro you want and it tells you the serving size and everything else.</div>'
-    +addForm+search+'<div id="foodlist">'+(foods||'<div class="tempty">No foods saved yet.</div>')+'</div>';
+    +addBtn+search+'<div id="foodlist">'+(foods||'<div class="tempty">No foods saved yet.</div>')+'</div>'
+    +(foodAddOpen?foodAddHtml():'');
 }
 function addFood(){
   var get=function(f){var el=app.querySelector('[data-a="fnew"][data-f="'+f+'"]');return el?el.value:'';};
@@ -1635,7 +1652,7 @@ function refreshHealth(){var el=document.getElementById('health-summary');if(el)
 
 // events
 app.addEventListener('click',function(e){
-  if(e.target.classList.contains('settingsoverlay')){settingsOpen=false;render();return;}
+  if(e.target.classList.contains('settingsoverlay')){settingsOpen=false;foodAddOpen=false;mealAddOpen=false;render();return;}
   var t=e.target.closest('[data-a]');if(!t)return;var a=t.dataset.a;
   if(a==='undo'){undoLast();return;}
   if(a==='exportdata'){exportData();return;}
@@ -1696,12 +1713,16 @@ app.addEventListener('click',function(e){
     }
   }
   else if(a==='hdel'){state.health.entries=(state.health.entries||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
+  else if(a==='openfoodadd'){foodAddOpen=true;render();}
+  else if(a==='closefoodadd'){foodAddOpen=false;render();}
   else if(a==='foodadd'){addFood();}
   else if(a==='scanbarcode'){openScanner();}
   else if(a==='fooddel'){state.health.foods=(state.health.foods||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='foodlog'){addFoodLog(t.dataset.id);}
   else if(a==='logdel'){state.health.log=(state.health.log||[]).filter(function(x){return x.id!==t.dataset.id;});syncTodayMacros();save();render();}
   else if(a==='logdelgroup'){state.health.log=(state.health.log||[]).filter(function(x){return x.gid!==t.dataset.gid;});syncTodayMacros();save();render();}
+  else if(a==='openmealadd'){mealAddOpen=true;render();}
+  else if(a==='closemealadd'){mealAddOpen=false;render();}
   else if(a==='addmeal'){addMeal();}
   else if(a==='dmeal'){state.health.meals=(state.health.meals||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='emln'){state.editing='ml:'+t.dataset.id;render();}
