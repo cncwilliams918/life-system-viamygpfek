@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T19:07:15Z';
+  var PAGE_VERSION='2026-08-02T19:14:35Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1670,9 +1670,14 @@ function loadPop(){
     .then(function(decoded){POP_BUFFER=decoded;})
     .catch(function(){});
 }
-loadPop();
+// Must be born inside a real user gesture — iOS "Add to Home Screen" standalone
+// mode won't unlock an AudioContext created ahead of time, even with resume()
+// called later from a click. The earliest possible touch on the page creates
+// it; playPop also calls this defensively in case that listener hasn't fired.
+document.addEventListener('pointerdown',loadPop,{once:true,passive:true});
 function playPop(){
   if(state.settings&&state.settings.sound===false)return;
+  loadPop();
   if(!POP_CTX||!POP_BUFFER)return;
   if(POP_CTX.state==='suspended')POP_CTX.resume();
   var vol=(state.settings&&state.settings.volume!=null)?state.settings.volume:70;
