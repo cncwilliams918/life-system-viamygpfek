@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T19:52:49Z';
+  var PAGE_VERSION='2026-08-02T20:58:38Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -96,7 +96,7 @@ html,body{background:var(--ground);margin:0;overflow-x:hidden;-webkit-tap-highli
 #app h1,#app h2,#app h3{margin:0;font-weight:600;letter-spacing:-.01em}
 #app p{margin:0}
 button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit;transition:transform .12s cubic-bezier(.34,1.56,.64,1);touch-action:manipulation}
-button:active,button.btnheld{transform:scale(1.08)}
+button:active{transform:scale(1.08)}
 input,textarea,select{background:var(--surface-3);border:none;color:var(--on-surface);border-radius:12px;padding:8px 10px;font-family:var(--sans);font-size:14px;width:100%}
 input[type=time],input[type=date]{color-scheme:dark;font-family:var(--mono);font-size:13px}
 input::placeholder,textarea::placeholder{color:var(--on-surface-faint);opacity:1}
@@ -1693,20 +1693,8 @@ function playPop(){
   src.connect(gain).connect(POP_CTX.destination);
   src.start(0);
 }
-// Fingerprints a button by its data-* attrs so the pressed one can be found
-// again after render() swaps in a whole new DOM tree, letting the press-pop
-// hold its grown size briefly on the *new* node instead of snapping back
-// invisibly the instant the old, still-scaled node is torn down.
-function btnFingerprint(el){
-  if(!el||!el.dataset)return null;
-  var parts=[];
-  for(var k in el.dataset){parts.push('[data-'+k+'="'+CSS.escape(el.dataset[k])+'"]');}
-  return parts.length?'button'+parts.join(''):null;
-}
 app.addEventListener('click',function(e){
-  var pb=e.target.closest('button'),pbFP=pb?btnFingerprint(pb):null;
-  if(pb)playPop();
-  try{
+  if(e.target.closest('button'))playPop();
   if(e.target.classList.contains('settingsoverlay')){settingsOpen=false;foodAddOpen=false;mealAddOpen=false;render();return;}
   var t=e.target.closest('[data-a]');if(!t)return;var a=t.dataset.a;
   if(a==='undo'){undoLast();return;}
@@ -1783,12 +1771,6 @@ app.addEventListener('click',function(e){
   else if(a==='emln'){state.editing='ml:'+t.dataset.id;render();}
   else if(a==='logmeal'){logMeal(t.dataset.id);}
   else if(a==='midel'){var dm=fMeal(t.dataset.mid);if(dm){dm.items=(dm.items||[]).filter(function(x){return x.id!==t.dataset.iid;});save();render();}}
-  }finally{
-    if(pbFP){
-      var nb=app.querySelector(pbFP);
-      if(nb){nb.classList.add('btnheld');setTimeout(function(){nb.classList.remove('btnheld');},150);}
-    }
-  }
 });
 
 function addTodo(forcedSub){
