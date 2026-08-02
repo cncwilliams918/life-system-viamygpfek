@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T17:38:22Z';
+  var PAGE_VERSION='2026-08-02T18:04:07Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -95,7 +95,8 @@ html,body{background:var(--ground);margin:0;overflow-x:hidden}
 #app *{box-sizing:border-box}
 #app h1,#app h2,#app h3{margin:0;font-weight:600;letter-spacing:-.01em}
 #app p{margin:0}
-button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit}
+button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit;transition:transform .12s cubic-bezier(.34,1.56,.64,1)}
+button:active{transform:scale(1.08)}
 input,textarea,select{background:var(--surface-3);border:none;color:var(--on-surface);border-radius:12px;padding:8px 10px;font-family:var(--sans);font-size:14px;width:100%}
 input[type=time],input[type=date]{color-scheme:dark;font-family:var(--mono);font-size:13px}
 input::placeholder,textarea::placeholder{color:var(--on-surface-faint);opacity:1}
@@ -839,12 +840,12 @@ function settingsHtml(){
   var s=state.settings||{};
   return '<div class="settingsoverlay"><div class="settingscard">'
     +'<div class="settingshead"><h3>Settings</h3><button class="settingsclose" data-a="closesettings">×</button></div>'
-    +'<div class="settingsnote">Cosmetic for now — nothing here is wired up yet.</div>'
+    +'<div class="settingsnote">Sound and volume control the button pop — everything else here is still cosmetic.</div>'
     +'<div class="setrow"><div class="setlbl"><span>Theme</span><small>How the app looks</small></div>'
     +'<select data-a="setfield" data-k="theme"><option value="system"'+(s.theme==='system'||!s.theme?' selected':'')+'>System</option><option value="light"'+(s.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(s.theme==='dark'?' selected':'')+'>Dark</option></select></div>'
     +'<div class="setrow"><div class="setlbl"><span>Volume</span><small>Check-in and reward sounds</small></div>'
     +'<input class="setrange" type="range" min="0" max="100" value="'+(s.volume==null?70:s.volume)+'" data-a="setrange" data-k="volume"></div>'
-    +swtch(s.sound!==false,'Sound effects','Chimes on check-in, level up','sound')
+    +swtch(s.sound!==false,'Sound effects','Pop on every button press','sound')
     +swtch(!!s.haptics,'Haptics','Vibrate on key actions','haptics')
     +swtch(!!s.notifications,'Notifications','Daily reminder to check in','notifications')
     +swtch(s.reduceMotion,'Reduce motion','Fewer transitions and animations','reduceMotion')
@@ -1652,7 +1653,16 @@ function buildHealth(){
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
 
 // events
+var POP_SRC='Sounds/Life%20System%20Sounds%20-%20Pop.wav';
+function playPop(){
+  if(state.settings&&state.settings.sound===false)return;
+  var vol=(state.settings&&state.settings.volume!=null)?state.settings.volume:70;
+  var snd=new Audio(POP_SRC);
+  snd.volume=vol/100;
+  snd.play().catch(function(){});
+}
 app.addEventListener('click',function(e){
+  if(e.target.closest('button'))playPop();
   if(e.target.classList.contains('settingsoverlay')){settingsOpen=false;foodAddOpen=false;mealAddOpen=false;render();return;}
   var t=e.target.closest('[data-a]');if(!t)return;var a=t.dataset.a;
   if(a==='undo'){undoLast();return;}
