@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T00:50:57Z';
+  var PAGE_VERSION='2026-08-02T00:53:40Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -36,9 +36,11 @@
 <div id="app"><div style="font-family:monospace;color:#261311;padding:40px 4px">Loading…</div></div>
 <style>
 /* palette: blush/champagne = blocks, cognac = page ground, emerald/espresso = ink + accent */
-html,body{background:#c3955b;margin:0}
-/* sections alternate cognac <-> amber; the color change IS the divider, so no rules */
-.band{margin:0 -16px;padding:16px}
+html,body{background:#c3955b;margin:0;overflow-x:hidden}
+/* Sections alternate cognac <-> amber; the color change IS the divider, so no rules.
+   Negative margins pull each band out to the viewport edges while the matching
+   padding puts its content back on the centered column. */
+.band{margin:0 calc(50% - 50vw);padding:16px calc(50vw - 50%)}
 .band.alt{background:var(--rule)}
 .band.alt .ph h3,.band.alt .sub2,.band.alt .tempty,.band.alt .tdempty,.band.alt .tdsec,.band.alt .minofoods{color:var(--ink)}
 #app{--bg:#c3955b;--onac:#f9edf0;--rule:#ba6a36;--panel:#f9edf0;--panel2:#e6c8b7;--line:#d3ac93;--lines:#e3cdbf;--ink:#261311;--dim:#4a382f;--faint:#7a6154;--teal:#1c3934;--sig:#ba6a36;--vio:#c3955b;--grn:#2f6b5c;--slip:#8f2f22;--m-p:#1c3934;--m-c:#ba6a36;--m-f:#c3955b;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);font-family:var(--sans);line-height:1.5;max-width:920px;margin:0 auto;padding:8px 16px 40px}
