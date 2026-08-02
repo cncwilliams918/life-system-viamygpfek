@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T22:48:42Z';
+  var PAGE_VERSION='2026-08-02T23:04:52Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -100,6 +100,7 @@ button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:
   -webkit-mask:url(Images/Plus.png?v=2) center/contain no-repeat;mask:url(Images/Plus.png?v=2) center/contain no-repeat}
 button:active{transform:scale(1.08)}
 input,textarea,select{background:var(--surface-3);border:none;color:var(--on-surface);border-radius:12px;padding:8px 10px;font-family:var(--sans);font-size:14px;width:100%}
+input:focus,textarea:focus,select:focus{outline:none;box-shadow:0 0 0 2px var(--ac,var(--accent))}
 input[type=time],input[type=date]{color-scheme:dark;font-family:var(--mono);font-size:13px}
 input::placeholder,textarea::placeholder{color:var(--on-surface-faint);opacity:1}
 input[type=checkbox]{width:auto;accent-color:var(--ac,var(--accent))}
@@ -850,6 +851,7 @@ function settingsHtml(){
     +'<div class="setrow"><div class="setlbl"><span>Volume</span><small>Check-in and reward sounds</small></div>'
     +'<input class="setrange" type="range" min="0" max="100" value="'+(s.volume==null?70:s.volume)+'" data-a="setrange" data-k="volume"></div>'
     +swtch(s.sound!==false,'Sound effects','Pop on every button press','sound')
+    +'<div class="settingsnote" style="margin:-6px 0 16px">Sound debug: '+esc(POP_STATUS)+'</div>'
     +swtch(!!s.haptics,'Haptics','Vibrate on key actions','haptics')
     +swtch(!!s.notifications,'Notifications','Daily reminder to check in','notifications')
     +swtch(s.reduceMotion,'Reduce motion','Fewer transitions and animations','reduceMotion')
@@ -1667,15 +1669,25 @@ document.addEventListener('touchstart',function(){},{passive:true});
 // and firing a fresh BufferSourceNode per tap plays with ~0 latency instead.
 var POP_SRC='Sounds/Life%20System%20Sounds%20-%20Pop.wav';
 var POP_CTX=null,POP_BUFFER=null;
+// Nothing about mobile audio has been visually debuggable, so this tracks
+// exactly where setup is/was, surfaced as plain text in Settings — the only
+// way to get real signal back without a phone hooked up to devtools.
+var POP_STATUS='not started yet (tap anywhere first)';
+function setPopStatus(s){POP_STATUS=s;if(settingsOpen)render();}
 function loadPop(){
   if(POP_CTX)return;
   var AC=window.AudioContext||window.webkitAudioContext;
-  if(!AC)return;
-  POP_CTX=new AC();
-  fetch(POP_SRC).then(function(r){return r.arrayBuffer();})
-    .then(function(buf){return POP_CTX.decodeAudioData(buf);})
-    .then(function(decoded){POP_BUFFER=decoded;})
-    .catch(function(){});
+  if(!AC){setPopStatus('unsupported: no AudioContext in this browser');return;}
+  try{POP_CTX=new AC();}
+  catch(e){setPopStatus('failed to create AudioContext: '+(e&&e.message||e));return;}
+  setPopStatus('context created (state: '+POP_CTX.state+'), fetching sound…');
+  fetch(POP_SRC).then(function(r){
+    if(!r.ok)throw new Error('fetch '+r.status+' for '+POP_SRC);
+    return r.arrayBuffer();
+  })
+    .then(function(buf){setPopStatus('decoding…');return POP_CTX.decodeAudioData(buf);})
+    .then(function(decoded){POP_BUFFER=decoded;setPopStatus('ready (context: '+POP_CTX.state+')');})
+    .catch(function(e){setPopStatus('load failed: '+(e&&e.message||e));});
 }
 // Must be born inside a real user gesture — iOS "Add to Home Screen" standalone
 // mode won't unlock an AudioContext created ahead of time, even with resume()
@@ -1685,8 +1697,8 @@ document.addEventListener('pointerdown',loadPop,{once:true,passive:true});
 function playPop(){
   if(state.settings&&state.settings.sound===false)return;
   loadPop();
-  if(!POP_CTX||!POP_BUFFER)return;
-  if(POP_CTX.state==='suspended')POP_CTX.resume();
+  if(!POP_CTX||!POP_BUFFER){setPopStatus('tap fired but not ready yet (ctx: '+(POP_CTX?POP_CTX.state:'none')+', buffer: '+(POP_BUFFER?'yes':'no')+')');return;}
+  if(POP_CTX.state==='suspended')POP_CTX.resume().then(function(){setPopStatus('resumed, played (state: '+POP_CTX.state+')');}).catch(function(e){setPopStatus('resume failed: '+(e&&e.message||e));});
   var vol=(state.settings&&state.settings.volume!=null)?state.settings.volume:70;
   var src=POP_CTX.createBufferSource();
   var gain=POP_CTX.createGain();
@@ -1694,6 +1706,7 @@ function playPop(){
   src.buffer=POP_BUFFER;
   src.connect(gain).connect(POP_CTX.destination);
   src.start(0);
+  setPopStatus('played at '+new Date().toLocaleTimeString()+' (context: '+POP_CTX.state+', volume: '+vol+')');
 }
 app.addEventListener('click',function(e){
   if(e.target.closest('button'))playPop();
