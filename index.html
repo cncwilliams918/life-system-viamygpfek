@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T15:34:18Z';
+  var PAGE_VERSION='2026-08-02T16:38:50Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -379,23 +379,23 @@ textarea{resize:vertical;min-height:52px}
 .hdel:hover{color:var(--negative)}
 @media(max-width:680px){.harow{grid-template-columns:1fr 1fr 20px}.harow .hdate{grid-column:1/3}}
 /* foods */
-.fcard{border-radius:18px;background:var(--surface);padding:13px 15px;margin-bottom:9px}
-.fctop{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.fcname{font-size:15px;font-weight:600;color:var(--on-surface)}
-.fcbase{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint);flex:1}
-.fdel{color:var(--on-surface-faint);font-size:15px;cursor:pointer;line-height:1}
+.fcard{border-radius:18px;background:var(--surface);padding:12px 14px;margin-bottom:7px}
+.fctop{display:flex;align-items:center;gap:10px}
+.fcname{font-size:20px;font-weight:700;letter-spacing:-.01em;color:var(--on-surface);flex:1;min-width:0;overflow-wrap:anywhere}
+.fcbase{display:block;font-family:var(--mono);font-size:11px;color:var(--on-surface-faint);margin-top:2px}
+.fdel{color:var(--on-surface-faint);font-size:17px;cursor:pointer;line-height:1;flex:none}
 .fdel:hover{color:var(--negative)}
-.fcrow{display:flex;align-items:center;gap:7px;margin-top:11px;flex-wrap:wrap}
+.fcrow{display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap}
 .fclbl{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint)}
-.fcrow input{width:80px;font-family:var(--mono);font-size:13px;padding:6px 8px}
+.fcrow input{width:70px;font-family:var(--mono);font-size:13px;padding:6px 8px}
 .fcrow select{width:auto;font-family:var(--mono);font-size:12px;padding:6px 8px}
 .fcunit2{font-family:var(--mono);font-size:11px;color:var(--on-surface-dim)}
-.fcout{margin-top:12px;padding-top:11px}
-.fcbig{font-family:var(--mono);font-size:30px;font-weight:600;color:var(--on-surface);line-height:1;font-variant-numeric:tabular-nums}
+.fcout{margin-top:9px}
+.fcbig{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--on-surface);line-height:1;font-variant-numeric:tabular-nums}
 .fcbig .fcunit{font-size:12px;font-weight:400;color:var(--on-surface-dim);margin-left:7px}
-.fcmacros{display:flex;gap:14px;margin-top:9px;font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);flex-wrap:wrap}
+.fcmacros{display:flex;align-items:center;gap:12px;margin-top:7px;font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);flex-wrap:wrap}
 .fcmacros .on{color:var(--accent)}
-.fcnote{margin-top:12px;padding-top:11px;font-family:var(--mono);font-size:11.5px;color:var(--on-surface-faint)}
+.fcnote{margin-top:9px;font-family:var(--mono);font-size:11.5px;color:var(--on-surface-faint)}
 .fcnote.warn{color:var(--negative)}
 .foodadd{border-radius:16px;padding:12px;background:var(--surface);margin-bottom:18px}
 .foodadd>input{font-size:13px;margin-bottom:9px}
@@ -1292,8 +1292,8 @@ function foodCard(f){
       +'<select data-a="foodmac" data-id="'+f.id+'">'+opts+'</select></div>';
   }
   return '<div class="fcard" data-name="'+esc(f.name.toLowerCase())+'"><div class="fctop"><span class="fcname">'+esc(f.name)+'</span>'
-    +'<span class="fcbase">'+esc(fmtQty(num(f.serving),f.unit))+' · '+num(f.protein)+'P / '+num(f.carbs)+'C / '+num(f.fat)+'F · '+num(f.calories)+'cal</span>'
     +'<span class="fdel" data-a="fooddel" data-id="'+f.id+'">×</span></div>'
+    +'<span class="fcbase">Measure '+esc(fmtQty(num(f.serving),f.unit))+' — '+num(f.protein)+'P / '+num(f.carbs)+'C / '+num(f.fat)+'F · '+num(f.calories)+'cal</span>'
     +inputRow
     +'<div id="fcout-'+f.id+'">'+(countable?foodOutQtyHtml(f):foodOutHtml(f))+'</div></div>';
 }
