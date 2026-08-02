@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-01T23:54:41Z';
+  var PAGE_VERSION='2026-08-02T00:01:44Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -46,12 +46,12 @@ input[type=checkbox]{width:auto;accent-color:var(--ac,var(--teal))}
 textarea{resize:vertical;min-height:52px}
 .brand{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);padding:4px 2px 10px}
 .tabbar{display:flex;gap:6px;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:4px;flex-wrap:wrap}
-.tab{font-family:var(--mono);font-size:13px;padding:8px 16px;border-radius:7px;border:1px solid var(--line);color:var(--dim);display:inline-flex;align-items:center;gap:7px}
+.tab{font-family:var(--sans);font-weight:600;letter-spacing:-.01em;font-size:16px;padding:8px 16px;border-radius:7px;border:1px solid var(--line);color:var(--dim);display:inline-flex;align-items:center;gap:7px}
 .tab:hover{border-color:var(--dim);color:var(--ink)}
 .tab.on{background:var(--panel2);border-color:var(--dim);color:var(--ink)}
-.tabicon{width:16px;height:16px;object-fit:contain;flex:none}
+.tabicon{width:19px;height:19px;object-fit:contain;flex:none}
 .mobiledropitem{display:inline-flex;align-items:center;gap:8px}
-.mobiledropicon{width:18px;height:18px;object-fit:contain;flex:none}
+.mobiledropicon{width:21px;height:21px;object-fit:contain;flex:none}
 .hamburger{display:none}
 @media(max-width:680px){
   .tabbar{display:none}
@@ -59,7 +59,7 @@ textarea{resize:vertical;min-height:52px}
   .hamlabel{color:var(--dim)}
   .hamicon{margin-left:auto}
   .mobiledrop{display:flex;flex-direction:column;gap:4px;border:1px solid var(--line);border-radius:8px;padding:6px;margin:-4px 0 10px;background:var(--panel)}
-  .mobiledropitem{font-family:var(--mono);font-size:13.5px;text-align:left;padding:10px 11px;border-radius:6px;color:var(--dim);width:100%}
+  .mobiledropitem{font-family:var(--sans);font-weight:600;letter-spacing:-.01em;font-size:16px;text-align:left;padding:10px 11px;border-radius:6px;color:var(--dim);width:100%}
   .mobiledropitem:hover{background:var(--panel2)}
   .mobiledropitem.on{background:var(--panel2);color:var(--ink);font-weight:600}
 }
