@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T20:58:38Z';
+  var PAGE_VERSION='2026-08-02T22:20:55Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -96,6 +96,7 @@ html,body{background:var(--ground);margin:0;overflow-x:hidden;-webkit-tap-highli
 #app h1,#app h2,#app h3{margin:0;font-weight:600;letter-spacing:-.01em}
 #app p{margin:0}
 button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit;transition:transform .12s cubic-bezier(.34,1.56,.64,1);touch-action:manipulation}
+.plusicon{width:.8em;height:.8em;vertical-align:.02em;margin-right:.3em}
 button:active{transform:scale(1.08)}
 input,textarea,select{background:var(--surface-3);border:none;color:var(--on-surface);border-radius:12px;padding:8px 10px;font-family:var(--sans);font-size:14px;width:100%}
 input[type=time],input[type=date]{color-scheme:dark;font-family:var(--mono);font-size:13px}
@@ -292,11 +293,12 @@ textarea{resize:vertical;min-height:52px}
 .fld label{display:block;font-size:12px;color:var(--on-surface-dim);margin-bottom:4px}
 .fld input{font-family:var(--mono);font-size:14px}
 .fld .hint{font-size:11px;color:var(--on-surface-faint);margin-top:3px}
-.sysfoot{margin:34px 0 8px;padding-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--on-surface-dim)}
-.sysfoot .undo{font-family:var(--mono);font-size:11px;border-radius:12px;padding:6px 12px;color:var(--on-surface-dim);margin-left:auto}
+.sysfoot{margin:16px 0 0;padding-top:14px;display:flex;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:11px}
+.sysfoot .undo,.sysfoot .exp,.sysfoot .imp,.sysfoot .rst{font-family:var(--mono);font-size:11px;border-radius:12px;padding:6px 12px;color:var(--on-surface-dim);background:var(--surface-2)}
 .sysfoot .undo.dis{opacity:.35;cursor:default}
-.sysfoot .rst{font-family:var(--mono);font-size:11px;border-radius:12px;padding:6px 12px;color:var(--on-surface-faint)}
-.sysfoot .exp,.sysfoot .imp{font-family:var(--mono);font-size:11px;border-radius:12px;padding:6px 12px;color:var(--on-surface-dim)}
+.sysfoot .rst{color:var(--on-surface-faint)}
+.sysfoot .rst:hover,.sysfoot .rst.arm{color:var(--negative)}
+.sysfoot .rst.arm{background:var(--negative-wash)}
 .tdwrap{margin-top:16px}
 .tdsec{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-dim);margin:18px 0 8px}
 .tdsec.od{color:var(--negative)}
@@ -497,16 +499,14 @@ textarea{resize:vertical;min-height:52px}
    elements sit straight on the pale mint/sage ground instead, so they go dark. */
 .brand,.hrow h1,.hrow .addbtn,.sub2,.ph h3,.ph .pc,.band .tempty,.band .tdempty,.tdsec,.dtitle,
 .crumb,.crumb .bk,.crumb .cs,.crumb .cg,.dnote label,.subdel,
-.sysfoot,.sysfoot .undo,.sysfoot .exp,.sysfoot .imp,.sysfoot .rst,
 .mealadd button,.rtadd button,.stepadd button,.appadd button{color:var(--on-ground)}
 /* Nothing is outlined, so these on-ground buttons take a faint tint of the
    ground's own ink to stay recognizable as controls. */
-.hrow .addbtn,.sysfoot .undo,.sysfoot .exp,.sysfoot .imp,.sysfoot .rst,
+.hrow .addbtn,
 .mealadd button,.rtadd button,.stepadd button,.appadd button{background:var(--on-ground-wash)}
-.tdsec.od,.sysfoot .rst:hover,.sysfoot .rst.arm{color:var(--on-ground-negative)}
+.tdsec.od{color:var(--on-ground-negative)}
 /* --accent-2 is the mint that the ground itself uses, so priorities lean on weight */
 .tdsec.pri{color:var(--on-ground);font-weight:700}
-.sysfoot .rst.arm{background:var(--on-ground-negative-wash)}
 /* ...but an empty-state line inside a card is on a block, so it stays light */
 .fincard .tempty,.mlcard .tempty,.gcard .tempty{color:var(--on-surface-faint)}
 /* iOS Safari auto-zooms on focusing any input under 16px — force every field to 16px on mobile to stop it, regardless of the compact sizes used elsewhere */
@@ -791,13 +791,6 @@ function render(){
   else if(state.tab==='money')html+=buildMoney();
   else if(state.tab==='todos')html+=buildTodos();
   else html+=state.view.page==='detail'?buildDetail():buildTree();
-  var canUndo=UNDO.length>1;
-  html+='<div class="sysfoot"><span>Your edits save automatically and persist. Seed data only loads into an empty app.</span>'
-    +'<button class="undo'+(canUndo?'':' dis')+'" data-a="undo"'+(canUndo?'':' disabled')+'>\u21b6 undo last change</button>'
-    +'<button class="exp" data-a="exportdata">\u2b73 export data</button>'
-    +'<button class="imp" data-a="importdata">\u2b71 import data</button>'
-    +'<input type="file" id="importfile" accept="application/json,.json" style="display:none">'
-    +'<button class="rst'+(state._rst?' arm':'')+'" data-a="reset">'+(state._rst?'Really reset? click again':'reset to default')+'</button></div>';
   app.innerHTML=html;
   applyBands();
   var ed=app.querySelector('[data-e="1"]');if(ed){ed.focus();if(ed.select)ed.select();}
@@ -805,7 +798,7 @@ function render(){
 
 // Wrap each page section in a band so the ground alternates cognac/amber.
 // A new band starts at every .ph section header; the color change replaces divider rules.
-var BANDSKIP=['brand','topbar','mobiledrop','sysfoot','settingsoverlay'];
+var BANDSKIP=['brand','topbar','mobiledrop','settingsoverlay'];
 function applyBands(){
   var kids=[].slice.call(app.children),alt=false,started=false,cur=null;
   kids.forEach(function(el){
@@ -824,6 +817,7 @@ function applyBands(){
 
 var TABS=[['goals','Goals','Images/goals.png'],['todos','To-dos','Images/todos.png'],['routines','Routines','Images/routines.png'],['schedule','Weekly Schedule','Images/schedule.png'],['health','Health','Images/health.png'],['money','Finances','Images/finances.png']];
 var mobileMenuOpen=false;
+var PLUS_ICON='<img class="plusicon" src="Images/Plus.png" alt="+">';
 var SETTINGS_ICON='<svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
 function tabbar(){
   var btns=TABS.map(function(x){return '<button class="tab'+(state.tab===x[0]?' on':'')+'" data-a="tab" data-t="'+x[0]+'"><span class="tabicon" style="--icon:url('+x[2]+')"></span>'+x[1]+'</button>';}).join('');
@@ -839,6 +833,14 @@ function swtch(on,label,sub,key){
 }
 function settingsHtml(){
   var s=state.settings||{};
+  var canUndo=UNDO.length>1;
+  var data='<div class="settingsnote">Your edits save automatically and persist. Seed data only loads into an empty app.</div>'
+    +'<div class="sysfoot">'
+    +'<button class="undo'+(canUndo?'':' dis')+'" data-a="undo"'+(canUndo?'':' disabled')+'>↶ undo last change</button>'
+    +'<button class="exp" data-a="exportdata">⭳ export data</button>'
+    +'<button class="imp" data-a="importdata">⭱ import data</button>'
+    +'<input type="file" id="importfile" accept="application/json,.json" style="display:none">'
+    +'<button class="rst'+(state._rst?' arm':'')+'" data-a="reset">'+(state._rst?'Really reset? click again':'reset to default')+'</button></div>';
   return '<div class="settingsoverlay"><div class="settingscard">'
     +'<div class="settingshead"><h3>Settings</h3><button class="settingsclose" data-a="closesettings">×</button></div>'
     +'<div class="settingsnote">Sound and volume control the button pop — everything else here is still cosmetic.</div>'
@@ -850,6 +852,7 @@ function settingsHtml(){
     +swtch(!!s.haptics,'Haptics','Vibrate on key actions','haptics')
     +swtch(!!s.notifications,'Notifications','Daily reminder to check in','notifications')
     +swtch(s.reduceMotion,'Reduce motion','Fewer transitions and animations','reduceMotion')
+    +data
     +'</div></div>';
 }
 
@@ -890,7 +893,7 @@ function buildTree(){
   }).join('');
   var unassigned=state.routines.filter(function(r){return r.active!==false&&!r.goalId;});
   var un=unassigned.length?'<div class="ph"><h3>Other routines</h3></div><div class="rchklist">'+unassigned.map(routineCheckRow).join('')+'</div>':'';
-  return '<div class="hrow"><h1>Goals</h1><button class="addbtn" data-a="ag">＋ Add goal</button></div><div class="sub2">Outcomes with completable plans. Check in on a routine once its time block passes to earn XP.</div>'
+  return '<div class="hrow"><h1>Goals</h1><button class="addbtn" data-a="ag">'+PLUS_ICON+' Add goal</button></div>'
     +'<div id="reward-summary">'+rewardSummaryHtml()+'</div>'
     +'<div class="goals">'+gc+'</div>'+un;
 }
@@ -929,10 +932,10 @@ function buildRt(){
         +'<input type="time" data-a="btime2" data-rid="'+r.id+'" data-bid="'+b.id+'" data-which="end" value="'+esc(b.end||'')+'">'
         +'<span class="bdel2" data-a="delblock2" data-rid="'+r.id+'" data-bid="'+b.id+'">\u00d7</span></div>';
     }).join('');
-    var badd='<button class="blockaddbtn" data-a="addblock2" data-rid="'+r.id+'">+ Add block</button>';
+    var badd='<button class="blockaddbtn" data-a="addblock2" data-rid="'+r.id+'">'+PLUS_ICON+' Add block</button>';
     return '<div class="rtcard'+(on?'':' inactive')+'" style="--ac:'+av(ac)+'"><div class="rttop">'+te+''+srvSel+'<button class="rtact'+(on?' on':'')+'" data-a="rta" data-id="'+r.id+'">'+(on?'● Active':'○ Inactive')+'</button>'+ce+'<span class="rtdel" data-a="dr" data-id="'+r.id+'">×</span></div><textarea class="rtnote" data-a="crtn2" data-id="'+r.id+'" placeholder="Protocol…">'+esc(r.note)+'</textarea>'+rf+'<div class="rtblocks"><div class="rtblabel">Time blocks</div>'+bhtml+diffDots+badd+'</div></div>';
   }).join('');
-  return '<div class="hrow"><h1>Routines</h1></div><div class="sub2">Set time blocks here — they appear on the Weekly Schedule. Toggle Active/Inactive to pause a routine without deleting it.</div><div class="rtlist">'+cards+'</div><div class="rtadd"><input data-a="rtn" placeholder="New routine…"><select data-a="rtg"><option value="">— serves… —</option>'+gOpts+'</select><button data-a="addr">Add routine</button></div>';
+  return '<div class="hrow"><h1>Routines</h1></div><div class="rtlist">'+cards+'</div><div class="rtadd"><input data-a="rtn" placeholder="New routine…"><select data-a="rtg"><option value="">— serves… —</option>'+gOpts+'</select><button data-a="addr">Add routine</button></div>';
 }
 
 
@@ -1033,7 +1036,6 @@ function listRows(type){
 function buildMoney(){
   var k=calcFin();
   return '<div class="hrow"><h1>Finances</h1></div>'
-    +'<div class="sub2">Where your money lands by a date you pick, based on where you are now. Change anything \u2014 it recalculates live.</div>'
     +'<div class="fin">'
     +'<div class="finout" id="fin-out">'+finOut()+'</div>'
     +'<div class="fincard"><h3>The projection</h3><div class="fgrid">'
@@ -1052,10 +1054,10 @@ function buildMoney(){
       +fld('wrate','Withdrawal rate (%)','4% is the classic rule')
     +'</div></div>'
     +'<div class="fincard"><h3>Income \u2014 monthly net <span style="color:var(--on-surface-faint);text-transform:none;letter-spacing:0">(reference)</span></h3>'+listRows('inc')
-      +'<button class="ladd" data-a="finadd" data-t="inc">+ add income source</button>'
+      +'<button class="ladd" data-a="finadd" data-t="inc">'+PLUS_ICON+' add income source</button>'
       +'<div class="ltot"><span class="tl">Total income / mo</span><span class="tv" id="inc-total">'+money(k.inc)+'</span><span></span></div></div>'
     +'<div class="fincard"><h3>Expenses <span style="color:var(--on-surface-faint);text-transform:none;letter-spacing:0">(reference)</span></h3>'+listRows('exp')
-      +'<button class="ladd" data-a="finadd" data-t="exp">+ add expense</button>'
+      +'<button class="ladd" data-a="finadd" data-t="exp">'+PLUS_ICON+' add expense</button>'
       +'<div class="ltot"><span class="tl">Total expenses / mo</span><span class="tv" id="exp-total">'+money(k.exp)+'</span><span></span></div></div>'
     +'</div>';
 }
@@ -1102,7 +1104,6 @@ function buildTodos(){
   out+=rest.length?rest.map(function(t){return tdRow(t,true);}).join(''):'<div class="tdempty">Nothing else open.</div>';
   if(done.length){out+='<div class="tdsec">Done \u00b7 '+done.length+'</div>'+done.map(function(t){return tdRow(t,true);}).join('');}
   return '<div class="hrow"><h1>To-dos</h1></div>'
-    +'<div class="sub2">Star a few things to prioritize today \u2014 not deadlines, just what gets first attention. Assign each to a subgoal so progress rolls up.</div>'
     +'<div class="tdwrap">'+out+'</div>';
 }
 
@@ -1260,7 +1261,7 @@ function foodOutHtml(f){
     +'<span'+(tk==='carbs'?' class="on"':'')+'>C '+r.carbs.toFixed(1)+'g</span>'
     +'<span'+(tk==='fat'?' class="on"':'')+'>F '+r.fat.toFixed(1)+'g</span>'
     +'<span'+(tk==='calories'?' class="on"':'')+'>'+r.calories.toFixed(0)+' cal</span>'
-    +'<button class="flogbtn" data-a="foodlog" data-id="'+f.id+'">+ Log</button>'
+    +'<button class="flogbtn" data-a="foodlog" data-id="'+f.id+'">'+PLUS_ICON+' Log</button>'
     +'</div></div>';
 }
 function foodOutQtyHtml(f){
@@ -1271,7 +1272,7 @@ function foodOutQtyHtml(f){
     +'<span>C '+r.carbs.toFixed(1)+'g</span>'
     +'<span>F '+r.fat.toFixed(1)+'g</span>'
     +'<span>'+r.calories.toFixed(0)+' cal</span>'
-    +'<button class="flogbtn" data-a="foodlog" data-id="'+f.id+'">+ Log</button>'
+    +'<button class="flogbtn" data-a="foodlog" data-id="'+f.id+'">'+PLUS_ICON+' Log</button>'
     +'</div></div>';
 }
 function refreshFoodCard(id){
@@ -1378,7 +1379,7 @@ function mealCard(m){
       +'<span id="mtot-'+m.id+'-c">'+(Math.round(t.carbs*10)/10)+'</span>'
       +'<span id="mtot-'+m.id+'-f">'+(Math.round(t.fat*10)/10)+'</span><span></span></div>'
     +'</div>'
-    +'<div class="mlfoot">'+adder+'<button class="mllog" data-a="logmeal" data-id="'+m.id+'">+ Log meal</button></div></div>';
+    +'<div class="mlfoot">'+adder+'<button class="mllog" data-a="logmeal" data-id="'+m.id+'">'+PLUS_ICON+' Log meal</button></div></div>';
 }
 var mealAddOpen=false;
 function mealAddHtml(){
@@ -1389,7 +1390,7 @@ function mealAddHtml(){
 }
 function buildMeals(){
   var cards=(state.health.meals||[]).map(mealCard).join('');
-  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openmealadd">+ Add a meal</button>';
+  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Add a meal</button>';
   return '<div class="ph"><h3>Meals</h3></div>'
     +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
     +addBtn+(cards||'<div class="tempty">No meals yet.</div>')
@@ -1531,7 +1532,7 @@ function buildFoods(){
   var sorted=(state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});
   var foods=sorted.map(foodCard).join('');
   var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search foods…">':'';
-  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">+ Add a food</button>';
+  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">'+PLUS_ICON+' Add a food</button>';
   return '<div class="ph"><h3>Foods</h3></div>'
     +'<div class="sub2">Save a food once with its label numbers, then work backwards — say how much of a macro you want and it tells you the serving size and everything else.</div>'
     +addBtn+search+'<div id="foodlist">'+(foods||'<div class="tempty">No foods saved yet.</div>')+'</div>'
@@ -1648,7 +1649,7 @@ function buildHealth(){
   var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var rows=entries.filter(function(e){return e.date!==today;}).slice(0,30).map(healthRow).join('');
   var log='<div class="ph"><h3>Weight log</h3></div>'+(rows||'<div class="tempty">No earlier entries yet.</div>');
-  return '<div class="hrow"><h1>Health</h1></div><div class="sub2">Weight and diet, logged daily. Feeds the target progress above.</div>'
+  return '<div class="hrow"><h1>Health</h1></div>'
     +'<div id="health-summary">'+healthSummaryHtml()+'</div>'+todayForm+buildFoodSheet()+buildPastDays()+buildFoods()+buildMeals()+log;
 }
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
