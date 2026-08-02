@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T18:04:07Z';
+  var PAGE_VERSION='2026-08-02T18:06:59Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -538,6 +538,7 @@ var state=null;
 function fixState(d){
   d.view=d.view||{page:'tree'};d.tab=d.tab||'goals';d.editing=null;
   if(!d.settings)d.settings={};
+  if(d.settings.sound===undefined)d.settings.sound=true;
   if(!d.goals)d.goals=JSON.parse(JSON.stringify(SEED.goals));
   if(!d.routines)d.routines=JSON.parse(JSON.stringify(SEED.routines));
   ensureTodos(d);
