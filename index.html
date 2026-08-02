@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T17:32:46Z';
+  var PAGE_VERSION='2026-08-02T17:38:22Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -247,6 +247,7 @@ textarea{resize:vertical;min-height:52px}
 .blockrow .bdel2:hover{color:var(--negative)}
 .blockaddbtn{font-family:var(--mono);font-size:12px;background:var(--surface-2);border-radius:12px;padding:8px 0;color:var(--on-surface-dim);width:100%}
 .blockaddbtn:hover{color:var(--ac)}
+.blockaddbtn.spaced{margin-bottom:14px}
 .blocklist{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
 .brow{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--on-surface-dim)}
 .brow .bdays{color:var(--on-surface);flex:1}
@@ -1386,7 +1387,7 @@ function mealAddHtml(){
 }
 function buildMeals(){
   var cards=(state.health.meals||[]).map(mealCard).join('');
-  var addBtn='<button type="button" class="blockaddbtn" data-a="openmealadd">+ Add a meal</button>';
+  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openmealadd">+ Add a meal</button>';
   return '<div class="ph"><h3>Meals</h3></div>'
     +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
     +addBtn+(cards||'<div class="tempty">No meals yet.</div>')
@@ -1528,7 +1529,7 @@ function buildFoods(){
   var sorted=(state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});
   var foods=sorted.map(foodCard).join('');
   var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search foods…">':'';
-  var addBtn='<button type="button" class="blockaddbtn" data-a="openfoodadd">+ Add a food</button>';
+  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">+ Add a food</button>';
   return '<div class="ph"><h3>Foods</h3></div>'
     +'<div class="sub2">Save a food once with its label numbers, then work backwards — say how much of a macro you want and it tells you the serving size and everything else.</div>'
     +addBtn+search+'<div id="foodlist">'+(foods||'<div class="tempty">No foods saved yet.</div>')+'</div>'
