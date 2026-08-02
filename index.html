@@ -11,14 +11,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Life System">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#1c3934">
+<meta name="theme-color" content="#daf1de">
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 // meta no-cache tags aren't reliably honored by every engine (confirmed in testing) —
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T12:16:26Z';
+  var PAGE_VERSION='2026-08-02T12:36:25Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -33,7 +33,7 @@
 </script>
 </head>
 <body>
-<div id="app"><div style="font-family:monospace;color:#f9edf0;padding:40px 4px">Loading…</div></div>
+<div id="app"><div style="font-family:monospace;color:#051f20;padding:40px 4px">Loading…</div></div>
 <style>
 /* ============================================================
    PALETTE — every color in the app is one of these roles.
@@ -43,37 +43,39 @@
    variables, so it must be updated by hand to match --ground.
    ============================================================ */
 :root{
-  /* ground: the page background, and text/borders that sit directly on it (no card) */
-  --ground:#1c3934;              /* emerald */
-  --ground-alt:#261311;          /* espresso — alternates with --ground band to band */
-  --ground-alt-wash:var(--ground-alt-wash);
-  --on-ground:#f9edf0;           /* blush text on either ground color */
-  --on-ground-outline:var(--on-ground-outline);
-  --on-ground-wash:var(--on-ground-wash);
-  --on-ground-negative:var(--on-ground-negative);  /* --negative is too dark to read on the ground; lighter stand-in */
-  --on-ground-negative-wash:var(--on-ground-negative-wash);
+  /* ground: the page background, and text/borders that sit directly on it (no card).
+     The ground is LIGHT and blocks are DARK, so on-ground text is the darkest green. */
+  --ground:#daf1de;              /* mint */
+  --ground-alt:#8eb69b;          /* sage — alternates with --ground band to band */
+  --on-ground:#051f20;           /* darkest green — text on either ground color */
+  --on-ground-outline:rgba(5,31,32,.35);
+  --on-ground-wash:rgba(5,31,32,.08);
+  --on-ground-negative:#8f2f22;  /* --negative is too light to read on the pale ground; darker stand-in */
+  --on-ground-negative-wash:rgba(143,47,34,.12);
 
   /* surface: card/block backgrounds, and their text tiers */
-  --surface:#f9edf0;             /* blush — primary block fill */
-  --surface-2:#e6c8b7;           /* champagne — nested fill inside a block */
-  --on-surface:#261311;          /* espresso — primary text on a block */
-  --on-surface-dim:#4a382f;      /* secondary text on a block */
-  --on-surface-faint:#7a6154;    /* tertiary/muted text on a block */
-  --outline:#d3ac93;             /* border for fill-less outline buttons */
-  --divider:#e3cdbf;             /* structural hairlines: grid lines, row separators */
+  --surface:#163832;             /* deep green — primary block fill */
+  --surface-2:#0b2b26;           /* darker — nested fill inside a block */
+  --surface-wash:rgba(218,241,222,.16);  /* translucent light fill on a block (e.g. XP bar track) */
+  --on-surface:#daf1de;          /* mint — primary text on a block */
+  --on-surface-dim:#b3d4bd;      /* secondary text on a block */
+  --on-surface-faint:#8eb69b;    /* tertiary/muted text on a block */
+  --outline:#235347;             /* border for fill-less outline buttons */
+  --divider:#235347;             /* structural hairlines: grid lines, row separators */
 
   /* accent: interactive/brand colors — accent is the default, 2 and 3 are alternates
-     (per-goal color, macro donut slices) */
-  --accent:#1c3934;
-  --accent-2:#ba6a36;
-  --accent-3:#c3955b;
-  --accent-wash:var(--accent-wash);
-  --on-accent:#f9edf0;           /* text/icon on a filled accent background */
+     (per-goal color, macro donut slices). Accents sit on dark blocks, so they run light. */
+  --accent:#8eb69b;
+  --accent-2:#daf1de;
+  --accent-3:#4e8f79;
+  --accent-wash:rgba(142,182,155,.14);
+  --on-accent:#051f20;           /* text/icon on a filled accent background */
 
-  /* status */
-  --positive:#2f6b5c;
-  --negative:#8f2f22;
-  --negative-wash:var(--negative-wash);
+  /* status — derived, not from the source palette: a six-tone monochrome can't
+     signal good/bad on its own, and danger in particular has to read as danger. */
+  --positive:#7fd1a5;
+  --negative:#e0796b;
+  --negative-wash:rgba(224,121,107,.14);
 
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -93,7 +95,8 @@ html,body{background:var(--ground);margin:0;overflow-x:hidden}
 #app p{margin:0}
 button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit}
 input,textarea,select{background:var(--surface-2);border:1px solid var(--outline);color:var(--on-surface);border-radius:12px;padding:8px 10px;font-family:var(--sans);font-size:14px;width:100%}
-input[type=time],input[type=date]{color-scheme:light;font-family:var(--mono);font-size:13px}
+input[type=time],input[type=date]{color-scheme:dark;font-family:var(--mono);font-size:13px}
+input::placeholder,textarea::placeholder{color:var(--on-surface-faint);opacity:1}
 input[type=checkbox]{width:auto;accent-color:var(--ac,var(--accent))}
 textarea{resize:vertical;min-height:52px}
 .brand{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-dim);padding:4px 2px 10px}
@@ -320,7 +323,7 @@ textarea{resize:vertical;min-height:52px}
 .trksum{border-radius:20px;background:var(--surface-2);padding:16px;margin-top:14px}
 .lvlrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .lvltag{font-family:var(--mono);font-size:12px;color:var(--on-surface);border-radius:999px;padding:4px 10px;background:var(--surface)}
-.xpbar{flex:1;min-width:120px;height:8px;border-radius:999px;background:var(--ground-alt-wash);overflow:hidden}
+.xpbar{flex:1;min-width:120px;height:8px;border-radius:999px;background:var(--surface-wash);overflow:hidden}
 .xpfill{height:100%;background:var(--accent)}
 .xptxt{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint)}
 .beststreak{margin-top:10px;font-size:13px;color:var(--on-surface-dim)}
@@ -472,8 +475,8 @@ textarea{resize:vertical;min-height:52px}
 .pddate{color:var(--on-surface);min-width:52px}
 .pdn{margin-left:auto;color:var(--on-surface-faint)}
 @media(max-width:680px){.fsrow{grid-template-columns:1fr 46px 40px 40px 40px 18px;gap:4px;font-size:11px;padding:7px 8px}.fsname{font-size:12px}}
-/* Blocks are blush/champagne so their text stays --on-surface (espresso tiers).
-   These elements sit straight on the emerald/espresso ground, so they go light. */
+/* Blocks are dark green, so their text is --on-surface (the light tiers). These
+   elements sit straight on the pale mint/sage ground instead, so they go dark. */
 .brand,.hrow h1,.hrow .addbtn,.sub2,.ph h3,.ph .pc,.band .tempty,.band .tdempty,.tdsec,.dtitle,
 .crumb,.crumb .bk,.crumb .cs,.crumb .cg,.dnote label,.subdel,
 .sysfoot,.sysfoot .undo,.sysfoot .exp,.sysfoot .imp,.sysfoot .rst,
@@ -484,6 +487,8 @@ textarea{resize:vertical;min-height:52px}
 .stepadd button:hover,.appadd button:hover{border-color:var(--on-ground);color:var(--on-ground);background:var(--on-ground-wash)}
 .sysfoot .undo:hover,.sysfoot .exp:hover,.sysfoot .imp:hover{border-color:var(--on-ground);color:var(--on-ground);background:var(--on-ground-wash)}
 .tdsec.od,.sysfoot .rst:hover,.sysfoot .rst.arm{color:var(--on-ground-negative)}
+/* --accent-2 is the mint that the ground itself uses, so priorities lean on weight */
+.tdsec.pri{color:var(--on-ground);font-weight:700}
 .sysfoot .rst:hover,.sysfoot .rst.arm{border-color:var(--on-ground-negative);background:var(--on-ground-negative-wash)}
 .sysfoot .undo.dis:hover{border-color:var(--on-ground-outline);color:var(--on-ground)}
 /* ...but an empty-state line inside a card is on blush, so it stays dark */
