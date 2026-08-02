@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T00:42:31Z';
+  var PAGE_VERSION='2026-08-02T00:50:57Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -223,7 +223,7 @@ textarea{resize:vertical;min-height:52px}
 .tdwrap{margin-top:16px}
 .tdsec{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:18px 0 8px}
 .tdsec.od{color:var(--slip)}
-.tdsec.pri{color:var(--sig)}
+.tdsec.pri{color:var(--teal)}
 .tdstar{background:none;border:none;font-size:16px;cursor:pointer;color:var(--faint);line-height:1;padding:0;width:auto}
 .tdstar.on{color:var(--sig)}
 .tdstar:hover{color:var(--sig)}
