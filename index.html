@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T01:15:25Z';
+  var PAGE_VERSION='2026-08-02T01:25:13Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -227,7 +227,7 @@ textarea{resize:vertical;min-height:52px}
 .tdwrap{margin-top:16px}
 .tdsec{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:18px 0 8px}
 .tdsec.od{color:var(--slip)}
-.tdsec.pri{color:var(--teal)}
+.tdsec.pri{color:var(--sig)}
 .tdstar{background:none;border:none;font-size:16px;cursor:pointer;color:var(--faint);line-height:1;padding:0;width:auto}
 .tdstar.on{color:var(--sig)}
 .tdstar:hover{color:var(--sig)}
@@ -440,7 +440,10 @@ textarea{resize:vertical;min-height:52px}
 .mealadd button,.rtadd button,.stepadd button,.appadd button{border-color:rgba(249,237,240,.4)}
 .hrow .addbtn:hover,.mealadd button:hover,.rtadd button:hover,
 .stepadd button:hover,.appadd button:hover{border-color:var(--onground);color:var(--onground);background:rgba(249,237,240,.1)}
-.tdsec.od{color:#e08a72}
+.sysfoot .undo:hover,.sysfoot .exp:hover,.sysfoot .imp:hover{border-color:var(--onground);color:var(--onground);background:rgba(249,237,240,.1)}
+.tdsec.od,.sysfoot .rst:hover,.sysfoot .rst.arm{color:#e08a72}
+.sysfoot .rst:hover,.sysfoot .rst.arm{border-color:#e08a72;background:rgba(224,138,114,.14)}
+.sysfoot .undo.dis:hover{border-color:rgba(249,237,240,.4);color:var(--onground)}
 /* ...but an empty-state line inside a card is on blush, so it stays dark */
 .fincard .tempty,.mlcard .tempty,.gcard .tempty{color:var(--faint)}
 /* iOS Safari auto-zooms on focusing any input under 16px — force every field to 16px on mobile to stop it, regardless of the compact sizes used elsewhere */
