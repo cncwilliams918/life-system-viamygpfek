@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T22:24:04Z';
+  var PAGE_VERSION='2026-08-02T22:30:09Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -890,7 +890,7 @@ function buildTree(){
       return '<li class="sitem" data-a="open" data-g="'+g.id+'" data-s="'+s.id+'"><span class="sdot"></span><span class="sname"><span class="sglyph">'+gl+'</span>'+esc(s.title)+'</span><span class="scnt">'+dn+'/'+_td.length+'</span></li>';}).join('');
     var arts=state.routines.filter(function(r){return r.active!==false&&r.goalId===g.id;});
     var rl='<div class="grts"><span class="grtl">Routines</span>'+(arts.length?'<div class="rchklist">'+arts.map(routineCheckRow).join('')+'</div>':'<span class="grtn">none active</span>')+'</div>';
-    return '<div class="gcard" style="'+ac+'"><div style="display:flex;align-items:flex-start;gap:8px">'+te+'</div><div class="gtag">'+esc(g.tag||'')+'</div><div class="gbarl">'+g.subgoals.length+' subgoals</div><ul class="sublist">'+sl+'</ul>'+rl+'<div class="addrow"><input placeholder="New subgoal…" data-a="subi" data-g="'+g.id+'"><button data-a="subb" data-g="'+g.id+'">Add</button></div><button class="gdel" data-a="dg" data-g="'+g.id+'">delete goal</button></div>';
+    return '<div class="gcard" style="'+ac+'"><div style="display:flex;align-items:flex-start;gap:8px">'+te+'</div><div class="gtag">'+esc(g.tag||'')+'</div><div class="gbarl">'+g.subgoals.length+' subgoals</div><ul class="sublist">'+sl+'</ul>'+rl+'<div class="addrow"><input placeholder="New subgoal…" data-a="subi" data-g="'+g.id+'"><button data-a="subb" data-g="'+g.id+'">'+PLUS_ICON+' Add</button></div><button class="gdel" data-a="dg" data-g="'+g.id+'">delete goal</button></div>';
   }).join('');
   var unassigned=state.routines.filter(function(r){return r.active!==false&&!r.goalId;});
   var un=unassigned.length?'<div class="ph"><h3>Other routines</h3></div><div class="rchklist">'+unassigned.map(routineCheckRow).join('')+'</div>':'';
@@ -910,7 +910,7 @@ function buildDetail(){
   var myOpen=myT.filter(function(x){return !x.done;});
   var sh=myOpen.length?myOpen.map(function(t){return tdRow(t,false);}).join(''):'<div class="tdempty">No open to-dos for this subgoal.</div>';
   var th='';
-  return '<div style="'+ac+'"><div class="crumb"><button class="bk" data-a="back">‹ Goals</button><span class="cg">'+esc(g.title)+'</span><span class="cs">▸</span><span>'+esc(sub.title)+'</span></div><div class="dtop">'+te+'</div>'+rf+'<div class="dnote"><label>Approach</label><textarea data-a="cnote" placeholder="What this subgoal is about…">'+esc(sub.note)+'</textarea></div><div class="ph"><h3>To-dos</h3><span class="pc">'+pc+'% · '+myT.filter(function(x){return x.done;}).length+'/'+myT.length+'</span></div><div class="tdwrap"><div class="tdadd" style="grid-template-columns:1fr auto"><input placeholder="Add a to-do…" data-a="tdnew"><button data-a="tdaddbtn" data-sub="'+sub.id+'">Add</button></div>'+sh+'</div><button class="subdel" data-a="dsub">delete subgoal</button></div>';
+  return '<div style="'+ac+'"><div class="crumb"><button class="bk" data-a="back">‹ Goals</button><span class="cg">'+esc(g.title)+'</span><span class="cs">▸</span><span>'+esc(sub.title)+'</span></div><div class="dtop">'+te+'</div>'+rf+'<div class="dnote"><label>Approach</label><textarea data-a="cnote" placeholder="What this subgoal is about…">'+esc(sub.note)+'</textarea></div><div class="ph"><h3>To-dos</h3><span class="pc">'+pc+'% · '+myT.filter(function(x){return x.done;}).length+'/'+myT.length+'</span></div><div class="tdwrap"><div class="tdadd" style="grid-template-columns:1fr auto"><input placeholder="Add a to-do…" data-a="tdnew"><button data-a="tdaddbtn" data-sub="'+sub.id+'">'+PLUS_ICON+' Add</button></div>'+sh+'</div><button class="subdel" data-a="dsub">delete subgoal</button></div>';
 }
 
 function buildRt(){
@@ -936,7 +936,7 @@ function buildRt(){
     var badd='<button class="blockaddbtn" data-a="addblock2" data-rid="'+r.id+'">'+PLUS_ICON+' Add block</button>';
     return '<div class="rtcard'+(on?'':' inactive')+'" style="--ac:'+av(ac)+'"><div class="rttop">'+te+''+srvSel+'<button class="rtact'+(on?' on':'')+'" data-a="rta" data-id="'+r.id+'">'+(on?'● Active':'○ Inactive')+'</button>'+ce+'<span class="rtdel" data-a="dr" data-id="'+r.id+'">×</span></div><textarea class="rtnote" data-a="crtn2" data-id="'+r.id+'" placeholder="Protocol…">'+esc(r.note)+'</textarea>'+rf+'<div class="rtblocks"><div class="rtblabel">Time blocks</div>'+bhtml+diffDots+badd+'</div></div>';
   }).join('');
-  return '<div class="hrow"><h1>Routines</h1></div><div class="rtlist">'+cards+'</div><div class="rtadd"><input data-a="rtn" placeholder="New routine…"><select data-a="rtg"><option value="">— serves… —</option>'+gOpts+'</select><button data-a="addr">Add routine</button></div>';
+  return '<div class="hrow"><h1>Routines</h1></div><div class="rtlist">'+cards+'</div><div class="rtadd"><input data-a="rtn" placeholder="New routine…"><select data-a="rtg"><option value="">— serves… —</option>'+gOpts+'</select><button data-a="addr">'+PLUS_ICON+' Add routine</button></div>';
 }
 
 
@@ -1098,7 +1098,7 @@ function buildTodos(){
   var pri=open.filter(function(t){return t.priority;});
   var rest=open.filter(function(t){return !t.priority;});
   var out='';
-  out+='<div class="tdadd"><input data-a="tdnew" placeholder="What needs doing?"><select data-a="tdnewsub">'+subOptions('')+'</select><button data-a="tdaddbtn">Add</button></div>';
+  out+='<div class="tdadd"><input data-a="tdnew" placeholder="What needs doing?"><select data-a="tdnewsub">'+subOptions('')+'</select><button data-a="tdaddbtn">'+PLUS_ICON+' Add</button></div>';
   out+='<div class="tdsec pri">Priorities'+(pri.length?' \u00b7 '+pri.length:'')+'</div>';
   out+=pri.length?pri.map(function(t){return tdRow(t,true);}).join(''):'<div class="tdempty">Star a few things to prioritize today.</div>';
   out+='<div class="tdsec">Everything else'+(rest.length?' \u00b7 '+rest.length:'')+'</div>';
@@ -1526,7 +1526,7 @@ function foodAddHtml(){
     +'<label>Carbs (g)<input type="number" step="0.1" data-a="fnew" data-f="carbs" placeholder="0"></label>'
     +'<label>Fat (g)<input type="number" step="0.1" data-a="fnew" data-f="fat" placeholder="0"></label>'
     +'<label>Calories<input type="number" step="1" data-a="fnew" data-f="calories" placeholder="0"></label>'
-    +'</div><button data-a="foodadd">Add food</button></div>'
+    +'</div><button data-a="foodadd">'+PLUS_ICON+' Add food</button></div>'
     +'</div></div>';
 }
 function buildFoods(){
