@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-02T23:22:46Z';
+  var PAGE_VERSION='2026-08-04T16:14:48Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -387,7 +387,9 @@ textarea{resize:vertical;min-height:52px}
 @media(max-width:680px){.harow{grid-template-columns:1fr 1fr 20px}.harow .hdate{grid-column:1/3}}
 /* foods */
 .fcard{border-radius:18px;background:var(--surface);padding:12px 14px;margin-bottom:7px}
-.fctop{display:flex;align-items:center;gap:10px}
+.fctop{display:flex;align-items:center;gap:10px;cursor:pointer}
+.fccaret{color:var(--on-surface-faint);font-size:11px;flex:none;width:10px}
+.fcmini{font-family:var(--mono);font-size:12px;color:var(--on-surface-faint);flex:none}
 .fcname{font-size:20px;font-weight:700;letter-spacing:-.01em;color:var(--on-surface);flex:1;min-width:0;overflow-wrap:anywhere}
 .fcbase{display:block;font-family:var(--mono);font-size:11px;color:var(--on-surface-faint);margin-top:2px}
 .fdel{color:var(--on-surface-faint);font-size:17px;cursor:pointer;line-height:1;flex:none}
@@ -443,7 +445,9 @@ textarea{resize:vertical;min-height:52px}
 .mealadd input{font-size:13px}
 .mealadd button{font-family:var(--mono);font-size:13px;border-radius:12px;padding:0 15px;color:var(--on-surface-dim);white-space:nowrap}
 .mlcard{border-radius:18px;background:var(--surface);padding:14px 16px;margin-bottom:12px}
-.mltop{display:flex;align-items:center;gap:10px}
+.mltop{display:flex;align-items:center;gap:10px;cursor:pointer}
+.mlcaret{color:var(--on-surface-faint);font-size:11px;flex:none;width:10px}
+.mlmini{font-family:var(--mono);font-size:12px;color:var(--on-surface-faint);flex:none}
 .mlname{font-size:15px;font-weight:600;color:var(--on-surface);flex:1;cursor:text}
 .mlmult{display:flex;align-items:center;gap:5px}
 .mlmult label{font-family:var(--mono);font-size:13px;color:var(--on-surface-faint)}
@@ -471,11 +475,11 @@ textarea{resize:vertical;min-height:52px}
 .mllog{font-family:var(--mono);font-size:12px;background:var(--surface-2);border-radius:999px;padding:6px 15px;color:var(--accent);white-space:nowrap;margin-left:auto}
 .mllog:hover{background:var(--accent-wash)}
 @media(max-width:680px){
-  .mitem{grid-template-columns:1fr 44px 40px 40px 18px;gap:5px}
-  .miname{grid-column:1/-1}
-  .mitarget{grid-column:1/2}
-  .mihead>span:nth-child(2),.mitot>span:nth-child(2){display:none}
-  .mihead>span:first-child,.mitot>span:first-child{grid-column:1/2}
+  /* mihead/mitem/mitot all share the same 7-span shape (name/total, target,
+     cal, p, c, f, delete) — every row must place them identically or the
+     header and totals drift out of alignment with the actual item rows. */
+  .mitem{grid-template-columns:1fr 36px 34px 34px 34px 18px;gap:5px}
+  .mitem>span:first-child{grid-column:1/-1}
 }
 /* macro donut */
 .piewrap{display:flex;align-items:center;gap:22px;margin-top:16px;padding-top:15px;flex-wrap:wrap}
@@ -1241,16 +1245,19 @@ function resolveFood(f,tmac,tamt,mult){
   var factor=(num(tamt)/per)*(mult===undefined?1:mult);
   return {grams:num(f.serving)*factor,calories:num(f.calories)*factor,protein:num(f.protein)*factor,carbs:num(f.carbs)*factor,fat:num(f.fat)*factor};
 }
-function resolveFoodQty(f,qty){
+function resolveFoodQty(f,qty,mult){
   // countable units (serving/scoop/slice/bar/packet) skip the macro-target math entirely —
   // you're not dialing in a macro, you're just saying how many you're having
   if(!f)return null;
   if(qty===''||qty===undefined||qty===null)return null;
   var base=num(f.serving)||1;
-  var factor=num(qty)/base;
+  var factor=(num(qty)/base)*(mult===undefined?1:mult);
   return {grams:num(f.serving)*factor,calories:num(f.calories)*factor,protein:num(f.protein)*factor,carbs:num(f.carbs)*factor,fat:num(f.fat)*factor};
 }
 function foodResolved(f){return isCountableUnit(f.unit)?resolveFoodQty(f,f.tamt):resolveFood(f,f.tmac,f.tamt,1);}
+// a meal item's food may be measured in servings/scoops (quantity) or grams/oz (macro target) —
+// same branch the standalone food card already uses, now applied inside meals too
+function resolveMealItem(f,mi,mult){return f&&isCountableUnit(f.unit)?resolveFoodQty(f,mi.tamt,mult):resolveFood(f,mi.tmac,mi.tamt,mult);}
 function foodOutHtml(f){
   var tk=f.tmac||'protein',amt=f.tamt;
   var per=num(f[tk]);
@@ -1284,7 +1291,9 @@ function refreshFoodCard(id){
   var u=document.getElementById('fcunit-'+id);
   if(u)u.textContent=countable?unitLabel(num(f.tamt)||1,f.unit):((f.tmac||'protein')==='calories'?'cal':'g');
 }
+var openFoods=[];
 function foodCard(f){
+  var open=openFoods.indexOf(f.id)>-1;
   var countable=isCountableUnit(f.unit),amt=f.tamt,inputRow;
   if(countable){
     inputRow='<div class="fcrow"><span class="fclbl">Quantity</span>'
@@ -1298,16 +1307,20 @@ function foodCard(f){
       +'<span class="fcunit2" id="fcunit-'+f.id+'">'+(tk==='calories'?'cal':'g')+'</span><span class="fclbl">of</span>'
       +'<select data-a="foodmac" data-id="'+f.id+'">'+opts+'</select></div>';
   }
-  return '<div class="fcard" data-name="'+esc(f.name.toLowerCase())+'"><div class="fctop"><span class="fcname">'+esc(f.name)+'</span>'
-    +'<span class="fdel" data-a="fooddel" data-id="'+f.id+'">×</span></div>'
-    +'<span class="fcbase">Measure '+esc(fmtQty(num(f.serving),f.unit))+' — '+num(f.protein)+'P / '+num(f.carbs)+'C / '+num(f.fat)+'F · '+num(f.calories)+'cal</span>'
+  var head='<div class="fctop" data-a="togglefood" data-id="'+f.id+'"><span class="fccaret">'+(open?'▾':'▸')+'</span><span class="fcname">'+esc(f.name)+'</span>'
+    +(open?'':'<span class="fcmini">'+num(f.calories)+' cal</span>')
+    +'<span class="fdel" data-a="fooddel" data-id="'+f.id+'">×</span></div>';
+  var body=open?('<span class="fcbase">Measure '+esc(fmtQty(num(f.serving),f.unit))+' — '+num(f.protein)+'P / '+num(f.carbs)+'C / '+num(f.fat)+'F · '+num(f.calories)+'cal</span>'
     +inputRow
-    +'<div id="fcout-'+f.id+'">'+(countable?foodOutQtyHtml(f):foodOutHtml(f))+'</div></div>';
+    +'<div id="fcout-'+f.id+'">'+(countable?foodOutQtyHtml(f):foodOutHtml(f))+'</div>'):'';
+  return '<div class="fcard'+(open?' open':'')+'" data-name="'+esc(f.name.toLowerCase())+'">'+head+body+'</div>';
 }
 // meals — a bus: each item keeps its own target, the multiplier scales every output
 function fMeal(id){return (state.health.meals||[]).filter(function(m){return m.id===id;})[0];}
 function sortedFoods(){return (state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});}
 function defaultTarget(f){
+  // countable units start at a quantity of 1 (one scoop/slice/serving), not a macro amount
+  if(isCountableUnit(f.unit))return {tmac:'protein',tamt:1};
   // start a newly added item at exactly one base serving, keyed off its biggest macro
   var opts=[['protein',num(f.protein)],['carbs',num(f.carbs)],['fat',num(f.fat)]];
   opts.sort(function(a,b){return b[1]-a[1];});
@@ -1317,7 +1330,7 @@ function defaultTarget(f){
 function mealTotals(m){
   var mult=num(m.mult)||1,t={calories:0,protein:0,carbs:0,fat:0};
   (m.items||[]).forEach(function(mi){
-    var r=resolveFood(fFood(mi.foodId),mi.tmac,mi.tamt,mult);
+    var r=resolveMealItem(fFood(mi.foodId),mi,mult);
     if(r){t.calories+=r.calories;t.protein+=r.protein;t.carbs+=r.carbs;t.fat+=r.fat;}
   });
   return t;
@@ -1328,9 +1341,10 @@ function refreshMeal(id){
   var mult=num(m.mult)||1;
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);
-    var r=resolveFood(f,mi.tmac,mi.tamt,mult);
+    var r=resolveMealItem(f,mi,mult);
+    var countable=f&&isCountableUnit(f.unit);
     setTxt('miq-'+mi.id,r?fmtQty(r.grams,f.unit):'—');
-    setTxt('miu-'+mi.id,(mi.tmac||'protein')==='calories'?'cal':'g');
+    setTxt('miu-'+mi.id,countable?unitLabel(num(mi.tamt)||1,f.unit):((mi.tmac||'protein')==='calories'?'cal':'g'));
     setTxt('mio-'+mi.id+'-cal',r?String(Math.round(r.calories)):'—');
     setTxt('mio-'+mi.id+'-p',r?String(Math.round(r.protein*10)/10):'—');
     setTxt('mio-'+mi.id+'-c',r?String(Math.round(r.carbs*10)/10):'—');
@@ -1345,43 +1359,58 @@ function refreshMeal(id){
 function mealItemRow(m,mi){
   var f=fFood(mi.foodId);
   if(!f)return '<div class="mitem gone"><span class="miname">food deleted</span><span></span><span></span><span></span><span></span><span></span><span class="midel" data-a="midel" data-mid="'+m.id+'" data-iid="'+mi.id+'">×</span></div>';
+  var countable=isCountableUnit(f.unit);
   var tk=mi.tmac||'protein';
-  var r=resolveFood(f,tk,mi.tamt,num(m.mult)||1);
-  var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
+  var r=resolveMealItem(f,mi,num(m.mult)||1);
+  var target;
+  if(countable){
+    target='<span class="mitarget"><input type="number" step="any" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(mi.tamt===undefined?'':mi.tamt)+'" placeholder="1">'
+      +'<span class="miu" id="miu-'+mi.id+'">'+esc(unitLabel(num(mi.tamt)||1,f.unit))+'</span></span>';
+  }else{
+    var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
+    target='<span class="mitarget"><input type="number" step="0.1" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(mi.tamt===undefined?'':mi.tamt)+'" placeholder="0">'
+      +'<span class="miu" id="miu-'+mi.id+'">'+(tk==='calories'?'cal':'g')+'</span>'
+      +'<select data-a="mitemmac" data-mid="'+m.id+'" data-iid="'+mi.id+'">'+opts+'</select></span>';
+  }
   return '<div class="mitem">'
     +'<span class="miname">'+esc(f.name)+'<span class="miqty" id="miq-'+mi.id+'">'+(r?esc(fmtQty(r.grams,f.unit)):'—')+'</span></span>'
-    +'<span class="mitarget"><input type="number" step="0.1" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(mi.tamt===undefined?'':mi.tamt)+'" placeholder="0">'
-      +'<span class="miu" id="miu-'+mi.id+'">'+(tk==='calories'?'cal':'g')+'</span>'
-      +'<select data-a="mitemmac" data-mid="'+m.id+'" data-iid="'+mi.id+'">'+opts+'</select></span>'
+    +target
     +'<span id="mio-'+mi.id+'-cal">'+(r?Math.round(r.calories):'—')+'</span>'
     +'<span id="mio-'+mi.id+'-p">'+(r?Math.round(r.protein*10)/10:'—')+'</span>'
     +'<span id="mio-'+mi.id+'-c">'+(r?Math.round(r.carbs*10)/10:'—')+'</span>'
     +'<span id="mio-'+mi.id+'-f">'+(r?Math.round(r.fat*10)/10:'—')+'</span>'
     +'<span class="midel" data-a="midel" data-mid="'+m.id+'" data-iid="'+mi.id+'">×</span></div>';
 }
+var openMeals=[];
 function mealCard(m){
+  var open=openMeals.indexOf(m.id)>-1;
   var te=state.editing==='ml:'+m.id
     ?'<input class="mlname" data-e="1" data-a="cmln" data-id="'+m.id+'" value="'+esc(m.name)+'">'
     :'<span class="mlname" data-a="emln" data-id="'+m.id+'">'+esc(m.name)+'</span>';
   var t=mealTotals(m);
-  var items=(m.items||[]).map(function(mi){return mealItemRow(m,mi);}).join('');
-  var foodOpts=sortedFoods().map(function(f){return '<option value="'+f.id+'">'+esc(f.name)+'</option>';}).join('');
-  var adder=foodOpts
-    ?'<select class="miadd" data-a="mealadditem" data-id="'+m.id+'"><option value="">+ add food…</option>'+foodOpts+'</select>'
-    :'<span class="minofoods">Add a food below first.</span>';
-  return '<div class="mlcard"><div class="mltop">'+te
+  var head='<div class="mltop" data-a="togglemeal" data-id="'+m.id+'"><span class="mlcaret">'+(open?'▾':'▸')+'</span>'+te
+    +(open?'':'<span class="mlmini">'+Math.round(t.calories)+' cal</span>')
     +'<span class="mlmult"><label>×</label><input type="number" step="0.05" min="0" data-a="mealmult" data-id="'+m.id+'" value="'+esc(m.mult)+'"></span>'
-    +'<span class="mldel" data-a="dmeal" data-id="'+m.id+'">×</span></div>'
-    +'<div class="mitems">'
-    +'<div class="mitem mihead"><span>Food</span><span>Target</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
-    +(items||'<div class="tempty">No foods in this meal yet.</div>')
-    +'<div class="mitem mitot"><span>Total</span><span></span>'
-      +'<span id="mtot-'+m.id+'-cal">'+Math.round(t.calories)+'</span>'
-      +'<span id="mtot-'+m.id+'-p">'+(Math.round(t.protein*10)/10)+'</span>'
-      +'<span id="mtot-'+m.id+'-c">'+(Math.round(t.carbs*10)/10)+'</span>'
-      +'<span id="mtot-'+m.id+'-f">'+(Math.round(t.fat*10)/10)+'</span><span></span></div>'
-    +'</div>'
-    +'<div class="mlfoot">'+adder+'<button class="mllog" data-a="logmeal" data-id="'+m.id+'">'+PLUS_ICON+' Log meal</button></div></div>';
+    +'<span class="mldel" data-a="dmeal" data-id="'+m.id+'">×</span></div>';
+  var body='';
+  if(open){
+    var items=(m.items||[]).map(function(mi){return mealItemRow(m,mi);}).join('');
+    var foodOpts=sortedFoods().map(function(f){return '<option value="'+f.id+'">'+esc(f.name)+'</option>';}).join('');
+    var adder=foodOpts
+      ?'<select class="miadd" data-a="mealadditem" data-id="'+m.id+'"><option value="">+ add food…</option>'+foodOpts+'</select>'
+      :'<span class="minofoods">Add a food below first.</span>';
+    body='<div class="mitems">'
+      +'<div class="mitem mihead"><span>Food</span><span>Target</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
+      +(items||'<div class="tempty">No foods in this meal yet.</div>')
+      +'<div class="mitem mitot"><span>Total</span><span></span>'
+        +'<span id="mtot-'+m.id+'-cal">'+Math.round(t.calories)+'</span>'
+        +'<span id="mtot-'+m.id+'-p">'+(Math.round(t.protein*10)/10)+'</span>'
+        +'<span id="mtot-'+m.id+'-c">'+(Math.round(t.carbs*10)/10)+'</span>'
+        +'<span id="mtot-'+m.id+'-f">'+(Math.round(t.fat*10)/10)+'</span><span></span></div>'
+      +'</div>'
+      +'<div class="mlfoot">'+adder+'<button class="mllog" data-a="logmeal" data-id="'+m.id+'">'+PLUS_ICON+' Log meal</button></div>';
+  }
+  return '<div class="mlcard'+(open?' open':'')+'">'+head+body+'</div>';
 }
 var mealAddOpen=false;
 function mealAddHtml(){
@@ -1402,7 +1431,9 @@ function addMeal(){
   var ti=app.querySelector('[data-a="mealn"]');if(!ti)return;
   var v=ti.value.trim();if(!v)return;
   state.health.meals=state.health.meals||[];
-  state.health.meals.push({id:uid(),name:v,mult:1,items:[]});
+  var nm={id:uid(),name:v,mult:1,items:[]};
+  state.health.meals.push(nm);
+  openMeals.push(nm.id);
   save();render();
 }
 function logMeal(id){
@@ -1545,7 +1576,9 @@ function addFood(){
   var name=get('name').trim();if(!name)return;
   var serving=num(get('serving'));if(serving<=0)return;
   state.health.foods=state.health.foods||[];
-  state.health.foods.push({id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),tmac:'protein',tamt:''});
+  var nf={id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),tmac:'protein',tamt:''};
+  state.health.foods.push(nf);
+  openFoods.push(nf.id);
   save();render();
 }
 // barcode scanner — runs outside the normal render() cycle (it manages its own
@@ -1763,6 +1796,7 @@ app.addEventListener('click',function(e){
   else if(a==='closefoodadd'){foodAddOpen=false;render();}
   else if(a==='foodadd'){addFood();}
   else if(a==='scanbarcode'){openScanner();}
+  else if(a==='togglefood'){var fi=openFoods.indexOf(t.dataset.id);if(fi>-1)openFoods.splice(fi,1);else openFoods.push(t.dataset.id);render();}
   else if(a==='fooddel'){state.health.foods=(state.health.foods||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='foodlog'){addFoodLog(t.dataset.id);}
   else if(a==='logdel'){state.health.log=(state.health.log||[]).filter(function(x){return x.id!==t.dataset.id;});syncTodayMacros();save();render();}
@@ -1770,6 +1804,7 @@ app.addEventListener('click',function(e){
   else if(a==='openmealadd'){mealAddOpen=true;render();}
   else if(a==='closemealadd'){mealAddOpen=false;render();}
   else if(a==='addmeal'){addMeal();}
+  else if(a==='togglemeal'){var mi2=openMeals.indexOf(t.dataset.id);if(mi2>-1)openMeals.splice(mi2,1);else openMeals.push(t.dataset.id);render();}
   else if(a==='dmeal'){state.health.meals=(state.health.meals||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='emln'){state.editing='ml:'+t.dataset.id;render();}
   else if(a==='logmeal'){logMeal(t.dataset.id);}
