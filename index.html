@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-04T16:20:55Z';
+  var PAGE_VERSION='2026-08-04T17:27:49Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -379,6 +379,15 @@ textarea{resize:vertical;min-height:52px}
 /* health */
 .wchart{margin-top:14px;border-radius:20px;padding:14px 16px 6px;background:var(--surface)}
 .wchart.empty{font-family:var(--mono);font-size:12px;color:var(--on-surface-faint);padding:24px;text-align:center;border-radius:20px;background:var(--surface);margin-top:14px}
+/* stats page */
+.lblist{display:flex;flex-direction:column;gap:6px}
+.lbrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;background:var(--surface-2)}
+.lbname{font-size:14px;color:var(--on-surface);flex:1;min-width:0;overflow-wrap:anywhere}
+.lbcur{font-family:var(--mono);font-size:12.5px;color:var(--accent);flex:none}
+.lbbest{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint);flex:none}
+.fiprogbar{height:14px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.fiprogfill{height:100%;background:var(--accent);border-radius:999px}
+.fiproglbl{margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--on-surface-dim)}
 .harow{display:grid;grid-template-columns:64px 1fr 1fr 1fr 20px;gap:8px;align-items:center;border-radius:14px;padding:7px 9px;background:var(--surface);margin-bottom:6px}
 .harow input{font-size:12px;padding:5px 7px;font-family:var(--mono)}
 .hdate{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint)}
@@ -796,6 +805,7 @@ function render(){
   else if(state.tab==='health')html+=buildHealth();
   else if(state.tab==='money')html+=buildMoney();
   else if(state.tab==='todos')html+=buildTodos();
+  else if(state.tab==='stats')html+=buildStats();
   else html+=state.view.page==='detail'?buildDetail():buildTree();
   app.innerHTML=html;
   applyBands();
@@ -821,7 +831,7 @@ function applyBands(){
   });
 }
 
-var TABS=[['goals','Goals','Images/goals.png'],['todos','To-dos','Images/todos.png'],['routines','Routines','Images/routines.png'],['schedule','Weekly Schedule','Images/schedule.png'],['health','Health','Images/health.png'],['money','Finances','Images/finances.png']];
+var TABS=[['goals','Goals','Images/goals.png'],['todos','To-dos','Images/todos.png'],['routines','Routines','Images/routines.png'],['schedule','Weekly Schedule','Images/schedule.png'],['health','Health','Images/health.png'],['money','Finances','Images/finances.png'],['stats','Stats','Images/Stats.png']];
 var mobileMenuOpen=false;
 var PLUS_ICON='<span class="plusicon"></span>';
 var SETTINGS_ICON='<svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
@@ -1166,21 +1176,22 @@ function upsertHealth(dateStr,field,val){
   if(!e){e={id:uid(),date:dateStr,weight:'',calories:'',protein:'',note:''};state.health.entries.push(e);}
   e[field]=val;
 }
-function weightChart(entriesDesc){
-  var pts=entriesDesc.filter(function(e){return e.weight!==''&&e.weight!=null&&!isNaN(parseFloat(e.weight));}).slice().reverse();
-  if(pts.length<2)return '<div class="wchart empty">Log weight on at least two days to see the trend.</div>';
+function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel){
+  var pts=entriesDesc.filter(function(e){return e[field]!==''&&e[field]!=null&&!isNaN(parseFloat(e[field]));}).slice().reverse();
+  if(pts.length<2)return '<div class="wchart empty">Log '+emptyLabel+' on at least two days to see the trend.</div>';
   var last=pts.slice(-90);
   var W=640,H=160,pad=30;
-  var ws=last.map(function(e){return parseFloat(e.weight);});
-  var min=Math.min.apply(null,ws),max=Math.max.apply(null,ws);
+  var vs=last.map(function(e){return parseFloat(e[field]);});
+  var min=Math.min.apply(null,vs),max=Math.max.apply(null,vs);
   if(min===max){min-=1;max+=1;}
   function xs(i){return pad+(i/(last.length-1))*(W-pad-10);}
   function ys(v){return H-pad+8-((v-min)/(max-min))*(H-pad-16);}
-  var d=last.map(function(e,i){return (i===0?'M':'L')+xs(i).toFixed(1)+','+ys(parseFloat(e.weight)).toFixed(1);}).join(' ');
-  var dots=last.map(function(e,i){return '<circle cx="'+xs(i).toFixed(1)+'" cy="'+ys(parseFloat(e.weight)).toFixed(1)+'" r="2.5" fill="var(--accent)"><title>'+fmtShort(e.date)+': '+e.weight+' lb</title></circle>';}).join('');
+  var d=last.map(function(e,i){return (i===0?'M':'L')+xs(i).toFixed(1)+','+ys(parseFloat(e[field])).toFixed(1);}).join(' ');
+  var dots=last.map(function(e,i){return '<circle cx="'+xs(i).toFixed(1)+'" cy="'+ys(parseFloat(e[field])).toFixed(1)+'" r="2.5" fill="'+color+'"><title>'+fmtShort(e.date)+': '+e[field]+unitSuffix+'</title></circle>';}).join('');
   var gridY=[min,(min+max)/2,max].map(function(v){var y=ys(v);return '<line x1="'+pad+'" x2="'+(W-4)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="var(--divider)" stroke-width="1"/><text x="2" y="'+(y+3).toFixed(1)+'" font-size="9" fill="var(--on-surface-faint)" font-family="ui-monospace,monospace">'+Math.round(v)+'</text>';}).join('');
-  return '<div class="wchart"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:160px">'+gridY+'<path d="'+d+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'+dots+'</svg></div>';
+  return '<div class="wchart"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:160px">'+gridY+'<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'+dots+'</svg></div>';
 }
+function weightChart(entriesDesc){return metricChart(entriesDesc,'weight','var(--accent)',' lb','weight');}
 function healthSummaryHtml(){
   var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var latest=entries.filter(function(e){return e.weight!=='';})[0];
@@ -1688,6 +1699,77 @@ function buildHealth(){
     +'<div id="health-summary">'+healthSummaryHtml()+'</div>'+todayForm+buildFoodSheet()+buildPastDays()+buildFoods()+buildMeals()+log;
 }
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
+
+// Stats — a read-only rollup across Health/Routines/Finances. Only charts data
+// that's actually tracked over time (health entries, routine check-in dates);
+// finances has no historical record anywhere in this app, so that section
+// reads the current snapshot instead of faking a trend line.
+function checkinActivityChart(){
+  var days=30,counts={};
+  (state.routines||[]).forEach(function(r){(r.dates||[]).forEach(function(dt){counts[dt]=(counts[dt]||0)+1;});});
+  var today=todayDate(),arr=[];
+  for(var i=days-1;i>=0;i--){var d=new Date(today);d.setDate(d.getDate()-i);var k=dkey(d);arr.push({date:k,count:counts[k]||0});}
+  var max=Math.max.apply(null,arr.map(function(x){return x.count;}).concat([1]));
+  if(!arr.some(function(x){return x.count>0;}))return '<div class="wchart empty">Check in on a routine to start tracking activity.</div>';
+  var W=640,H=120,pad=4;
+  var slot=(W-pad*2)/arr.length,bw=Math.max(slot-2,1);
+  var bars=arr.map(function(x,i){
+    var bh=(x.count/max)*(H-24);
+    var bx=pad+i*slot,by=H-20-bh;
+    return '<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(bh,1).toFixed(1)+'" rx="1.5" fill="'+(x.count>0?'var(--accent)':'var(--divider)')+'"><title>'+fmtShort(x.date)+': '+x.count+' check-in'+(x.count===1?'':'s')+'</title></rect>';
+  }).join('');
+  return '<div class="wchart"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:120px">'+bars+'</svg></div>';
+}
+function streakLeaderboard(){
+  var routines=(state.routines||[]).slice().sort(function(a,b){return rLongest(b)-rLongest(a);}).slice(0,8);
+  if(!routines.length)return '<div class="tempty">No routines yet.</div>';
+  return '<div class="lblist">'+routines.map(function(r){
+    return '<div class="lbrow"><span class="lbname">'+esc(r.title)+'</span><span class="lbcur">🔥'+rStreak(r)+'</span><span class="lbbest">best '+rLongest(r)+'</span></div>';
+  }).join('')+'</div>';
+}
+function fiProgressHtml(assets,need){
+  var pct=need>0?Math.min(100,Math.max(0,assets/need*100)):0;
+  return '<div class="fiprog"><div class="fiprogbar"><div class="fiprogfill" style="width:'+pct.toFixed(1)+'%"></div></div>'
+    +'<div class="fiproglbl">'+money(assets)+' of '+money(need)+' needed — '+Math.round(pct)+'%</div></div>';
+}
+function buildStats(){
+  var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
+  var lv=levelInfo();
+  var k=calcFin();
+  var assets=parseFloat(state.finance.assets)||0;
+  var savingsRate=k.inc>0?Math.round((k.surplus/k.inc)*100):0;
+
+  var healthSection=entries.length
+    ?'<div class="fincard"><h3>Weight</h3>'+weightChart(entries)+'</div>'
+      +'<div class="fincard"><h3>Calories</h3>'+metricChart(entries,'calories','var(--accent-2)',' cal','calories')+'</div>'
+      +'<div class="fincard"><h3>Protein</h3>'+metricChart(entries,'protein','var(--accent-3)','g','protein')+'</div>'
+    :'<div class="tempty">No health entries logged yet.</div>';
+
+  var goalsSection='<div class="statrow">'
+    +'<div class="stat neu"><div class="sl">Level</div><div class="sv">'+lv.level+'</div></div>'
+    +'<div class="stat neu"><div class="sl">XP to next level</div><div class="sv">'+lv.into+' / '+lv.need+'</div></div>'
+    +'<div class="stat neu"><div class="sl">Perfect days</div><div class="sv">'+perfectDays().length+'</div></div>'
+    +'</div>'
+    +'<div class="fincard"><h3>Check-ins, last 30 days</h3>'+checkinActivityChart()+'</div>'
+    +'<div class="fincard"><h3>Streak leaderboard</h3>'+streakLeaderboard()+'</div>';
+
+  var finSection=(k.inc>0||k.exp>0||assets>0)
+    ?'<div class="statrow">'
+      +'<div class="stat neu"><div class="sl">Monthly income</div><div class="sv">'+money(k.inc)+'</div></div>'
+      +'<div class="stat neu"><div class="sl">Monthly expenses</div><div class="sv">'+money(k.exp)+'</div></div>'
+      +'<div class="stat '+(k.surplus>=0?'good':'bad')+'"><div class="sl">Monthly surplus</div><div class="sv">'+money(k.surplus)+'</div></div>'
+      +'</div>'
+      +'<div class="statrow">'
+      +'<div class="stat neu"><div class="sl">Savings rate</div><div class="sv">'+savingsRate+'%</div></div>'
+      +'</div>'
+      +'<div class="fincard"><h3>Progress to nest egg</h3>'+fiProgressHtml(assets,k.need)+'</div>'
+    :'<div class="tempty">Add income, expenses, or assets on the Finances tab to see stats here.</div>';
+
+  return '<div class="hrow"><h1>Stats</h1></div>'
+    +'<div class="ph"><h3>Health</h3></div>'+healthSection
+    +'<div class="ph"><h3>Goals &amp; Routines</h3></div>'+goalsSection
+    +'<div class="ph"><h3>Finances</h3></div>'+finSection;
+}
 
 // events
 // iOS Safari only simulates :active state on a sustained touch, not a quick
