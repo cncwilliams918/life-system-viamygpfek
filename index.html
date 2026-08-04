@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-04T16:14:48Z';
+  var PAGE_VERSION='2026-08-04T16:20:55Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -462,9 +462,9 @@ textarea{resize:vertical;min-height:52px}
 .mitot>span:first-child{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
 .miname{font-family:var(--sans);font-size:13px;color:var(--on-surface);display:flex;align-items:baseline;gap:7px;min-width:0}
 .miqty{font-family:var(--mono);font-size:10.5px;color:var(--accent);flex:none}
-.mitarget{display:flex;align-items:center;gap:4px}
-.mitarget input{width:52px;font-family:var(--mono);font-size:11.5px;padding:3px 5px;text-align:right}
-.mitarget select{width:auto;flex:1;font-family:var(--mono);font-size:11px;padding:3px 4px}
+.mitarget{display:flex;align-items:center;gap:4px;min-width:0}
+.mitarget input{width:52px;flex:none;font-family:var(--mono);font-size:11.5px;padding:3px 5px;text-align:right}
+.mitarget select{width:auto;flex:1;min-width:0;font-family:var(--mono);font-size:11px;padding:3px 4px}
 .miu{font-family:var(--mono);font-size:10px;color:var(--on-surface-faint);flex:none}
 .midel{color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
 .midel:hover{color:var(--negative)}
