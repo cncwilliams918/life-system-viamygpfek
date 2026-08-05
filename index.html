@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-05T17:03:09Z';
+  var PAGE_VERSION='2026-08-05T17:05:41Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -58,7 +58,7 @@
      a block is lightest, a control inside it is darker, a field is darkest. */
   --surface:#235347;             /* every block */
   --surface-2:#235347;           /* inset within a block: buttons, panels, table head/total rows */
-  --surface-3:#051f20;           /* deepest: form fields, and the 1px gaps used as rules */
+  --surface-3:#0b2b26;           /* deepest: form fields, and the 1px gaps used as rules */
   --surface-wash:rgba(218,241,222,.16);  /* translucent light fill on a block (e.g. XP bar track) */
   --on-surface:#daf1de;          /* mint — primary text on a block */
   --on-surface-dim:#b3d4bd;      /* secondary text on a block */
