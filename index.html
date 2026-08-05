@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-05T14:37:07Z';
+  var PAGE_VERSION='2026-08-05T16:18:13Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1318,9 +1318,12 @@ function foodCard(f){
       +'<span class="fcunit2" id="fcunit-'+f.id+'">'+(tk==='calories'?'cal':'g')+'</span><span class="fclbl">of</span>'
       +'<select data-a="foodmac" data-id="'+f.id+'">'+opts+'</select></div>';
   }
+  var quickAction=open
+    ?'<span class="fdel" data-a="fooddel" data-id="'+f.id+'">×</span>'
+    :'<button class="flogbtn" data-a="foodquicklog" data-id="'+f.id+'">'+PLUS_ICON+' Log</button>';
   var head='<div class="fctop" data-a="togglefood" data-id="'+f.id+'"><span class="fccaret">'+(open?'▾':'▸')+'</span><span class="fcname">'+esc(f.name)+'</span>'
     +(open?'':'<span class="fcmini">'+num(f.calories)+' cal</span>')
-    +'<span class="fdel" data-a="fooddel" data-id="'+f.id+'">×</span></div>';
+    +quickAction+'</div>';
   var body=open?('<span class="fcbase">Measure '+esc(fmtQty(num(f.serving),f.unit))+' — '+num(f.protein)+'P / '+num(f.carbs)+'C / '+num(f.fat)+'F · '+num(f.calories)+'cal</span>'
     +inputRow
     +'<div id="fcout-'+f.id+'">'+(countable?foodOutQtyHtml(f):foodOutHtml(f))+'</div>'):'';
@@ -1399,10 +1402,15 @@ function mealCard(m){
     ?'<input class="mlname" data-e="1" data-a="cmln" data-id="'+m.id+'" value="'+esc(m.name)+'">'
     :'<span class="mlname" data-a="emln" data-id="'+m.id+'">'+esc(m.name)+'</span>';
   var t=mealTotals(m);
+  var quickAction=open
+    ?'<span class="mldel" data-a="dmeal" data-id="'+m.id+'">×</span>'
+    // no items yet means nothing to log — fall back to opening the card instead
+    :((m.items||[]).length?'<button class="flogbtn" data-a="logmeal" data-id="'+m.id+'">'+PLUS_ICON+' Log</button>'
+      :'<button class="flogbtn" data-a="togglemeal" data-id="'+m.id+'">'+PLUS_ICON+' Log</button>');
   var head='<div class="mltop" data-a="togglemeal" data-id="'+m.id+'"><span class="mlcaret">'+(open?'▾':'▸')+'</span>'+te
     +(open?'':'<span class="mlmini">'+Math.round(t.calories)+' cal</span>')
     +'<span class="mlmult"><label>×</label><input type="number" step="0.05" min="0" data-a="mealmult" data-id="'+m.id+'" value="'+esc(m.mult)+'"></span>'
-    +'<span class="mldel" data-a="dmeal" data-id="'+m.id+'">×</span></div>';
+    +quickAction+'</div>';
   var body='';
   if(open){
     var items=(m.items||[]).map(function(mi){return mealItemRow(m,mi);}).join('');
@@ -1879,6 +1887,13 @@ app.addEventListener('click',function(e){
   else if(a==='foodadd'){addFood();}
   else if(a==='scanbarcode'){openScanner();}
   else if(a==='togglefood'){var fi=openFoods.indexOf(t.dataset.id);if(fi>-1)openFoods.splice(fi,1);else openFoods.push(t.dataset.id);render();}
+  else if(a==='foodquicklog'){
+    var fq=fFood(t.dataset.id);
+    // nothing dialed in yet (fresh food, tamt never set) — open it instead of
+    // logging nothing, since there's no amount to actually log
+    if(fq&&foodResolved(fq))addFoodLog(t.dataset.id);
+    else{if(openFoods.indexOf(t.dataset.id)<0)openFoods.push(t.dataset.id);render();}
+  }
   else if(a==='fooddel'){state.health.foods=(state.health.foods||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='foodlog'){addFoodLog(t.dataset.id);}
   else if(a==='logdel'){state.health.log=(state.health.log||[]).filter(function(x){return x.id!==t.dataset.id;});syncTodayMacros();save();render();}
