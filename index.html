@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-08T14:22:08Z';
+  var PAGE_VERSION='2026-08-08T14:41:00Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -198,6 +198,8 @@ textarea{resize:vertical;min-height:52px}
 .ph{display:flex;align-items:baseline;gap:12px;margin:0 0 12px;padding-bottom:2px}
 .ph h3{font-size:14px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-dim);font-weight:500}
 .ph .pc{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--ac)}
+.ph.sechead{cursor:pointer;user-select:none}
+.ph .sectoggle{margin-left:auto;font-family:var(--mono);font-size:13px;color:var(--on-surface-dim)}
 .steps{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
 .step{display:flex;align-items:flex-start;gap:11px;border-radius:14px;padding:11px 12px;background:var(--surface)}
 .step .cb{width:18px;height:18px;border-radius:10px;background:var(--surface-3);flex:none;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--on-accent);transition:background .12s}
@@ -507,7 +509,7 @@ textarea{resize:vertical;min-height:52px}
 @media(max-width:680px){.fsrow{grid-template-columns:1fr 46px 40px 40px 40px 18px;gap:4px;font-size:11px;padding:7px 8px}.fsname{font-size:12px}}
 /* Blocks are dark green, so their text is --on-surface (the light tiers). These
    elements sit straight on the pale mint/sage ground instead, so they go dark. */
-.brand,.hrow h1,.hrow .addbtn,.sub2,.ph h3,.ph .pc,.band .tempty,.band .tdempty,.tdsec,.dtitle,
+.brand,.hrow h1,.hrow .addbtn,.sub2,.ph h3,.ph .pc,.ph .sectoggle,.band .tempty,.band .tdempty,.tdsec,.dtitle,
 .crumb,.crumb .bk,.crumb .cs,.crumb .cg,.dnote label,.subdel,
 .mealadd button,.rtadd button,.stepadd button,.appadd button{color:var(--on-ground)}
 /* Nothing is outlined, so these on-ground buttons take a faint tint of the
@@ -1299,6 +1301,11 @@ function refreshFoodCard(id){
 }
 var openItem=null; // {type:'food'|'meal', id} of the single expanded food/meal card, or null
 function isOpenItem(type,id){return !!openItem&&openItem.type===type&&openItem.id===id;}
+var openSection=null; // 'foods'|'meals'|'dailylog'|null — accordion across the three collapsible Health sections
+function sectionHeader(key,label){
+  var open=openSection===key;
+  return '<div class="ph sechead" data-a="togglesection" data-sec="'+key+'"><h3>'+label+'</h3><span class="sectoggle">'+(open?'▾':'▸')+'</span></div>';
+}
 function foodCard(f){
   var open=isOpenItem('food',f.id);
   var countable=isCountableUnit(f.unit),amt=f.tamt,inputRow;
@@ -1434,12 +1441,16 @@ function mealAddHtml(){
     +'</div></div>';
 }
 function buildMeals(){
-  var cards=(state.health.meals||[]).map(mealCard).join('');
-  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Add a meal</button>';
-  return '<div class="ph"><h3>Meals</h3></div>'
-    +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
-    +addBtn+(cards||'<div class="tempty">No meals yet.</div>')
-    +(mealAddOpen?mealAddHtml():'');
+  var open=openSection==='meals';
+  var body='';
+  if(open){
+    var cards=(state.health.meals||[]).map(mealCard).join('');
+    var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Add a meal</button>';
+    body='<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
+      +addBtn+(cards||'<div class="tempty">No meals yet.</div>')
+      +(mealAddOpen?mealAddHtml():'');
+  }
+  return sectionHeader('meals','Meals')+body;
 }
 function addMeal(){
   var ti=app.querySelector('[data-a="mealn"]');if(!ti)return;
@@ -1448,6 +1459,7 @@ function addMeal(){
   var nm={id:uid(),name:v,mult:1,items:[]};
   state.health.meals.push(nm);
   openItem={type:'meal',id:nm.id};
+  openSection='meals';
   save();render();
 }
 function logMeal(id){
@@ -1564,14 +1576,18 @@ function foodAddHtml(){
     +'</div></div>';
 }
 function buildFoods(){
-  var sorted=(state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});
-  var foods=sorted.map(foodCard).join('');
-  var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search foods…">':'';
-  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">'+PLUS_ICON+' Add a food</button>';
-  return '<div class="ph"><h3>Foods</h3></div>'
-    +'<div class="sub2">Save a food once with its label numbers, then work backwards — say how much of a macro you want and it tells you the serving size and everything else.</div>'
-    +addBtn+search+'<div id="foodlist">'+(foods||'<div class="tempty">No foods saved yet.</div>')+'</div>'
-    +(foodAddOpen?foodAddHtml():'');
+  var open=openSection==='foods';
+  var body='';
+  if(open){
+    var sorted=(state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});
+    var foods=sorted.map(foodCard).join('');
+    var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search foods…">':'';
+    var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">'+PLUS_ICON+' Add a food</button>';
+    body='<div class="sub2">Save a food once with its label numbers, then work backwards — say how much of a macro you want and it tells you the serving size and everything else.</div>'
+      +addBtn+search+'<div id="foodlist">'+(foods||'<div class="tempty">No foods saved yet.</div>')+'</div>'
+      +(foodAddOpen?foodAddHtml():'');
+  }
+  return sectionHeader('foods','Foods')+body;
 }
 function addFood(){
   var get=function(f){var el=app.querySelector('[data-a="fnew"][data-f="'+f+'"]');return el?el.value:'';};
@@ -1581,6 +1597,7 @@ function addFood(){
   var nf={id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),tmac:'protein',tamt:''};
   state.health.foods.push(nf);
   openItem={type:'food',id:nf.id};
+  openSection='foods';
   save();render();
 }
 // barcode scanner — runs outside the normal render() cycle (it manages its own
@@ -1683,11 +1700,19 @@ function buildHealth(){
     +'<div class="fld"><label>Protein (g)</label><input type="number" data-a="hfield" data-field="protein" value="'+esc(te.protein)+'"'+ro+'>'+lockNote+'</div>'
     +'<div class="fld"><label>Note</label><input data-a="hfield" data-field="note" value="'+esc(te.note)+'"></div>'
     +'</div></div>';
-  var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
-  var rows=entries.filter(function(e){return e.date!==today;}).slice(0,30).map(healthRow).join('');
-  var log='<div class="ph"><h3>Daily log</h3></div>'+(rows||'<div class="tempty">No earlier entries yet.</div>');
   return '<div class="hrow"><h1>Health</h1></div>'
-    +'<div id="health-summary">'+healthSummaryHtml()+'</div>'+todayForm+buildFoodSheet()+buildFoods()+buildMeals()+log;
+    +'<div id="health-summary">'+healthSummaryHtml()+'</div>'+todayForm+buildFoodSheet()+buildFoods()+buildMeals()+buildDailyLog();
+}
+function buildDailyLog(){
+  var open=openSection==='dailylog';
+  var body='';
+  if(open){
+    var today=todayStr();
+    var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
+    var rows=entries.filter(function(e){return e.date!==today;}).slice(0,30).map(healthRow).join('');
+    body=rows||'<div class="tempty">No earlier entries yet.</div>';
+  }
+  return sectionHeader('dailylog','Daily log')+body;
 }
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
 
@@ -1865,6 +1890,7 @@ app.addEventListener('click',function(e){
     }
   }
   else if(a==='hdel'){state.health.entries=(state.health.entries||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
+  else if(a==='togglesection'){openSection=openSection===t.dataset.sec?null:t.dataset.sec;render();}
   else if(a==='openfoodadd'){foodAddOpen=true;render();}
   else if(a==='closefoodadd'){foodAddOpen=false;render();}
   else if(a==='foodadd'){addFood();}
