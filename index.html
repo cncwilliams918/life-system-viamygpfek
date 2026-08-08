@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-05T17:05:41Z';
+  var PAGE_VERSION='2026-08-08T13:17:35Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -504,11 +504,6 @@ textarea{resize:vertical;min-height:52px}
 .plp{color:var(--on-surface-faint);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
 .piecap{font-size:11.5px;color:var(--on-surface-faint);line-height:1.5;margin-top:3px}
 @media(max-width:680px){.piewrap{gap:16px}.pie{width:112px}}
-/* previous days */
-.pdlist{display:flex;flex-direction:column;gap:5px}
-.pdrow{display:flex;gap:12px;align-items:baseline;font-family:var(--mono);font-size:11.5px;color:var(--on-surface-dim);padding:7px 10px;border-radius:12px;background:var(--surface-2);flex-wrap:wrap}
-.pddate{color:var(--on-surface);min-width:52px}
-.pdn{margin-left:auto;color:var(--on-surface-faint)}
 @media(max-width:680px){.fsrow{grid-template-columns:1fr 46px 40px 40px 40px 18px;gap:4px;font-size:11px;padding:7px 8px}.fsname{font-size:12px}}
 /* Blocks are dark green, so their text is --on-surface (the light tiers). These
    elements sit straight on the pale mint/sage ground instead, so they go dark. */
@@ -1302,9 +1297,10 @@ function refreshFoodCard(id){
   var u=document.getElementById('fcunit-'+id);
   if(u)u.textContent=countable?unitLabel(num(f.tamt)||1,f.unit):((f.tmac||'protein')==='calories'?'cal':'g');
 }
-var openFoods=[];
+var openItem=null; // {type:'food'|'meal', id} of the single expanded food/meal card, or null
+function isOpenItem(type,id){return !!openItem&&openItem.type===type&&openItem.id===id;}
 function foodCard(f){
-  var open=openFoods.indexOf(f.id)>-1;
+  var open=isOpenItem('food',f.id);
   var countable=isCountableUnit(f.unit),amt=f.tamt,inputRow;
   if(countable){
     inputRow='<div class="fcrow"><span class="fclbl">Quantity</span>'
@@ -1395,9 +1391,8 @@ function mealItemRow(m,mi){
     +'<span id="mio-'+mi.id+'-f">'+(r?Math.round(r.fat*10)/10:'—')+'</span>'
     +'<span class="midel" data-a="midel" data-mid="'+m.id+'" data-iid="'+mi.id+'">×</span></div>';
 }
-var openMeals=[];
 function mealCard(m){
-  var open=openMeals.indexOf(m.id)>-1;
+  var open=isOpenItem('meal',m.id);
   var te=state.editing==='ml:'+m.id
     ?'<input class="mlname" data-e="1" data-a="cmln" data-id="'+m.id+'" value="'+esc(m.name)+'">'
     :'<span class="mlname" data-a="emln" data-id="'+m.id+'">'+esc(m.name)+'</span>';
@@ -1452,7 +1447,7 @@ function addMeal(){
   state.health.meals=state.health.meals||[];
   var nm={id:uid(),name:v,mult:1,items:[]};
   state.health.meals.push(nm);
-  openMeals.push(nm.id);
+  openItem={type:'meal',id:nm.id};
   save();render();
 }
 function logMeal(id){
@@ -1545,23 +1540,11 @@ function buildFoodSheet(){
   }).join('');
   var t=logTotals(rows);
   var tot='<div class="fsrow fstot"><span>Total</span><span>'+Math.round(t.calories)+'</span><span>'+(Math.round(t.protein*10)/10)+'</span><span>'+(Math.round(t.carbs*10)/10)+'</span><span>'+(Math.round(t.fat*10)/10)+'</span><span></span></div>';
+  var endBtn='<button type="button" class="blockaddbtn spaced" data-a="endday">End day — save '+Math.round(t.calories)+' cal / '+(Math.round(t.protein*10)/10)+'g protein</button>';
   return '<div class="fincard"><h3>Today’s food — '+fmtShort(today)+'</h3>'
     +(rows.length?'<div class="fsheet">'+head+body+tot+'</div>'+macroPieHtml():'<div class="tempty">Nothing logged today. Dial in a food below and hit + Log.</div>')
+    +endBtn
     +'</div>';
-}
-function buildPastDays(){
-  var today=todayStr();
-  var byDate={};
-  (state.health.log||[]).forEach(function(r){if(r.date!==today){(byDate[r.date]=byDate[r.date]||[]).push(r);}});
-  var dates=Object.keys(byDate).sort().reverse().slice(0,14);
-  if(!dates.length)return '';
-  var rows=dates.map(function(d){
-    var t=logTotals(byDate[d]);
-    return '<div class="pdrow"><span class="pddate">'+fmtShort(d)+'</span><span>'+Math.round(t.calories)+' cal</span>'
-      +'<span>P '+(Math.round(t.protein*10)/10)+'</span><span>C '+(Math.round(t.carbs*10)/10)+'</span><span>F '+(Math.round(t.fat*10)/10)+'</span>'
-      +'<span class="pdn">'+byDate[d].length+' item'+(byDate[d].length===1?'':'s')+'</span></div>';
-  }).join('');
-  return '<div class="fincard"><h3>Previous days</h3><div class="pdlist">'+rows+'</div></div>';
 }
 var foodAddOpen=false;
 function foodAddHtml(){
@@ -1597,7 +1580,7 @@ function addFood(){
   state.health.foods=state.health.foods||[];
   var nf={id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),tmac:'protein',tamt:''};
   state.health.foods.push(nf);
-  openFoods.push(nf.id);
+  openItem={type:'food',id:nf.id};
   save();render();
 }
 // barcode scanner — runs outside the normal render() cycle (it manages its own
@@ -1704,7 +1687,7 @@ function buildHealth(){
   var rows=entries.filter(function(e){return e.date!==today;}).slice(0,30).map(healthRow).join('');
   var log='<div class="ph"><h3>Weight log</h3></div>'+(rows||'<div class="tempty">No earlier entries yet.</div>');
   return '<div class="hrow"><h1>Health</h1></div>'
-    +'<div id="health-summary">'+healthSummaryHtml()+'</div>'+todayForm+buildFoodSheet()+buildPastDays()+buildFoods()+buildMeals()+log;
+    +'<div id="health-summary">'+healthSummaryHtml()+'</div>'+todayForm+buildFoodSheet()+buildFoods()+buildMeals()+log;
 }
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
 
@@ -1886,22 +1869,28 @@ app.addEventListener('click',function(e){
   else if(a==='closefoodadd'){foodAddOpen=false;render();}
   else if(a==='foodadd'){addFood();}
   else if(a==='scanbarcode'){openScanner();}
-  else if(a==='togglefood'){var fi=openFoods.indexOf(t.dataset.id);if(fi>-1)openFoods.splice(fi,1);else openFoods.push(t.dataset.id);render();}
+  else if(a==='togglefood'){openItem=isOpenItem('food',t.dataset.id)?null:{type:'food',id:t.dataset.id};render();}
   else if(a==='foodquicklog'){
     var fq=fFood(t.dataset.id);
     // nothing dialed in yet (fresh food, tamt never set) — open it instead of
     // logging nothing, since there's no amount to actually log
     if(fq&&foodResolved(fq))addFoodLog(t.dataset.id);
-    else{if(openFoods.indexOf(t.dataset.id)<0)openFoods.push(t.dataset.id);render();}
+    else{openItem={type:'food',id:t.dataset.id};render();}
   }
   else if(a==='fooddel'){state.health.foods=(state.health.foods||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='foodlog'){addFoodLog(t.dataset.id);}
   else if(a==='logdel'){state.health.log=(state.health.log||[]).filter(function(x){return x.id!==t.dataset.id;});syncTodayMacros();save();render();}
   else if(a==='logdelgroup'){state.health.log=(state.health.log||[]).filter(function(x){return x.gid!==t.dataset.gid;});syncTodayMacros();save();render();}
+  else if(a==='endday'){
+    syncTodayMacros();
+    var todayK=todayStr();
+    state.health.log=(state.health.log||[]).filter(function(x){return x.date!==todayK;});
+    save();render();
+  }
   else if(a==='openmealadd'){mealAddOpen=true;render();}
   else if(a==='closemealadd'){mealAddOpen=false;render();}
   else if(a==='addmeal'){addMeal();}
-  else if(a==='togglemeal'){var mi2=openMeals.indexOf(t.dataset.id);if(mi2>-1)openMeals.splice(mi2,1);else openMeals.push(t.dataset.id);render();}
+  else if(a==='togglemeal'){openItem=isOpenItem('meal',t.dataset.id)?null:{type:'meal',id:t.dataset.id};render();}
   else if(a==='dmeal'){state.health.meals=(state.health.meals||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='emln'){state.editing='ml:'+t.dataset.id;render();}
   else if(a==='logmeal'){logMeal(t.dataset.id);}
