@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-08T13:17:35Z';
+  var PAGE_VERSION='2026-08-08T14:22:08Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1685,7 +1685,7 @@ function buildHealth(){
     +'</div></div>';
   var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var rows=entries.filter(function(e){return e.date!==today;}).slice(0,30).map(healthRow).join('');
-  var log='<div class="ph"><h3>Weight log</h3></div>'+(rows||'<div class="tempty">No earlier entries yet.</div>');
+  var log='<div class="ph"><h3>Daily log</h3></div>'+(rows||'<div class="tempty">No earlier entries yet.</div>');
   return '<div class="hrow"><h1>Health</h1></div>'
     +'<div id="health-summary">'+healthSummaryHtml()+'</div>'+todayForm+buildFoodSheet()+buildFoods()+buildMeals()+log;
 }
