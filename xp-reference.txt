@@ -1,7 +1,7 @@
 LIFE SYSTEM — XP REFERENCE
-Last updated: 2026-08-01
+Last updated: 2026-08-11
 
-This file tracks every XP source in goal-tree.html and its current value.
+This file tracks every XP source in index.html and its current value.
 Update this file any time an XP amount or mechanic changes in the app.
 
 ROUTINE CHECK-INS
@@ -16,8 +16,15 @@ ROUTINE CHECK-INS
   Unchecking a check-in removes its XP immediately (XP is always a live reflection
   of current data, not a permanent ledger — this applies everywhere below too).
 
+  Silent routines (Routines tab, "Timeblock only" toggle): still occupy their slot
+  on the Weekly Schedule, but get no check-in row on Goals, so no new check-in XP
+  or streak-bonus XP accrues while silent. XP already earned before going silent
+  is not clawed back (totalXP sums historical dates regardless of the silent flag).
+
 PERFECT DAY BONUS
-  +25 XP on any day where every currently-active, scheduled routine got checked in.
+  +25 XP on any day where every currently-active, TRACKED (non-silent) routine
+  scheduled that day got checked in. Silent routines are excluded from the
+  requirement entirely, so they can't block the bonus for everything else.
   Deliberately hidden: no progress counter shown beforehand. Only reveals itself
   as a one-line note in the Goals-tab reward summary after it's been earned that day.
 

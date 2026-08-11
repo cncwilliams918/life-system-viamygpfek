@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-11T14:28:25Z';
+  var PAGE_VERSION='2026-08-11T15:55:04Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -769,8 +769,9 @@ function rLongest(r){
 var DIFF=[{level:1,xp:10},{level:2,xp:20},{level:3,xp:30},{level:4,xp:40},{level:5,xp:50}];
 function diffInfo(level){return DIFF.filter(function(d){return d.level===level;})[0]||DIFF[2];}
 function perfectDays(){
-  // a date is "perfect" when every currently-active routine scheduled that day was checked in
-  var routines=(state.routines||[]).filter(function(r){return r.active!==false;});
+  // a date is "perfect" when every currently-active, tracked routine scheduled that day was
+  // checked in — silent routines don't require a check-in, so they're excluded here too
+  var routines=(state.routines||[]).filter(function(r){return r.active!==false&&!r.silent;});
   if(!routines.length)return [];
   var dateSet={};
   routines.forEach(function(r){(r.dates||[]).forEach(function(dt){dateSet[dt]=true;});});
@@ -891,7 +892,7 @@ function routineCheckRow(r){
 function rewardSummaryHtml(){
   var lv=levelInfo();
   var bestStreak=0,bestTitle='';
-  state.routines.forEach(function(r){if(r.active===false)return;var s=rStreak(r);if(s>bestStreak){bestStreak=s;bestTitle=r.title;}});
+  state.routines.forEach(function(r){if(r.active===false||r.silent)return;var s=rStreak(r);if(s>bestStreak){bestStreak=s;bestTitle=r.title;}});
   var pct=Math.round(lv.into/lv.need*100);
   var perfectToday=perfectDays().indexOf(dkey(todayDate()))>-1;
   return '<div class="trksum"><div class="lvlrow"><span class="lvltag">Level '+lv.level+'</span><div class="xpbar"><div class="xpfill" style="width:'+pct+'%"></div></div><span class="xptxt">'+lv.into+' / '+lv.need+' XP</span></div>'
@@ -905,11 +906,11 @@ function buildTree(){
     var te=state.editing==='g:'+g.id?'<input class="gtitle" data-e="1" data-a="cgt" data-g="'+g.id+'" value="'+esc(g.title)+'">':'<div class="gtitle" data-a="egt" data-g="'+g.id+'">'+esc(g.title)+'</div>';
     var sl=g.subgoals.map(function(s){var _td=todosFor(s.id);var dn=_td.filter(function(x){return x.done;}).length;var gl=s.ref?'◧ ':'';
       return '<li class="sitem" data-a="open" data-g="'+g.id+'" data-s="'+s.id+'"><span class="sdot"></span><span class="sname"><span class="sglyph">'+gl+'</span>'+esc(s.title)+'</span><span class="scnt">'+dn+'/'+_td.length+'</span></li>';}).join('');
-    var arts=state.routines.filter(function(r){return r.active!==false&&r.goalId===g.id;});
+    var arts=state.routines.filter(function(r){return r.active!==false&&!r.silent&&r.goalId===g.id;});
     var rl='<div class="grts"><span class="grtl">Routines</span>'+(arts.length?'<div class="rchklist">'+arts.map(routineCheckRow).join('')+'</div>':'<span class="grtn">none active</span>')+'</div>';
     return '<div class="gcard" style="'+ac+'"><div style="display:flex;align-items:flex-start;gap:8px">'+te+'</div><div class="gtag">'+esc(g.tag||'')+'</div><div class="gbarl">'+g.subgoals.length+' subgoals</div><ul class="sublist">'+sl+'</ul>'+rl+'<div class="addrow"><input placeholder="New subgoal…" data-a="subi" data-g="'+g.id+'"><button data-a="subb" data-g="'+g.id+'">'+PLUS_ICON+' Add</button></div><button class="gdel" data-a="dg" data-g="'+g.id+'">delete goal</button></div>';
   }).join('');
-  var unassigned=state.routines.filter(function(r){return r.active!==false&&!r.goalId;});
+  var unassigned=state.routines.filter(function(r){return r.active!==false&&!r.silent&&!r.goalId;});
   var un=unassigned.length?'<div class="ph"><h3>Other routines</h3></div><div class="rchklist">'+unassigned.map(routineCheckRow).join('')+'</div>':'';
   return '<div class="hrow"><h1>Goals</h1><button class="addbtn" data-a="ag">'+PLUS_ICON+' Add goal</button></div>'
     +'<div id="reward-summary">'+rewardSummaryHtml()+'</div>'
@@ -951,7 +952,11 @@ function buildRt(){
         +'<span class="bdel2" data-a="delblock2" data-rid="'+r.id+'" data-bid="'+b.id+'">\u00d7</span></div>';
     }).join('');
     var badd='<button class="blockaddbtn" data-a="addblock2" data-rid="'+r.id+'">'+PLUS_ICON+' Add block</button>';
-    return '<div class="rtcard'+(on?'':' inactive')+'" style="--ac:'+av(ac)+'"><div class="rttop">'+te+''+srvSel+'<button class="rtact'+(on?' on':'')+'" data-a="rta" data-id="'+r.id+'">'+(on?'● Active':'○ Inactive')+'</button>'+ce+'<span class="rtdel" data-a="dr" data-id="'+r.id+'">×</span></div><textarea class="rtnote" data-a="crtn2" data-id="'+r.id+'" placeholder="Protocol…">'+esc(r.note)+'</textarea>'+rf+'<div class="rtblocks"><div class="rtblabel">Time blocks</div>'+bhtml+diffDots+badd+'</div></div>';
+    // silent = still holds its slot on the calendar, but stops asking for check-ins and
+    // stops earning XP — for routines that became automatic, or that were never a habit
+    // to begin with (a work shift just needs to occupy time, not be tracked)
+    var trackBtn='<button class="rtact'+(r.silent?'':' on')+'" data-a="rtsilent" data-id="'+r.id+'" title="'+(r.silent?'Just holds a spot on the calendar — no check-ins, no XP':'Shows a daily check-in on Goals and earns XP')+'">'+(r.silent?'◌ Timeblock only':'✓ Tracked')+'</button>';
+    return '<div class="rtcard'+(on?'':' inactive')+'" style="--ac:'+av(ac)+'"><div class="rttop">'+te+''+srvSel+'<button class="rtact'+(on?' on':'')+'" data-a="rta" data-id="'+r.id+'">'+(on?'● Active':'○ Inactive')+'</button>'+trackBtn+ce+'<span class="rtdel" data-a="dr" data-id="'+r.id+'">×</span></div><textarea class="rtnote" data-a="crtn2" data-id="'+r.id+'" placeholder="Protocol…">'+esc(r.note)+'</textarea>'+rf+'<div class="rtblocks"><div class="rtblabel">Time blocks</div>'+bhtml+diffDots+badd+'</div></div>';
   }).join('');
   return '<div class="hrow"><h1>Routines</h1></div><div class="rtlist">'+cards+'</div><div class="rtadd"><input data-a="rtn" placeholder="New routine…"><select data-a="rtg"><option value="">— serves… —</option>'+gOpts+'</select><button data-a="addr">'+PLUS_ICON+' Add routine</button></div>';
 }
@@ -1893,6 +1898,7 @@ app.addEventListener('click',function(e){
   else if(a==='dg'){state.goals=state.goals.filter(function(g){return g.id!==t.dataset.g;});if(state.focus&&state.focus.goalId===t.dataset.g)state.focus=null;save();render();}
   else if(a==='ag'){var used=state.goals.map(function(g){return g.accent;});var ac2=ACCENTS.filter(function(x){return used.indexOf(x)<0;})[0]||ACCENTS[state.goals.length%ACCENTS.length];state.goals.push({id:'g_'+uid(),accent:ac2,tag:'',title:'New goal',subgoals:[]});save();render();}
   else if(a==='rta'){var r2=fR(t.dataset.id);r2.active=(r2.active===false);save();render();}
+  else if(a==='rtsilent'){var r2s=fR(t.dataset.id);if(r2s){r2s.silent=!r2s.silent;save();render();}}
   else if(a==='ertn'){state.editing='rt:'+t.dataset.id;render();}
   else if(a==='ercd'){state.editing='rc:'+t.dataset.id;render();}
   else if(a==='dr'){state.routines=state.routines.filter(function(x){return x.id!==t.dataset.id;});save();render();}
