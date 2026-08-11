@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-11T18:04:23Z';
+  var PAGE_VERSION='2026-08-11T18:07:14Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -774,11 +774,14 @@ function goalMetricHtml(g){
   var cur=latest?num(latest.value):null;
   var target=num(m.target);
   var unit=m.unit?' '+m.unit:'';
-  var delta=cur!==null?target-cur:null;
+  // undirected on purpose — a metric alone can't tell whether higher or lower is
+  // "good" (net worth wants to go up, bodyfat% wants to go down), so this only
+  // ever reports distance, never a good/bad judgment
+  var delta=cur!==null?Math.abs(target-cur):null;
   var readout='<div class="statrow">'
     +'<div class="stat neu"><div class="sl">Current</div><div class="sv">'+(cur!==null?trimNum(cur)+unit:'—')+'</div></div>'
     +'<div class="stat neu"><div class="sl">Target</div><div class="sv">'+trimNum(target)+unit+(m.targetDate?' by '+fmtShort(m.targetDate):'')+'</div></div>'
-    +(delta!==null?'<div class="stat '+(delta<=0?'good':'neu')+'"><div class="sl">To target</div><div class="sv">'+(delta>0?trimNum(delta)+unit+' to go':'reached')+'</div></div>':'')
+    +(delta!==null?'<div class="stat neu"><div class="sl">To target</div><div class="sv">'+(delta===0?'at target':trimNum(delta)+unit+' away')+'</div></div>':'')
     +'</div>';
   var chart=metricChart(entries,'value','var(--accent)',unit,'a reading');
   var logRow='<div class="fcrow"><span class="fclbl">Log</span><input type="number" step="any" data-a="gmlog" placeholder="'+(m.unit?esc(m.unit):'value')+'"><button type="button" data-a="gmetriclogbtn" data-g="'+g.id+'">'+PLUS_ICON+' Log</button><span class="fdel" data-a="delgmetric" data-g="'+g.id+'" title="Remove this metric">×</span></div>';
