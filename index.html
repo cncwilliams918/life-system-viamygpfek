@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-08T14:48:21Z';
+  var PAGE_VERSION='2026-08-11T14:18:40Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -405,6 +405,9 @@ textarea{resize:vertical;min-height:52px}
 .fcbase{display:block;font-family:var(--mono);font-size:11px;color:var(--on-surface-faint);margin-top:2px}
 .fdel{color:var(--on-surface-faint);font-size:17px;cursor:pointer;line-height:1;flex:none}
 .fdel:hover{color:var(--negative)}
+.fcmodetog{display:flex;gap:6px;margin-top:9px}
+.fcmodebtn{font-family:var(--mono);font-size:11px;background:var(--surface-2);border-radius:999px;padding:5px 13px;color:var(--on-surface-dim);flex:none}
+.fcmodebtn.on{background:var(--accent);color:var(--on-accent)}
 .fcrow{display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap}
 .fclbl{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint)}
 .fcrow input{width:70px;font-family:var(--mono);font-size:13px;padding:6px 8px}
@@ -1262,7 +1265,7 @@ function resolveFoodQty(f,qty,mult){
   var factor=(num(qty)/base)*(mult===undefined?1:mult);
   return {grams:num(f.serving)*factor,calories:num(f.calories)*factor,protein:num(f.protein)*factor,carbs:num(f.carbs)*factor,fat:num(f.fat)*factor};
 }
-function foodResolved(f){return isCountableUnit(f.unit)?resolveFoodQty(f,f.tamt):resolveFood(f,f.tmac,f.tamt,1);}
+function foodResolved(f){return (isCountableUnit(f.unit)||f.mode==='have')?resolveFoodQty(f,f.tamt):resolveFood(f,f.tmac,f.tamt,1);}
 // a meal item's food may be measured in servings/scoops (quantity) or grams/oz (macro target) —
 // same branch the standalone food card already uses, now applied inside meals too
 function resolveMealItem(f,mi,mult){return f&&isCountableUnit(f.unit)?resolveFoodQty(f,mi.tamt,mult):resolveFood(f,mi.tmac,mi.tamt,mult);}
@@ -1294,10 +1297,10 @@ function foodOutQtyHtml(f){
 }
 function refreshFoodCard(id){
   var f=fFood(id);if(!f)return;
-  var countable=isCountableUnit(f.unit);
-  var el=document.getElementById('fcout-'+id);if(el)el.innerHTML=countable?foodOutQtyHtml(f):foodOutHtml(f);
+  var qtyMode=isCountableUnit(f.unit)||f.mode==='have';
+  var el=document.getElementById('fcout-'+id);if(el)el.innerHTML=qtyMode?foodOutQtyHtml(f):foodOutHtml(f);
   var u=document.getElementById('fcunit-'+id);
-  if(u)u.textContent=countable?unitLabel(num(f.tamt)||1,f.unit):((f.tmac||'protein')==='calories'?'cal':'g');
+  if(u)u.textContent=qtyMode?unitLabel(num(f.tamt)||1,f.unit):((f.tmac||'protein')==='calories'?'cal':'g');
 }
 var openItem=null; // {type:'food'|'meal', id} of the single expanded food/meal card, or null
 function isOpenItem(type,id){return !!openItem&&openItem.type===type&&openItem.id===id;}
@@ -1309,17 +1312,33 @@ function sectionHeader(key,label){
 function foodCard(f){
   var open=isOpenItem('food',f.id);
   var countable=isCountableUnit(f.unit),amt=f.tamt,inputRow;
+  var mode=f.mode==='have'?'have':'want';
+  var qtyMode=countable||mode==='have';
+  var modeTog='';
   if(countable){
     inputRow='<div class="fcrow"><span class="fclbl">Quantity</span>'
       +'<input type="number" step="any" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="1">'
       +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,f.unit))+'</span></div>';
   }else{
-    var tk=f.tmac||'protein';
-    var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
-    inputRow='<div class="fcrow"><span class="fclbl">I want</span>'
-      +'<input type="number" step="0.1" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="0">'
-      +'<span class="fcunit2" id="fcunit-'+f.id+'">'+(tk==='calories'?'cal':'g')+'</span><span class="fclbl">of</span>'
-      +'<select data-a="foodmac" data-id="'+f.id+'">'+opts+'</select></div>';
+    // weight/volume units can go either direction: dial in a macro target and get told
+    // how much to eat ("I want"), or hand over a known amount and get told its macros
+    // ("I have" — e.g. 6.5 lbs of meal-prepped chicken breast)
+    modeTog='<div class="fcmodetog">'
+      +'<button type="button" class="fcmodebtn'+(mode==='want'?' on':'')+'" data-a="foodmode" data-id="'+f.id+'" data-mode="want">I want</button>'
+      +'<button type="button" class="fcmodebtn'+(mode==='have'?' on':'')+'" data-a="foodmode" data-id="'+f.id+'" data-mode="have">I have</button>'
+      +'</div>';
+    if(mode==='have'){
+      inputRow='<div class="fcrow"><span class="fclbl">I have</span>'
+        +'<input type="number" step="any" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="0">'
+        +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,f.unit))+'</span></div>';
+    }else{
+      var tk=f.tmac||'protein';
+      var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
+      inputRow='<div class="fcrow"><span class="fclbl">I want</span>'
+        +'<input type="number" step="0.1" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="0">'
+        +'<span class="fcunit2" id="fcunit-'+f.id+'">'+(tk==='calories'?'cal':'g')+'</span><span class="fclbl">of</span>'
+        +'<select data-a="foodmac" data-id="'+f.id+'">'+opts+'</select></div>';
+    }
   }
   var quickAction=open
     ?'<span class="fdel" data-a="fooddel" data-id="'+f.id+'">×</span>'
@@ -1328,8 +1347,8 @@ function foodCard(f){
     +(open?'':'<span class="fcmini">'+num(f.calories)+' cal</span>')
     +quickAction+'</div>';
   var body=open?('<span class="fcbase">Measure '+esc(fmtQty(num(f.serving),f.unit))+' — '+num(f.protein)+'P / '+num(f.carbs)+'C / '+num(f.fat)+'F · '+num(f.calories)+'cal</span>'
-    +inputRow
-    +'<div id="fcout-'+f.id+'">'+(countable?foodOutQtyHtml(f):foodOutHtml(f))+'</div>'):'';
+    +modeTog+inputRow
+    +'<div id="fcout-'+f.id+'">'+(qtyMode?foodOutQtyHtml(f):foodOutHtml(f))+'</div>'):'';
   return '<div class="fcard'+(open?' open':'')+'" data-name="'+esc(f.name.toLowerCase())+'">'+head+body+'</div>';
 }
 // meals — a bus: each item keeps its own target, the multiplier scales every output
@@ -1892,6 +1911,12 @@ app.addEventListener('click',function(e){
   else if(a==='foodadd'){addFood();}
   else if(a==='scanbarcode'){openScanner();}
   else if(a==='togglefood'){openItem=isOpenItem('food',t.dataset.id)?null:{type:'food',id:t.dataset.id};render();}
+  else if(a==='foodmode'){
+    var fmd=fFood(t.dataset.id);
+    // the number typed under the old mode means something different under the new one
+    // (grams needed vs. grams on hand) — clear it rather than carry over a stale value
+    if(fmd&&fmd.mode!==t.dataset.mode){fmd.mode=t.dataset.mode;fmd.tamt='';save();render();}
+  }
   else if(a==='foodquicklog'){
     var fq=fFood(t.dataset.id);
     // nothing dialed in yet (fresh food, tamt never set) — open it instead of
