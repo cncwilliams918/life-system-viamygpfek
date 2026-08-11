@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-11T17:57:28Z';
+  var PAGE_VERSION='2026-08-11T18:04:23Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -169,6 +169,10 @@ textarea{resize:vertical;min-height:52px}
 .gtag{font-family:var(--mono);font-size:11px;color:var(--ac);margin-top:3px;line-height:1.4;cursor:text}
 .gtag.empty{color:var(--on-surface-faint)}
 .gcard .rtnote{margin-top:12px}
+.gmetricadd{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.gmetricadd input{flex:1;min-width:90px;font-family:var(--mono);font-size:13px;padding:6px 8px}
+.gmetricadd input[type="date"]{flex:none;width:auto}
+.gmetricadd button{font-family:var(--mono);font-size:12px;background:var(--surface-2);border-radius:12px;padding:0 13px;color:var(--on-surface-dim);white-space:nowrap;flex:none}
 .grts{margin-top:13px;padding-top:11px;font-family:var(--mono);font-size:11.5px;color:var(--on-surface-dim);line-height:1.8}
 .grts .grtl{display:block;color:var(--on-surface-faint);letter-spacing:.12em;text-transform:uppercase;font-size:10px;margin-bottom:4px}
 .grts .grtn{color:var(--on-surface-faint)}
@@ -750,6 +754,36 @@ function settingsHtml(){
 function routineRow(r){
   return '<div class="rchk"><span class="rdot">◆</span><span class="rname">'+esc(r.title)+'</span></div>';
 }
+// generic metric — any goal can track a number over time toward a target,
+// independent of what domain it's in (net worth, bodyfat%, books read…).
+// Reuses metricChart(), the same generic chart Health's weight/calorie/
+// protein trends already use.
+function goalMetricHtml(g){
+  if(!g.metric){
+    return '<div class="ph"><h3>Metric</h3></div>'
+      +'<div class="gmetricadd">'
+      +'<input data-a="gmnew" data-f="unit" placeholder="Unit — lb, $, books…">'
+      +'<input type="number" step="any" data-a="gmnew" data-f="target" placeholder="Target">'
+      +'<input type="date" data-a="gmnew" data-f="targetDate">'
+      +'<button type="button" data-a="addgmetric" data-g="'+g.id+'">'+PLUS_ICON+' Add a metric</button>'
+      +'</div>';
+  }
+  var m=g.metric;
+  var entries=(m.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
+  var latest=entries[0];
+  var cur=latest?num(latest.value):null;
+  var target=num(m.target);
+  var unit=m.unit?' '+m.unit:'';
+  var delta=cur!==null?target-cur:null;
+  var readout='<div class="statrow">'
+    +'<div class="stat neu"><div class="sl">Current</div><div class="sv">'+(cur!==null?trimNum(cur)+unit:'—')+'</div></div>'
+    +'<div class="stat neu"><div class="sl">Target</div><div class="sv">'+trimNum(target)+unit+(m.targetDate?' by '+fmtShort(m.targetDate):'')+'</div></div>'
+    +(delta!==null?'<div class="stat '+(delta<=0?'good':'neu')+'"><div class="sl">To target</div><div class="sv">'+(delta>0?trimNum(delta)+unit+' to go':'reached')+'</div></div>':'')
+    +'</div>';
+  var chart=metricChart(entries,'value','var(--accent)',unit,'a reading');
+  var logRow='<div class="fcrow"><span class="fclbl">Log</span><input type="number" step="any" data-a="gmlog" placeholder="'+(m.unit?esc(m.unit):'value')+'"><button type="button" data-a="gmetriclogbtn" data-g="'+g.id+'">'+PLUS_ICON+' Log</button><span class="fdel" data-a="delgmetric" data-g="'+g.id+'" title="Remove this metric">×</span></div>';
+  return '<div class="ph"><h3>Metric</h3></div>'+readout+chart+logRow;
+}
 function buildTree(){
   var gc=state.goals.map(function(g){
     var ac='--ac:'+av(g.accent);
@@ -765,6 +799,7 @@ function buildTree(){
     var rl='<div class="grts"><span class="grtl">Routines</span>'+(arts.length?'<div class="rchklist">'+arts.map(routineRow).join('')+'</div>':'<span class="grtn">none active</span>')+'</div>';
     return '<div class="gcard" style="'+ac+'"><div style="display:flex;align-items:flex-start;gap:8px">'+te+'</div>'+tage
       +'<textarea class="rtnote" data-a="cnote" data-g="'+g.id+'" placeholder="What this goal is about…">'+esc(g.note||'')+'</textarea>'
+      +goalMetricHtml(g)
       +'<div class="ph"><h3>To-dos</h3><span class="pc">'+pc+'</span></div>'
       +'<div class="tdwrap"><div class="tdadd" style="grid-template-columns:1fr auto"><input placeholder="Add a to-do…" data-a="tdnew"><button data-a="tdaddbtn" data-g="'+g.id+'">'+PLUS_ICON+' Add</button></div>'+td+'</div>'
       +rl+'<button class="gdel" data-a="dg" data-g="'+g.id+'">delete goal</button></div>';
@@ -1698,6 +1733,24 @@ app.addEventListener('click',function(e){
   else if(a==='tdedit'){state.editing='td:'+t.dataset.id;render();}
   else if(a==='tdaddbtn'){addTodo(t.closest('.tdadd'));}
   else if(a==='dg'){state.goals=state.goals.filter(function(g){return g.id!==t.dataset.g;});save();render();}
+  else if(a==='addgmetric'){
+    var gm=fG(t.dataset.g),card=t.closest('.gcard');
+    if(gm&&card){
+      var get=function(f){var el=card.querySelector('[data-a="gmnew"][data-f="'+f+'"]');return el?el.value:'';};
+      var target=num(get('target'));
+      if(target){gm.metric={unit:get('unit').trim(),target:target,targetDate:get('targetDate')||'',entries:[]};save();render();}
+    }
+  }
+  else if(a==='delgmetric'){var gdm=fG(t.dataset.g);if(gdm){delete gdm.metric;save();render();}}
+  else if(a==='gmetriclogbtn'){
+    var glm=fG(t.dataset.g),lcard=t.closest('.gcard');
+    var lin=lcard&&lcard.querySelector('[data-a="gmlog"]');
+    if(glm&&glm.metric&&lin&&lin.value!==''){
+      glm.metric.entries=glm.metric.entries||[];
+      glm.metric.entries.push({id:uid(),date:todayStr(),value:num(lin.value)});
+      save();render();
+    }
+  }
   else if(a==='ag'){var used=state.goals.map(function(g){return g.accent;});var ac2=ACCENTS.filter(function(x){return used.indexOf(x)<0;})[0]||ACCENTS[state.goals.length%ACCENTS.length];state.goals.push({id:'g_'+uid(),accent:ac2,tag:'',title:'New goal',note:''});save();render();}
   else if(a==='rta'){var r2=fR(t.dataset.id);r2.active=(r2.active===false);save();render();}
   else if(a==='ertn'){state.editing='rt:'+t.dataset.id;render();}
