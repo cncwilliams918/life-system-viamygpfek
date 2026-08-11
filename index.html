@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-11T16:05:06Z';
+  var PAGE_VERSION='2026-08-11T17:43:49Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -352,41 +352,14 @@ textarea{resize:vertical;min-height:52px}
 .lever b{color:var(--accent);font-family:var(--mono);font-size:12px}
 @media(max-width:680px){.fgrid,.statrow{grid-template-columns:1fr}}
 @media(max-width:680px){.goals{grid-template-columns:1fr}.arow{grid-template-columns:1fr 1fr}.arow .adel{grid-column:2;justify-self:end}.appadd,.rtadd{grid-template-columns:1fr 1fr}}
-/* reward summary + routine check-ins (Goals tab) */
-.trksum{border-radius:20px;background:var(--surface);padding:16px;margin-top:14px}
-.lvlrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.lvltag{font-family:var(--mono);font-size:12px;color:var(--on-surface);border-radius:999px;padding:4px 10px;background:var(--surface-2)}
-.xpbar{flex:1;min-width:120px;height:8px;border-radius:999px;background:var(--surface-wash);overflow:hidden}
-.xpfill{height:100%;background:var(--accent)}
-.xptxt{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint)}
-.beststreak{margin-top:10px;font-size:13px;color:var(--on-surface-dim)}
-.beststreak.faint{color:var(--on-surface-faint)}
-.beststreak b{color:var(--on-surface)}
-.perfectday{margin-top:10px;font-size:13px;color:var(--accent-2)}
+/* routine list under a goal (Goals tab) */
 .rchklist{display:flex;flex-direction:column;gap:6px;margin-top:6px}
 .rchk{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--on-surface-dim)}
 .rname{flex:1;color:var(--on-surface);font-size:12.5px}
-.rstreak{color:var(--accent-2);font-size:11px}
-.rstreak.risk{color:var(--negative)}
-.rchkbtn{font-size:11px;background:var(--surface-2);border-radius:999px;padding:5px 12px;color:var(--ac);white-space:nowrap}
-.rchkbtn.done{background:var(--ac);color:var(--on-accent)}
-.rchkbtn.pending,.rchkbtn.off{background:var(--surface-3);color:var(--on-surface-faint);cursor:default}
-.rchkbtn:disabled{opacity:.7}
-.rchkbtn.risk{color:var(--negative)}
-.diffrow{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:10px 0 8px}
-.rtdifflbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
-.diffdots{display:flex;gap:5px}
-.diffdot{width:13px;height:13px;border-radius:50%;background:var(--surface-3);padding:0}
-.diffdot.on{background:var(--ac)}
 /* health */
 .wchart{margin-top:14px;border-radius:20px;padding:14px 16px 6px;background:var(--surface)}
 .wchart.empty{font-family:var(--mono);font-size:12px;color:var(--on-surface-faint);padding:24px;text-align:center;border-radius:20px;background:var(--surface);margin-top:14px}
 /* stats page */
-.lblist{display:flex;flex-direction:column;gap:6px}
-.lbrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;background:var(--surface-2)}
-.lbname{font-size:14px;color:var(--on-surface);flex:1;min-width:0;overflow-wrap:anywhere}
-.lbcur{font-family:var(--mono);font-size:12.5px;color:var(--accent);flex:none}
-.lbbest{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint);flex:none}
 .fiprogbar{height:14px;border-radius:999px;background:var(--surface-2);overflow:hidden}
 .fiprogfill{height:100%;background:var(--accent);border-radius:999px}
 .fiproglbl{margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--on-surface-dim)}
@@ -548,7 +521,7 @@ function av(a){return'var(--'+(ACCENT_VAR[a]||a)+')';}
 function fmtT(t){if(!t)return'';var p=String(t).split(':');var h=parseInt(p[0]),m=parseInt(p[1]||0);var ap=h>=12?'pm':'am';var hh=h%12||12;return hh+(m?':'+String(m).padStart(2,'0'):'')+ap;}
 function t2h(t){if(!t)return 0;var p=String(t).split(':');return parseInt(p[0])+(parseInt(p[1]||0)/60);}
 
-function blankState(){return {goals:[],routines:[],todos:[],todoOpenDays:[],finance:{spend:0,assets:0,income:[],expenses:[]}};}
+function blankState(){return {goals:[],routines:[],todos:[],finance:{spend:0,assets:0,income:[],expenses:[]}};}
 var SEED=blankState();
 
 var state=null;
@@ -585,12 +558,12 @@ function fixState(d){
     if(r.qty===undefined){r.qty=r.grams===undefined?0:r.grams;r.unit=r.unit||'g';delete r.grams;}
   });
   if(d.health.targetWeight===undefined)d.health.targetWeight=200;
-  if(!d.todoOpenDays)d.todoOpenDays=[];
+  delete d.todoOpenDays;
   if(d.trackers&&d.trackers.length){
     // one-time migration: old standalone habit trackers fold into routines so no check-in history is lost
     d.trackers.forEach(function(tr){
       d.routines=d.routines||[];
-      d.routines.push({id:'r_'+uid(),goalId:tr.goalId||null,title:tr.title,cadence:(tr.cadence||[]).length===7?'daily':(tr.cadence||[]).join('/'),active:true,note:'',blocks:(tr.cadence&&tr.cadence.length)?[{id:uid(),days:tr.cadence.slice(),start:'',end:''}]:[],dates:(tr.dates||[]).slice()});
+      d.routines.push({id:'r_'+uid(),goalId:tr.goalId||null,title:tr.title,cadence:(tr.cadence||[]).length===7?'daily':(tr.cadence||[]).join('/'),active:true,note:'',blocks:(tr.cadence&&tr.cadence.length)?[{id:uid(),days:tr.cadence.slice(),start:'',end:''}]:[]});
     });
   }
   delete d.trackers;
@@ -605,9 +578,7 @@ function fixState(d){
   (d.routines||[]).forEach(function(r){
     if(r.active===undefined)r.active=true;
     r.log=undefined; // strip old log data
-    delete r.bounds;
-    if(!r.dates)r.dates=[];
-    if(!r.difficulty||typeof r.difficulty==='string'){var _dm={easy:1,medium:3,hard:4,brutal:5};r.difficulty=_dm[r.difficulty]||3;}
+    delete r.bounds;delete r.dates;delete r.difficulty;delete r.silent;
     r.blocks=(r.blocks||[]).map(function(b){
       // migrate old single-day blocks
       if(!b.days&&b.day)b.days=[b.day];
@@ -703,105 +674,7 @@ function curSub(){var g=fG(state.view.goalId);return g&&fS2(g,state.view.subId);
 function dkey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function weekDays(){var now=new Date();now.setHours(0,0,0,0);var dy=now.getDay();var diff=dy===0?-6:1-dy;var mon=new Date(now);mon.setDate(now.getDate()+diff);var out=[];for(var i=0;i<7;i++){var d2=new Date(mon);d2.setDate(mon.getDate()+i);out.push({key:dkey(d2),lab:DAYS[i],num:d2.getDate(),today:dkey(d2)===dkey(now)});}return out;}
 
-// routine check-ins — a routine's own time blocks ARE its schedule; no separate habit concept
-function dayAbbr(d){return DAYS[(d.getDay()+6)%7];}
-function rScheduled(r,d){
-  var blocks=r.blocks||[];
-  if(!blocks.length)return true; // no fixed time block -> no day restriction, checkable any day
-  var abbr=dayAbbr(d);
-  return blocks.some(function(b){return (b.days||[]).indexOf(abbr)>-1;});
-}
-function blockWindowPassed(b,nowH){
-  if(!b.start||!b.end)return true;
-  var sh=t2h(b.start),eh=t2h(b.end);
-  if(eh<=sh)return nowH>=sh; // overnight block (e.g. sleep) — "possible" once it begins
-  return nowH>=eh; // same-day block — only possible once the window has actually elapsed
-}
-function checkinGate(r){
-  // 'open' = can check in now, 'pending' = scheduled today but window hasn't happened yet, 'off' = not scheduled today
-  var blocks=r.blocks||[];
-  if(!blocks.length)return 'open';
-  var abbr=dayAbbr(todayDate());
-  var todays=blocks.filter(function(b){return (b.days||[]).indexOf(abbr)>-1;});
-  if(!todays.length)return 'off';
-  var now=new Date();var nowH=now.getHours()+now.getMinutes()/60;
-  return todays.some(function(b){return blockWindowPassed(b,nowH);})?'open':'pending';
-}
-function nextWindowLabel(r){
-  var abbr=dayAbbr(todayDate());
-  var now=new Date();var nowH=now.getHours()+now.getMinutes()/60;
-  var upcoming=(r.blocks||[]).filter(function(b){return (b.days||[]).indexOf(abbr)>-1;})
-    .map(function(b){var sh=t2h(b.start),eh=t2h(b.end);return eh<=sh?sh:eh;})
-    .filter(function(h){return h>nowH;}).sort(function(a,b){return a-b;});
-  if(!upcoming.length)return 'later';
-  var h=Math.floor(upcoming[0]),m=Math.round((upcoming[0]%1)*60);
-  return 'opens '+fmtT(String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'));
-}
-function rStreak(r){
-  var set={};(r.dates||[]).forEach(function(x){set[x]=true;});
-  var streak=0,cur=todayDate();
-  for(var i=0;i<400;i++){
-    var key=dkey(cur);
-    if(rScheduled(r,cur)){
-      if(set[key])streak++;
-      else if(i>0)break;
-    }
-    cur.setDate(cur.getDate()-1);
-  }
-  return streak;
-}
-function rLongest(r){
-  var now=rStreak(r);
-  if(!r.dates||!r.dates.length)return now;
-  var set={};r.dates.forEach(function(x){set[x]=true;});
-  var sorted=r.dates.slice().sort();
-  var d=dateOnly(sorted[0]),end=todayDate();
-  if(!d)return now;
-  var best=0,cur=0,guard=0;
-  while(d<=end&&guard<2000){
-    if(rScheduled(r,d)){
-      if(set[dkey(d)]){cur++;if(cur>best)best=cur;}
-      else cur=0;
-    }
-    d.setDate(d.getDate()+1);guard++;
-  }
-  return Math.max(best,now);
-}
-var DIFF=[{level:1,xp:10},{level:2,xp:20},{level:3,xp:30},{level:4,xp:40},{level:5,xp:50}];
-function diffInfo(level){return DIFF.filter(function(d){return d.level===level;})[0]||DIFF[2];}
-function perfectDays(){
-  // a date is "perfect" when every currently-active, tracked routine scheduled that day was
-  // checked in — silent routines don't require a check-in, so they're excluded here too
-  var routines=(state.routines||[]).filter(function(r){return r.active!==false&&!r.silent;});
-  if(!routines.length)return [];
-  var dateSet={};
-  routines.forEach(function(r){(r.dates||[]).forEach(function(dt){dateSet[dt]=true;});});
-  return Object.keys(dateSet).filter(function(dt){
-    var d=dateOnly(dt);if(!d)return false;
-    var scheduled=routines.filter(function(r){return rScheduled(r,d);});
-    if(!scheduled.length)return false;
-    return scheduled.every(function(r){return (r.dates||[]).indexOf(dt)>-1;});
-  });
-}
-var PERFECT_DAY_XP=25;
-var TODO_OPEN_XP=1,TODO_CREATE_XP=1,TODO_DONE_XP=3;
-function totalXP(){
-  var x=0;
-  (state.routines||[]).forEach(function(r){
-    var di=diffInfo(r.difficulty);
-    x+=(r.dates||[]).length*di.xp+rLongest(r)*Math.round(di.xp*0.2);
-  });
-  x+=perfectDays().length*PERFECT_DAY_XP;
-  x+=(state.todos||[]).length*TODO_CREATE_XP;
-  x+=(state.todos||[]).filter(function(t){return t.done;}).length*TODO_DONE_XP;
-  x+=(state.todoOpenDays||[]).length*TODO_OPEN_XP;
-  return x;
-}
-function levelInfo(){
-  var xp=totalXP(),lvl=1,need=50;
-  while(xp>=need){xp-=need;lvl++;need=50*lvl;}
-  return {level:lvl,into:xp,need:need};
-}
+// routines are pure schedule blocks — no check-in/streak/XP concept
 function render(){
   var html=tabbar();
   if(state.tab==='routines')html+=buildRt();
@@ -865,40 +738,18 @@ function settingsHtml(){
     +'<div class="settingsnote">Sound and volume control the button pop — everything else here is still cosmetic.</div>'
     +'<div class="setrow"><div class="setlbl"><span>Theme</span><small>How the app looks</small></div>'
     +'<select data-a="setfield" data-k="theme"><option value="system"'+(s.theme==='system'||!s.theme?' selected':'')+'>System</option><option value="light"'+(s.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(s.theme==='dark'?' selected':'')+'>Dark</option></select></div>'
-    +'<div class="setrow"><div class="setlbl"><span>Volume</span><small>Check-in and reward sounds</small></div>'
+    +'<div class="setrow"><div class="setlbl"><span>Volume</span><small>Button-press sound</small></div>'
     +'<input class="setrange" type="range" min="0" max="100" value="'+(s.volume==null?70:s.volume)+'" data-a="setrange" data-k="volume"></div>'
     +swtch(s.sound!==false,'Sound effects','Pop on every button press','sound')
     +swtch(!!s.haptics,'Haptics','Vibrate on key actions','haptics')
-    +swtch(!!s.notifications,'Notifications','Daily reminder to check in','notifications')
+    +swtch(!!s.notifications,'Notifications','Daily reminder to open the app','notifications')
     +swtch(s.reduceMotion,'Reduce motion','Fewer transitions and animations','reduceMotion')
     +data
     +'</div></div>';
 }
 
-function routineCheckRow(r){
-  var streak=rStreak(r);
-  var done=(r.dates||[]).indexOf(dkey(todayDate()))>-1;
-  var gate=done?'open':checkinGate(r);
-  var atRisk=!done&&gate==='open'&&streak>0;
-  var label,cls,disabled='';
-  if(done){label='✓ Checked in';cls='done';}
-  else if(gate==='open'){label=atRisk?'Check in — save streak':'Check in';cls=atRisk?'risk':'';}
-  else if(gate==='pending'){label=nextWindowLabel(r);cls='pending';disabled=' disabled';}
-  else{label='Not today';cls='off';disabled=' disabled';}
-  return '<div class="rchk'+(done?' done':'')+(atRisk?' risk':'')+'"><span class="rdot">◆</span><span class="rname">'+esc(r.title)+'</span>'
-    +(streak>0?'<span class="rstreak'+(atRisk?' risk':'')+'">🔥'+streak+'</span>':'')
-    +'<button class="rchkbtn '+cls+'" data-a="rtog" data-id="'+r.id+'"'+disabled+'>'+label+'</button></div>';
-}
-function rewardSummaryHtml(){
-  var lv=levelInfo();
-  var bestStreak=0,bestTitle='';
-  state.routines.forEach(function(r){if(r.active===false||r.silent)return;var s=rStreak(r);if(s>bestStreak){bestStreak=s;bestTitle=r.title;}});
-  var pct=Math.round(lv.into/lv.need*100);
-  var perfectToday=perfectDays().indexOf(dkey(todayDate()))>-1;
-  return '<div class="trksum"><div class="lvlrow"><span class="lvltag">Level '+lv.level+'</span><div class="xpbar"><div class="xpfill" style="width:'+pct+'%"></div></div><span class="xptxt">'+lv.into+' / '+lv.need+' XP</span></div>'
-    +(bestStreak?'<div class="beststreak">🔥 Best active streak — <b>'+esc(bestTitle)+'</b> · '+bestStreak+' day'+(bestStreak===1?'':'s')+'</div>':'<div class="beststreak faint">No active streaks yet — check in on a routine below to start one.</div>')
-    +(perfectToday?'<div class="perfectday">🌟 Perfect day — every routine checked in. Bonus XP banked.</div>':'')
-    +'</div>';
+function routineRow(r){
+  return '<div class="rchk"><span class="rdot">◆</span><span class="rname">'+esc(r.title)+'</span></div>';
 }
 function buildTree(){
   var gc=state.goals.map(function(g){
@@ -906,14 +757,13 @@ function buildTree(){
     var te=state.editing==='g:'+g.id?'<input class="gtitle" data-e="1" data-a="cgt" data-g="'+g.id+'" value="'+esc(g.title)+'">':'<div class="gtitle" data-a="egt" data-g="'+g.id+'">'+esc(g.title)+'</div>';
     var sl=g.subgoals.map(function(s){var _td=todosFor(s.id);var dn=_td.filter(function(x){return x.done;}).length;var gl=s.ref?'◧ ':'';
       return '<li class="sitem" data-a="open" data-g="'+g.id+'" data-s="'+s.id+'"><span class="sdot"></span><span class="sname"><span class="sglyph">'+gl+'</span>'+esc(s.title)+'</span><span class="scnt">'+dn+'/'+_td.length+'</span></li>';}).join('');
-    var arts=state.routines.filter(function(r){return r.active!==false&&!r.silent&&r.goalId===g.id;});
-    var rl='<div class="grts"><span class="grtl">Routines</span>'+(arts.length?'<div class="rchklist">'+arts.map(routineCheckRow).join('')+'</div>':'<span class="grtn">none active</span>')+'</div>';
+    var arts=state.routines.filter(function(r){return r.active!==false&&r.goalId===g.id;});
+    var rl='<div class="grts"><span class="grtl">Routines</span>'+(arts.length?'<div class="rchklist">'+arts.map(routineRow).join('')+'</div>':'<span class="grtn">none active</span>')+'</div>';
     return '<div class="gcard" style="'+ac+'"><div style="display:flex;align-items:flex-start;gap:8px">'+te+'</div><div class="gtag">'+esc(g.tag||'')+'</div><div class="gbarl">'+g.subgoals.length+' subgoals</div><ul class="sublist">'+sl+'</ul>'+rl+'<div class="addrow"><input placeholder="New subgoal…" data-a="subi" data-g="'+g.id+'"><button data-a="subb" data-g="'+g.id+'">'+PLUS_ICON+' Add</button></div><button class="gdel" data-a="dg" data-g="'+g.id+'">delete goal</button></div>';
   }).join('');
-  var unassigned=state.routines.filter(function(r){return r.active!==false&&!r.silent&&!r.goalId;});
-  var un=unassigned.length?'<div class="ph"><h3>Other routines</h3></div><div class="rchklist">'+unassigned.map(routineCheckRow).join('')+'</div>':'';
+  var unassigned=state.routines.filter(function(r){return r.active!==false&&!r.goalId;});
+  var un=unassigned.length?'<div class="ph"><h3>Other routines</h3></div><div class="rchklist">'+unassigned.map(routineRow).join('')+'</div>':'';
   return '<div class="hrow"><h1>Goals</h1><button class="addbtn" data-a="ag">'+PLUS_ICON+' Add goal</button></div>'
-    +'<div id="reward-summary">'+rewardSummaryHtml()+'</div>'
     +'<div class="goals">'+gc+'</div>'+un;
 }
 
@@ -939,8 +789,6 @@ function buildRt(){
     var srvSel='<select class="rtsrvsel" data-a="rtgoal" data-id="'+r.id+'"><option value="">\u2014 unassigned \u2014</option>'+state.goals.map(function(gg){return '<option value="'+gg.id+'"'+(gg.id===r.goalId?' selected':'')+'>'+esc(gg.title)+'</option>';}).join('')+'</select>';
     var te=state.editing==='rt:'+r.id?'<input class="rttitle" data-e="1" data-a="crtn" data-id="'+r.id+'" value="'+esc(r.title)+'" style="max-width:200px">':'<span class="rttitle" data-a="ertn" data-id="'+r.id+'">'+esc(r.title)+'</span>';
     var ce=state.editing==='rc:'+r.id?'<input class="rtcad" data-e="1" data-a="crcd" data-id="'+r.id+'" style="max-width:120px" value="'+esc(r.cadence)+'">':'<span class="rtcad" data-a="ercd" data-id="'+r.id+'">'+esc(r.cadence)+'</span>';
-    var diffLvl=r.difficulty||3;
-    var diffDots='<div class="diffrow"><span class="rtdifflbl">Difficulty</span><div class="diffdots">'+DIFF.map(function(d){return '<button class="diffdot'+(d.level<=diffLvl?' on':'')+'" data-a="rtdiff" data-id="'+r.id+'" data-lvl="'+d.level+'" title="Level '+d.level+' — '+d.xp+' XP per check-in"></button>';}).join('')+'</div></div>';
     var rf=r.ref?'<div class="rtref">◧ Program: '+esc(r.ref)+'</div>':'';
     var blocks=r.blocks&&r.blocks.length?r.blocks:[];
     var bhtml=blocks.map(function(b){
@@ -952,11 +800,7 @@ function buildRt(){
         +'<span class="bdel2" data-a="delblock2" data-rid="'+r.id+'" data-bid="'+b.id+'">\u00d7</span></div>';
     }).join('');
     var badd='<button class="blockaddbtn" data-a="addblock2" data-rid="'+r.id+'">'+PLUS_ICON+' Add block</button>';
-    // silent = still holds its slot on the calendar, but stops asking for check-ins and
-    // stops earning XP — for routines that became automatic, or that were never a habit
-    // to begin with (a work shift just needs to occupy time, not be tracked)
-    var trackBtn='<button class="rtact'+(r.silent?'':' on')+'" data-a="rtsilent" data-id="'+r.id+'" title="'+(r.silent?'Just holds a spot on the calendar — no check-ins, no XP':'Shows a daily check-in on Goals and earns XP')+'">'+(r.silent?'◌ Timeblock only':'✓ Tracked')+'</button>';
-    return '<div class="rtcard'+(on?'':' inactive')+'" style="--ac:'+av(ac)+'"><div class="rttop">'+te+''+srvSel+'<button class="rtact'+(on?' on':'')+'" data-a="rta" data-id="'+r.id+'">'+(on?'● Active':'○ Inactive')+'</button>'+trackBtn+ce+'<span class="rtdel" data-a="dr" data-id="'+r.id+'">×</span></div><textarea class="rtnote" data-a="crtn2" data-id="'+r.id+'" placeholder="Protocol…">'+esc(r.note)+'</textarea>'+rf+'<div class="rtblocks"><div class="rtblabel">Time blocks</div>'+bhtml+diffDots+badd+'</div></div>';
+    return '<div class="rtcard'+(on?'':' inactive')+'" style="--ac:'+av(ac)+'"><div class="rttop">'+te+''+srvSel+'<button class="rtact'+(on?' on':'')+'" data-a="rta" data-id="'+r.id+'">'+(on?'● Active':'○ Inactive')+'</button>'+ce+'<span class="rtdel" data-a="dr" data-id="'+r.id+'">×</span></div><textarea class="rtnote" data-a="crtn2" data-id="'+r.id+'" placeholder="Protocol…">'+esc(r.note)+'</textarea>'+rf+'<div class="rtblocks"><div class="rtblabel">Time blocks</div>'+bhtml+badd+'</div></div>';
   }).join('');
   return '<div class="hrow"><h1>Timeblock</h1></div>'+buildScheduleGrid()
     +'<div class="ph"><h3>Routines</h3></div>'
@@ -1745,33 +1589,10 @@ function buildDailyLog(){
 }
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
 
-// Stats — a read-only rollup across Health/Routines/Finances. Only charts data
-// that's actually tracked over time (health entries, routine check-in dates);
-// finances has no historical record anywhere in this app, so that section
-// reads the current snapshot instead of faking a trend line.
-function checkinActivityChart(){
-  var days=30,counts={};
-  (state.routines||[]).forEach(function(r){(r.dates||[]).forEach(function(dt){counts[dt]=(counts[dt]||0)+1;});});
-  var today=todayDate(),arr=[];
-  for(var i=days-1;i>=0;i--){var d=new Date(today);d.setDate(d.getDate()-i);var k=dkey(d);arr.push({date:k,count:counts[k]||0});}
-  var max=Math.max.apply(null,arr.map(function(x){return x.count;}).concat([1]));
-  if(!arr.some(function(x){return x.count>0;}))return '<div class="wchart empty">Check in on a routine to start tracking activity.</div>';
-  var W=640,H=120,pad=4;
-  var slot=(W-pad*2)/arr.length,bw=Math.max(slot-2,1);
-  var bars=arr.map(function(x,i){
-    var bh=(x.count/max)*(H-24);
-    var bx=pad+i*slot,by=H-20-bh;
-    return '<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(bh,1).toFixed(1)+'" rx="1.5" fill="'+(x.count>0?'var(--accent)':'var(--divider)')+'"><title>'+fmtShort(x.date)+': '+x.count+' check-in'+(x.count===1?'':'s')+'</title></rect>';
-  }).join('');
-  return '<div class="wchart"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:120px">'+bars+'</svg></div>';
-}
-function streakLeaderboard(){
-  var routines=(state.routines||[]).slice().sort(function(a,b){return rLongest(b)-rLongest(a);}).slice(0,8);
-  if(!routines.length)return '<div class="tempty">No routines yet.</div>';
-  return '<div class="lblist">'+routines.map(function(r){
-    return '<div class="lbrow"><span class="lbname">'+esc(r.title)+'</span><span class="lbcur">🔥'+rStreak(r)+'</span><span class="lbbest">best '+rLongest(r)+'</span></div>';
-  }).join('')+'</div>';
-}
+// Stats — a read-only rollup across Health/Goals/Finances. Only charts data
+// that's actually tracked over time (health entries); finances has no
+// historical record anywhere in this app, so that section reads the current
+// snapshot instead of faking a trend line.
 function fiProgressHtml(assets,need){
   var pct=need>0?Math.min(100,Math.max(0,assets/need*100)):0;
   return '<div class="fiprog"><div class="fiprogbar"><div class="fiprogfill" style="width:'+pct.toFixed(1)+'%"></div></div>'
@@ -1779,7 +1600,6 @@ function fiProgressHtml(assets,need){
 }
 function buildStats(){
   var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
-  var lv=levelInfo();
   var k=calcFin();
   var assets=parseFloat(state.finance.assets)||0;
   var savingsRate=k.inc>0?Math.round((k.surplus/k.inc)*100):0;
@@ -1791,12 +1611,10 @@ function buildStats(){
     :'<div class="tempty">No health entries logged yet.</div>';
 
   var goalsSection='<div class="statrow">'
-    +'<div class="stat neu"><div class="sl">Level</div><div class="sv">'+lv.level+'</div></div>'
-    +'<div class="stat neu"><div class="sl">XP to next level</div><div class="sv">'+lv.into+' / '+lv.need+'</div></div>'
-    +'<div class="stat neu"><div class="sl">Perfect days</div><div class="sv">'+perfectDays().length+'</div></div>'
-    +'</div>'
-    +'<div class="fincard"><h3>Check-ins, last 30 days</h3>'+checkinActivityChart()+'</div>'
-    +'<div class="fincard"><h3>Streak leaderboard</h3>'+streakLeaderboard()+'</div>';
+    +'<div class="stat neu"><div class="sl">Goals</div><div class="sv">'+state.goals.length+'</div></div>'
+    +'<div class="stat neu"><div class="sl">Routines</div><div class="sv">'+state.routines.length+'</div></div>'
+    +'<div class="stat neu"><div class="sl">Open to-dos</div><div class="sv">'+(state.todos||[]).filter(function(t){return !t.done;}).length+'</div></div>'
+    +'</div>';
 
   var finSection=(k.inc>0||k.exp>0||assets>0)
     ?'<div class="statrow">'
@@ -1875,11 +1693,6 @@ app.addEventListener('click',function(e){
     state.tab=t.dataset.t;
     mobileMenuOpen=false;
     if(state.tab==='goals')state.view={page:'tree'};
-    if(state.tab==='todos'){
-      state.todoOpenDays=state.todoOpenDays||[];
-      var todayK=dkey(todayDate());
-      if(state.todoOpenDays.indexOf(todayK)<0)state.todoOpenDays.push(todayK);
-    }
     state.editing=null;save();render();
   }
   else if(a==='togglemenu'){mobileMenuOpen=!mobileMenuOpen;render();}
@@ -1900,7 +1713,6 @@ app.addEventListener('click',function(e){
   else if(a==='dg'){state.goals=state.goals.filter(function(g){return g.id!==t.dataset.g;});if(state.focus&&state.focus.goalId===t.dataset.g)state.focus=null;save();render();}
   else if(a==='ag'){var used=state.goals.map(function(g){return g.accent;});var ac2=ACCENTS.filter(function(x){return used.indexOf(x)<0;})[0]||ACCENTS[state.goals.length%ACCENTS.length];state.goals.push({id:'g_'+uid(),accent:ac2,tag:'',title:'New goal',subgoals:[]});save();render();}
   else if(a==='rta'){var r2=fR(t.dataset.id);r2.active=(r2.active===false);save();render();}
-  else if(a==='rtsilent'){var r2s=fR(t.dataset.id);if(r2s){r2s.silent=!r2s.silent;save();render();}}
   else if(a==='ertn'){state.editing='rt:'+t.dataset.id;render();}
   else if(a==='ercd'){state.editing='rc:'+t.dataset.id;render();}
   else if(a==='dr'){state.routines=state.routines.filter(function(x){return x.id!==t.dataset.id;});save();render();}
@@ -1908,17 +1720,8 @@ app.addEventListener('click',function(e){
   else if(a==='bday2'){toggleDay2(t.dataset.rid,t.dataset.bid,t.dataset.day);}
   else if(a==='addblock2'){var r4=fR(t.dataset.rid);if(r4){r4.blocks=r4.blocks||[];r4.blocks.push({id:uid(),days:[],start:'',end:''});save();render();}}
   else if(a==='delblock2'){var r5=fR(t.dataset.rid);if(r5){r5.blocks=(r5.blocks||[]).filter(function(b){return b.id!==t.dataset.bid;});save();render();}}
-  else if(a==='rtdiff'){var rd=fR(t.dataset.id);if(rd){rd.difficulty=parseInt(t.dataset.lvl,10);save();render();}}
   else if(a==='finadd'){var ky=t.dataset.t==='inc'?'income':'expenses';state.finance[ky].push({id:uid(),name:'',amt:0});save();render();}
   else if(a==='findel'){var ky2=t.dataset.t==='inc'?'income':'expenses';state.finance[ky2]=state.finance[ky2].filter(function(x){return x.id!==t.dataset.id;});save();render();}
-  else if(a==='rtog'){
-    var rc=fR(t.dataset.id);
-    if(rc){
-      var k=dkey(todayDate());rc.dates=rc.dates||[];var idx=rc.dates.indexOf(k);
-      if(idx>-1){rc.dates.splice(idx,1);save();render();}
-      else if(checkinGate(rc)==='open'){rc.dates.push(k);save();render();}
-    }
-  }
   else if(a==='hdel'){state.health.entries=(state.health.entries||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='togglesection'){openSection=openSection===t.dataset.sec?null:t.dataset.sec;render();}
   else if(a==='openfoodadd'){foodAddOpen=true;render();}
