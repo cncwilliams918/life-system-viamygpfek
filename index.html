@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-11T14:18:40Z';
+  var PAGE_VERSION='2026-08-11T14:28:25Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -477,6 +477,8 @@ textarea{resize:vertical;min-height:52px}
 .miname{font-family:var(--sans);font-size:13px;color:var(--on-surface);display:flex;align-items:baseline;gap:7px;min-width:0}
 .miqty{font-family:var(--mono);font-size:10.5px;color:var(--accent);flex:none}
 .mitarget{display:flex;align-items:center;gap:4px;min-width:0}
+.mimode{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.02em;background:var(--surface-3);border-radius:6px;padding:3px 5px;color:var(--on-surface-dim);flex:none}
+.mimode.have{background:var(--accent);color:var(--on-accent)}
 .mitarget input{width:52px;flex:none;font-family:var(--mono);font-size:11.5px;padding:3px 5px;text-align:right}
 .mitarget select{width:auto;flex:1;min-width:0;font-family:var(--mono);font-size:11px;padding:3px 4px}
 .miu{font-family:var(--mono);font-size:10px;color:var(--on-surface-faint);flex:none}
@@ -1268,7 +1270,7 @@ function resolveFoodQty(f,qty,mult){
 function foodResolved(f){return (isCountableUnit(f.unit)||f.mode==='have')?resolveFoodQty(f,f.tamt):resolveFood(f,f.tmac,f.tamt,1);}
 // a meal item's food may be measured in servings/scoops (quantity) or grams/oz (macro target) —
 // same branch the standalone food card already uses, now applied inside meals too
-function resolveMealItem(f,mi,mult){return f&&isCountableUnit(f.unit)?resolveFoodQty(f,mi.tamt,mult):resolveFood(f,mi.tmac,mi.tamt,mult);}
+function resolveMealItem(f,mi,mult){return f&&(isCountableUnit(f.unit)||mi.mode==='have')?resolveFoodQty(f,mi.tamt,mult):resolveFood(f,mi.tmac,mi.tamt,mult);}
 function foodOutHtml(f){
   var tk=f.tmac||'protein',amt=f.tamt;
   var per=num(f[tk]);
@@ -1378,9 +1380,9 @@ function refreshMeal(id){
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);
     var r=resolveMealItem(f,mi,mult);
-    var countable=f&&isCountableUnit(f.unit);
+    var qtyMode=f&&(isCountableUnit(f.unit)||mi.mode==='have');
     setTxt('miq-'+mi.id,r?fmtQty(r.grams,f.unit):'—');
-    setTxt('miu-'+mi.id,countable?unitLabel(num(mi.tamt)||1,f.unit):((mi.tmac||'protein')==='calories'?'cal':'g'));
+    setTxt('miu-'+mi.id,qtyMode?unitLabel(num(mi.tamt)||1,f.unit):((mi.tmac||'protein')==='calories'?'cal':'g'));
     setTxt('mio-'+mi.id+'-cal',r?String(Math.round(r.calories)):'—');
     setTxt('mio-'+mi.id+'-p',r?String(Math.round(r.protein*10)/10):'—');
     setTxt('mio-'+mi.id+'-c',r?String(Math.round(r.carbs*10)/10):'—');
@@ -1396,15 +1398,20 @@ function mealItemRow(m,mi){
   var f=fFood(mi.foodId);
   if(!f)return '<div class="mitem gone"><span class="miname">food deleted</span><span></span><span></span><span></span><span></span><span></span><span class="midel" data-a="midel" data-mid="'+m.id+'" data-iid="'+mi.id+'">×</span></div>';
   var countable=isCountableUnit(f.unit);
+  var mode=mi.mode==='have'?'have':'want';
+  var qtyMode=countable||mode==='have';
   var tk=mi.tmac||'protein';
   var r=resolveMealItem(f,mi,num(m.mult)||1);
+  // same "I want a target" vs "I have an amount" split as the standalone food card,
+  // just as a single tap-to-flip pill instead of two buttons — this row is too tight for both
+  var modeBtn=countable?'':'<button type="button" class="mimode'+(mode==='have'?' have':'')+'" data-a="mitemmode" data-mid="'+m.id+'" data-iid="'+mi.id+'" title="Switch between a macro target and a known amount">'+mode+'</button>';
   var target;
-  if(countable){
-    target='<span class="mitarget"><input type="number" step="any" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(mi.tamt===undefined?'':mi.tamt)+'" placeholder="1">'
+  if(qtyMode){
+    target='<span class="mitarget">'+modeBtn+'<input type="number" step="any" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(mi.tamt===undefined?'':mi.tamt)+'" placeholder="1">'
       +'<span class="miu" id="miu-'+mi.id+'">'+esc(unitLabel(num(mi.tamt)||1,f.unit))+'</span></span>';
   }else{
     var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
-    target='<span class="mitarget"><input type="number" step="0.1" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(mi.tamt===undefined?'':mi.tamt)+'" placeholder="0">'
+    target='<span class="mitarget">'+modeBtn+'<input type="number" step="0.1" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(mi.tamt===undefined?'':mi.tamt)+'" placeholder="0">'
       +'<span class="miu" id="miu-'+mi.id+'">'+(tk==='calories'?'cal':'g')+'</span>'
       +'<select data-a="mitemmac" data-mid="'+m.id+'" data-iid="'+mi.id+'">'+opts+'</select></span>';
   }
@@ -1942,6 +1949,13 @@ app.addEventListener('click',function(e){
   else if(a==='emln'){state.editing='ml:'+t.dataset.id;render();}
   else if(a==='logmeal'){logMeal(t.dataset.id);}
   else if(a==='midel'){var dm=fMeal(t.dataset.mid);if(dm){dm.items=(dm.items||[]).filter(function(x){return x.id!==t.dataset.iid;});save();render();}}
+  else if(a==='mitemmode'){
+    var mmm=fMeal(t.dataset.mid);
+    var mit2=mmm&&(mmm.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];
+    // same reset rationale as the standalone food toggle — the old number meant
+    // something different under the old mode, so don't carry it over
+    if(mit2){mit2.mode=mit2.mode==='have'?'want':'have';mit2.tamt='';save();render();}
+  }
 });
 
 function addTodo(forcedSub){
@@ -2020,7 +2034,7 @@ app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.
   }
   if(a==='mealadditem'){
     var am=fMeal(t.dataset.id),af=fFood(t.value);
-    if(am&&af){var d=defaultTarget(af);am.items=am.items||[];am.items.push({id:uid(),foodId:af.id,tmac:d.tmac,tamt:d.tamt});save();render();}
+    if(am&&af){var d=defaultTarget(af);am.items=am.items||[];am.items.push({id:uid(),foodId:af.id,tmac:d.tmac,tamt:d.tamt,mode:af.mode==='have'?'have':'want'});save();render();}
     else t.value='';
     return;
   }
