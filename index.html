@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-11T15:55:04Z';
+  var PAGE_VERSION='2026-08-11T16:05:06Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -554,6 +554,7 @@ var SEED=blankState();
 var state=null;
 function fixState(d){
   d.view=d.view||{page:'tree'};d.tab=d.tab||'goals';d.editing=null;
+  if(d.tab==='schedule')d.tab='routines'; // Weekly Schedule merged into the Timeblock tab
   if(!d.settings)d.settings={};
   if(d.settings.sound===undefined)d.settings.sound=true;
   if(!d.goals)d.goals=JSON.parse(JSON.stringify(SEED.goals));
@@ -804,7 +805,6 @@ function levelInfo(){
 function render(){
   var html=tabbar();
   if(state.tab==='routines')html+=buildRt();
-  else if(state.tab==='schedule')html+=buildSch();
   else if(state.tab==='health')html+=buildHealth();
   else if(state.tab==='money')html+=buildMoney();
   else if(state.tab==='todos')html+=buildTodos();
@@ -834,7 +834,7 @@ function applyBands(){
   });
 }
 
-var TABS=[['goals','Goals','Images/goals.png'],['todos','To-dos','Images/todos.png'],['routines','Routines','Images/routines.png'],['schedule','Weekly Schedule','Images/schedule.png'],['health','Health','Images/health.png'],['money','Finances','Images/finances.png'],['stats','Stats','Images/Stats.png']];
+var TABS=[['goals','Goals','Images/goals.png'],['todos','To-dos','Images/todos.png'],['routines','Timeblock','Images/schedule.png'],['health','Health','Images/health.png'],['money','Finances','Images/finances.png'],['stats','Stats','Images/Stats.png']];
 var mobileMenuOpen=false;
 var PLUS_ICON='<span class="plusicon"></span>';
 var SETTINGS_ICON='<svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
@@ -958,7 +958,9 @@ function buildRt(){
     var trackBtn='<button class="rtact'+(r.silent?'':' on')+'" data-a="rtsilent" data-id="'+r.id+'" title="'+(r.silent?'Just holds a spot on the calendar — no check-ins, no XP':'Shows a daily check-in on Goals and earns XP')+'">'+(r.silent?'◌ Timeblock only':'✓ Tracked')+'</button>';
     return '<div class="rtcard'+(on?'':' inactive')+'" style="--ac:'+av(ac)+'"><div class="rttop">'+te+''+srvSel+'<button class="rtact'+(on?' on':'')+'" data-a="rta" data-id="'+r.id+'">'+(on?'● Active':'○ Inactive')+'</button>'+trackBtn+ce+'<span class="rtdel" data-a="dr" data-id="'+r.id+'">×</span></div><textarea class="rtnote" data-a="crtn2" data-id="'+r.id+'" placeholder="Protocol…">'+esc(r.note)+'</textarea>'+rf+'<div class="rtblocks"><div class="rtblabel">Time blocks</div>'+bhtml+diffDots+badd+'</div></div>';
   }).join('');
-  return '<div class="hrow"><h1>Routines</h1></div><div class="rtlist">'+cards+'</div><div class="rtadd"><input data-a="rtn" placeholder="New routine…"><select data-a="rtg"><option value="">— serves… —</option>'+gOpts+'</select><button data-a="addr">'+PLUS_ICON+' Add routine</button></div>';
+  return '<div class="hrow"><h1>Timeblock</h1></div>'+buildScheduleGrid()
+    +'<div class="ph"><h3>Routines</h3></div>'
+    +'<div class="rtlist">'+cards+'</div><div class="rtadd"><input data-a="rtn" placeholder="New routine…"><select data-a="rtg"><option value="">— serves… —</option>'+gOpts+'</select><button data-a="addr">'+PLUS_ICON+' Add routine</button></div>';
 }
 
 
@@ -1130,7 +1132,7 @@ function buildTodos(){
     +'<div class="tdwrap">'+out+'</div>';
 }
 
-function buildSch(){
+function buildScheduleGrid(){
   var wk=weekDays();
   var bounds={wake:t2h(state.sleep.wake),bed:t2h(state.sleep.bed)};
   var validBounds=state.sleep.wake&&state.sleep.bed&&bounds.bed>bounds.wake;
@@ -1156,7 +1158,7 @@ function buildSch(){
     +'<label>Bed <input type="time" data-a="sleepset" data-k="bed" value="'+esc(state.sleep.bed)+'"></label>'
     +'<label>Wake <input type="time" data-a="sleepset" data-k="wake" value="'+esc(state.sleep.wake)+'"></label></div>';
   var note=validBounds?'<div class="sub2">Showing '+fmtT(state.sleep.wake)+' \u2013 '+fmtT(state.sleep.bed)+', from the sleep window above.</div>':'<div class="sub2">Sleep window above isn\u2019t set \u2014 built from active routine time blocks instead.</div>';
-  if(!all.length)return '<div class="hrow"><h1>Weekly Schedule</h1></div>'+sleepBar+note+'<div class="schgrid" style="grid-template-columns:'+cols+'"><div class="schempty">No time blocks yet.</div></div>';
+  if(!all.length)return sleepBar+note+'<div class="schgrid" style="grid-template-columns:'+cols+'"><div class="schempty">No time blocks yet.</div></div>';
   var lineBg='repeating-linear-gradient(to bottom, transparent 0px, transparent '+(PH-1)+'px, var(--divider) '+(PH-1)+'px, var(--divider) '+PH+'px)';
   var hourCol='<div class="schhours" style="height:'+H+'px;background-image:'+lineBg+'">'+(function(){var o='';for(var h=lo;h<hi;h++){o+='<div class="hlab" style="height:'+PH+'px">'+fmtT(String(h).padStart(2,'0')+':00')+'</div>';}return o;})()+'</div>';
   var dayCols=wk.map(function(d){
@@ -1171,7 +1173,7 @@ function buildSch(){
     }).join('');
     return '<div class="schday" style="height:'+H+'px;background-image:'+lineBg+'">'+inner+'</div>';
   }).join('');
-  return '<div class="hrow"><h1>Weekly Schedule</h1></div>'+sleepBar+note
+  return sleepBar+note
     +'<div class="schgrid" style="grid-template-columns:'+cols+';grid-template-rows:auto '+H+'px">'+hdr+hourCol+dayCols+'</div>';
 }
 
