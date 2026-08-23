@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-23T22:41:53Z';
+  var PAGE_VERSION='2026-08-23T22:53:30Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1036,7 +1036,10 @@ var foodDbResults=null;
 var foodDbBusy=false;
 var foodDbErr='';
 async function searchFoodDatabase(query){
-  var url='https://world.openfoodfacts.org/api/v2/search?search_terms='+encodeURIComponent(query)+'&page_size=15&fields=product_name,generic_name,brands,nutriments,serving_quantity,serving_quantity_unit';
+  // the v2 API's search_terms param doesn't actually filter (confirmed: it returns
+  // near-identical "results" for any query, matching or not) — only this legacy
+  // endpoint does real full-text search.
+  var url='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(query)+'&search_simple=1&action=process&json=1&page_size=15&fields=product_name,generic_name,brands,nutriments,serving_quantity,serving_quantity_unit';
   var res=await fetch(url);
   if(!res.ok)throw new Error('search failed');
   var data=await res.json();
