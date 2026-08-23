@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-23T22:29:52Z';
+  var PAGE_VERSION='2026-08-23T22:33:59Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -214,6 +214,16 @@ textarea{resize:vertical;min-height:52px}
 .scanhead button:hover{color:var(--negative)}
 #reader{border-radius:16px;overflow:hidden;background:#000}
 .scanhint{font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);margin-top:10px;text-align:center}
+.fdbsearchrow{display:flex;gap:6px;margin-bottom:9px}
+.fdbsearchrow input{flex:1;font-size:13px}
+.fdbsearchrow button{font-family:var(--mono);font-size:12px;background:var(--surface-2);border-radius:12px;padding:0 14px;color:var(--accent);white-space:nowrap;flex:none;width:auto}
+.fdbnote{font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);padding:8px 2px;margin-bottom:9px}
+.fdbresults{display:flex;flex-direction:column;gap:5px;margin-bottom:9px;max-height:220px;overflow-y:auto}
+.fdbresult{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface-2);border-radius:12px;padding:9px 11px;text-align:left;width:100%}
+.fdbresult:hover{background:var(--surface-3)}
+.fdbname{font-size:13px;color:var(--on-surface);min-width:0;overflow-wrap:anywhere}
+.fdbbrand{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint)}
+.fdbcal{font-family:var(--mono);font-size:11px;color:var(--on-surface-dim);flex:none;white-space:nowrap}
 .foodgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
 .foodgrid label{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--on-surface-faint);display:flex;flex-direction:column;gap:4px}
 .foodgrid input,.foodgrid select{font-family:var(--mono);font-size:13px;padding:6px 8px}
@@ -924,10 +934,23 @@ function applyFoodSearch(){
     cards[ci].style.display=(!q||nm.indexOf(q)>-1)?'':'none';
   }
 }
+function foodDbResultsHtml(){
+  if(foodDbBusy)return '<div class="fdbnote">Searching…</div>';
+  if(foodDbErr)return '<div class="fdbnote">'+esc(foodDbErr)+'</div>';
+  if(!foodDbResults||!foodDbResults.length)return '';
+  return '<div class="fdbresults">'+foodDbResults.map(function(r,i){
+    return '<button type="button" class="fdbresult" data-a="fdbpick" data-idx="'+i+'">'
+      +'<span class="fdbname">'+esc(r.name)+(r.brand?' <span class="fdbbrand">'+esc(r.brand)+'</span>':'')+'</span>'
+      +'<span class="fdbcal">'+Math.round(r.calories)+' cal / '+esc(fmtQty(r.serving,r.unit))+'</span></button>';
+  }).join('')+'</div>';
+}
 function foodAddHtml(){
   return '<div class="settingsoverlay"><div class="settingscard wide">'
     +'<div class="settingshead"><h3>Add a food</h3><button class="settingsclose" data-a="closefoodadd">×</button></div>'
     +'<div class="foodadd">'
+    +'<div class="fdbsearchrow"><input data-a="fdbquery" placeholder="Search a food database…" value="'+esc(foodDbQuery)+'">'
+      +'<button type="button" data-a="fdbsearch"'+(foodDbBusy?' disabled':'')+'>'+(foodDbBusy?'…':'Search')+'</button></div>'
+    +foodDbResultsHtml()
     +'<button type="button" class="scanbtn" data-a="scanbarcode">📷 Scan barcode</button>'
     +'<input data-a="fnew" data-f="name" placeholder="Food name">'
     +'<div class="foodgrid">'
@@ -963,16 +986,12 @@ function addFood(){
   openSection='foods';
   save();render();
 }
-// barcode scanner — runs outside the normal render() cycle (it manages its own
-// overlay+camera element directly) since a re-render would tear down the video
-// feed mid-scan. Nutrition lookup uses Open Food Facts, no key required.
-async function lookupBarcode(code){
-  var res=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json');
-  if(!res.ok)throw new Error('lookup failed');
-  var data=await res.json();
-  if(data.status!==1||!data.product)return null;
-  var p=data.product,n=p.nutriments||{};
-  var name=p.product_name||p.generic_name||('Product '+code);
+// Open Food Facts is the single nutrition data source, no key required —
+// used for barcode lookups and, now, text search. Both funnel through this
+// one parser so a search result and a scanned product resolve identically.
+function parseOFFProduct(p,fallbackName){
+  var n=p.nutriments||{};
+  var name=p.product_name||p.generic_name||fallbackName;
   var servingG=parseFloat(p.serving_quantity);
   // serving_quantity isn't always grams — drinks report it in ml (e.g. Monster: 500 "ml"), and
   // treating that as grams produced nonsense like "473.176g". Only trust it when explicitly grams.
@@ -1000,6 +1019,49 @@ async function lookupBarcode(code){
   // only 100g data, no serving info at all — same idea, present as 1 serving rather than a specific gram guess
   return {name:name,serving:1,unit:'serving',
     calories:Math.round(num(n['energy-kcal_100g'])),protein:num(n.proteins_100g),carbs:num(n.carbohydrates_100g),fat:num(n.fat_100g)};
+}
+// barcode scanner — runs outside the normal render() cycle (it manages its own
+// overlay+camera element directly) since a re-render would tear down the video
+// feed mid-scan.
+async function lookupBarcode(code){
+  var res=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json');
+  if(!res.ok)throw new Error('lookup failed');
+  var data=await res.json();
+  if(data.status!==1||!data.product)return null;
+  return parseOFFProduct(data.product,'Product '+code);
+}
+// text search — the fast alternative to scanning: type a name, pick from
+// real results, same fill-then-review flow as a barcode hit.
+var foodDbQuery='';
+var foodDbResults=null;
+var foodDbBusy=false;
+var foodDbErr='';
+async function searchFoodDatabase(query){
+  var url='https://world.openfoodfacts.org/api/v2/search?search_terms='+encodeURIComponent(query)+'&page_size=15&fields=product_name,generic_name,brands,nutriments,serving_quantity,serving_quantity_unit';
+  var res=await fetch(url);
+  if(!res.ok)throw new Error('search failed');
+  var data=await res.json();
+  var products=data.products||[];
+  var out=[];
+  products.forEach(function(p){
+    var info=parseOFFProduct(p,p.product_name||'Unnamed product');
+    if(info){info.brand=p.brands||'';out.push(info);}
+  });
+  return out;
+}
+function resetFoodDb(){foodDbQuery='';foodDbResults=null;foodDbBusy=false;foodDbErr='';}
+async function runFoodDbSearch(){
+  var q=foodDbQuery.trim();
+  if(!q||foodDbBusy)return;
+  foodDbBusy=true;foodDbErr='';render();
+  try{
+    foodDbResults=await searchFoodDatabase(q);
+    if(!foodDbResults.length)foodDbErr='No matches — try a different search, or enter it manually below.';
+  }catch(e){
+    foodDbResults=null;
+    foodDbErr='Search failed — check your connection and try again.';
+  }
+  foodDbBusy=false;render();
 }
 function fillFoodForm(info){
   var set=function(f,v){var el=app.querySelector('[data-a="fnew"][data-f="'+f+'"]');if(el)el.value=v;};
@@ -1145,7 +1207,7 @@ function playPop(){
 }
 app.addEventListener('click',function(e){
   if(e.target.closest('button'))playPop();
-  if(e.target.classList.contains('settingsoverlay')){settingsOpen=false;foodAddOpen=false;mealAddOpen=false;render();return;}
+  if(e.target.classList.contains('settingsoverlay')){settingsOpen=false;foodAddOpen=false;mealAddOpen=false;resetFoodDb();render();return;}
   var t=e.target.closest('[data-a]');if(!t)return;var a=t.dataset.a;
   if(a==='undo'){undoLast();return;}
   if(a==='exportdata'){exportData();return;}
@@ -1164,9 +1226,14 @@ app.addEventListener('click',function(e){
   else if(a==='hdel'){state.health.entries=(state.health.entries||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='togglesection'){openSection=openSection===t.dataset.sec?null:t.dataset.sec;render();}
   else if(a==='openfoodadd'){foodAddOpen=true;render();}
-  else if(a==='closefoodadd'){foodAddOpen=false;render();}
+  else if(a==='closefoodadd'){foodAddOpen=false;resetFoodDb();render();}
   else if(a==='foodadd'){addFood();}
   else if(a==='scanbarcode'){openScanner();}
+  else if(a==='fdbsearch'){runFoodDbSearch();}
+  else if(a==='fdbpick'){
+    var picked=foodDbResults&&foodDbResults[parseInt(t.dataset.idx,10)];
+    if(picked)fillFoodForm(picked);
+  }
   else if(a==='togglefood'){openItem=isOpenItem('food',t.dataset.id)?null:{type:'food',id:t.dataset.id};render();}
   else if(a==='foodmode'){
     var fmd=fFood(t.dataset.id);
@@ -1223,6 +1290,7 @@ app.addEventListener('keydown',function(e){var t=e.target,a=t.dataset&&t.dataset
   if(e.key==='Enter'){
     if(a==='fnew'){e.preventDefault();addFood();}
     else if(a==='mealn'){e.preventDefault();addMeal();}
+    else if(a==='fdbquery'){e.preventDefault();runFoodDbSearch();}
     else if(['tdcommit','cmln'].indexOf(a)>-1){e.preventDefault();t.blur();}
   }else if(e.key==='Escape'){state.editing=null;render();}
 });
@@ -1238,6 +1306,7 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
     if(im){var it=(im.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];if(it){it.tamt=t.value;save();refreshMeal(im.id);}}
     return;
   }
+  if(a==='fdbquery'){foodDbQuery=t.value;return;}
   if(a==='foodsearch'){
     // filter in the DOM rather than re-rendering, so typing doesn't lose focus —
     // but remember the query so a render triggered by something else (e.g.
