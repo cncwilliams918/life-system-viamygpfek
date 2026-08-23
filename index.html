@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-23T23:38:28Z';
+  var PAGE_VERSION='2026-08-23T23:47:07Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -342,6 +342,28 @@ textarea{resize:vertical;min-height:52px}
 .gcheck b{color:var(--on-surface)}
 .gcheck.off{color:var(--negative)}
 .keylink{color:var(--accent);text-decoration:underline}
+/* ── calc ── */
+.calcpresets{flex-wrap:wrap}
+.calcrow{display:grid;grid-template-columns:30px 1fr 78px 44px auto 18px;gap:8px;align-items:center;padding:8px 10px;border-radius:14px;background:var(--surface-2);margin-bottom:6px}
+.calcrow.pinned{box-shadow:inset 2px 0 0 var(--accent)}
+.pinbtn{width:26px;height:26px;border-radius:999px;font-size:12px;line-height:1;background:var(--surface-3);color:var(--on-surface-faint);flex:none;padding:0}
+.pinbtn.on{background:var(--accent-wash);color:var(--accent)}
+.calcname{font-size:13px;color:var(--on-surface);min-width:0;overflow-wrap:anywhere}
+.calcrow input{font-family:var(--mono);font-size:13px;padding:5px 7px;text-align:right}
+.calcunit{font-family:var(--mono);font-size:10.5px;color:var(--on-surface-faint)}
+.calcmac{font-family:var(--mono);font-size:10.5px;color:var(--accent);white-space:nowrap;text-align:right}
+.calcres{display:grid;grid-template-columns:1fr 62px 62px 62px;gap:8px;align-items:baseline;font-family:var(--mono);font-size:12.5px;padding:6px 2px;color:var(--on-surface)}
+.calcres>span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.calcres .calcwant{color:var(--on-surface-faint)}
+.calcres .ok{color:var(--positive)}
+.calcres .off{color:var(--negative)}
+.calcres .none{color:var(--on-surface-faint)}
+.mllog[disabled],.fincard button[disabled]{opacity:.4;cursor:default}
+@media(max-width:680px){
+  .calcrow{grid-template-columns:30px 1fr 66px 34px 18px;row-gap:4px}
+  .calcmac{grid-column:2/-1;text-align:left}
+  .calcres{grid-template-columns:1fr 54px 54px 50px;font-size:11.5px}
+}
 /* Blocks are dark green, so their text is --on-surface (the light tiers). These
    elements sit straight on the pale mint/sage ground instead, so they go dark. */
 .brand,.hrow h1,.sub2,.ph h3,.ph .sectoggle,.band .tempty{color:var(--on-ground)}
@@ -1378,10 +1400,204 @@ function buildGoals(){
     +'<div class="fld"><label>Target weight (lb)</label><input type="number" step="0.1" placeholder="185" data-a="goalfield" data-k="weight" value="'+esc(g.weight===undefined?'':g.weight)+'"></div>'
     +'</div><div id="goalwnote">'+goalWeightNoteHtml()+'</div></div>';
 }
+// ── Calc: pick a target, pick foods, get told how much of each to eat.
+// The whole point of the app — every other tracker makes you guess an amount
+// and tells you afterwards what it cost. This runs it backwards.
+var MACROS=['calories','protein','carbs','fat'];
+var MACRO_LABEL={calories:'Calories',protein:'Protein',carbs:'Carbs',fat:'Fat'};
+var calcTargets={calories:'',protein:'',carbs:'',fat:''};
+var calcRows=[];   // {id, foodId, amount, pinned}
+var calcMode='';   // which preset filled the targets, purely for button highlighting
+function calcRemaining(){
+  var g=state.health.goals||{},t=logTotals(logFor(todayStr())),out={};
+  MACROS.forEach(function(k){
+    var goal=num(g[k]);
+    out[k]=goal>0?Math.max(Math.round((goal-t[k])*10)/10,0):'';
+  });
+  return out;
+}
+function calcShareOfDay(fr){
+  var g=state.health.goals||{},out={};
+  MACROS.forEach(function(k){var goal=num(g[k]);out[k]=goal>0?Math.round(goal*fr):'';});
+  return out;
+}
+function calcFood(r){return fFood(r.foodId);}
+function calcServings(r){var f=calcFood(r);if(!f)return 0;return num(r.amount)/(num(f.serving)||1);}
+function calcRowMacros(r){
+  var f=calcFood(r);if(!f)return null;
+  var s=calcServings(r);
+  return {calories:num(f.calories)*s,protein:num(f.protein)*s,carbs:num(f.carbs)*s,fat:num(f.fat)*s};
+}
+function calcTotals(){
+  var t={calories:0,protein:0,carbs:0,fat:0};
+  calcRows.forEach(function(r){var m=calcRowMacros(r);if(m)MACROS.forEach(function(k){t[k]+=m[k];});});
+  return t;
+}
+// Non-negative least squares by projected gradient. Small enough (at most a
+// handful of foods against four macros) that a closed-form solve isn't worth
+// the code — and the projection step is what actually matters here.
+function solveCalc(){
+  var keys=MACROS.filter(function(k){return num(calcTargets[k])>0;});
+  var free=[];
+  calcRows.forEach(function(r,i){if(!r.pinned&&calcFood(r))free.push(i);});
+  if(!keys.length||!free.length)return;
+  // whatever you've already committed to comes off the target first — that's
+  // what makes "I'm having exactly this much chicken" work
+  var b=keys.map(function(k){
+    var left=num(calcTargets[k]);
+    calcRows.forEach(function(r){
+      if(!r.pinned)return;
+      var m=calcRowMacros(r);if(m)left-=m[k];
+    });
+    return left;
+  });
+  // Relative error, not absolute: calories run 10-40x the gram figures, so an
+  // unweighted fit would optimize calories and ignore the macros entirely.
+  var w=keys.map(function(k){return 1/num(calcTargets[k]);});
+  var A=keys.map(function(k,ki){
+    return free.map(function(i){return num(calcFood(calcRows[i])[k])*w[ki];});
+  });
+  var bw=b.map(function(v,ki){return v*w[ki];});
+  var n=free.length,x=[],i,j,k;
+  for(j=0;j<n;j++)x.push(0);
+  // 1/||A||_F² is a safe step size for this gradient — guaranteed to converge
+  var L=0;
+  for(k=0;k<A.length;k++)for(j=0;j<n;j++)L+=A[k][j]*A[k][j];
+  if(L<=0)return;
+  var lr=1/L;
+  for(var it=0;it<2000;it++){
+    var res=[];
+    for(k=0;k<A.length;k++){var s=0;for(j=0;j<n;j++)s+=A[k][j]*x[j];res.push(s-bw[k]);}
+    for(j=0;j<n;j++){
+      var gr=0;for(k=0;k<A.length;k++)gr+=A[k][j]*res[k];
+      x[j]=Math.max(0,x[j]-lr*gr);   // the clamp is what stops it prescribing negative rice
+    }
+  }
+  free.forEach(function(idx,jj){
+    var f=calcFood(calcRows[idx]);
+    calcRows[idx].amount=Math.round(x[jj]*num(f.serving)*100)/100;
+  });
+}
+function calcTargetCard(){
+  var presets=[['remaining','What\'s left today'],['half','½ day'],['third','⅓ day'],['quarter','¼ day']];
+  var btns=presets.map(function(p){
+    return '<button type="button" class="fcmodebtn'+(calcMode===p[0]?' on':'')+'" data-a="calcpreset" data-p="'+p[0]+'">'+p[1]+'</button>';
+  }).join('');
+  var fields=MACROS.map(function(k){
+    return '<div class="fld"><label>'+MACRO_LABEL[k]+'</label>'
+      +'<input type="number" step="any" placeholder="—" data-a="calctarget" data-k="'+k+'" value="'+esc(calcTargets[k])+'"></div>';
+  }).join('');
+  return '<div class="fincard"><h3>What do you want this to hit?</h3>'
+    +'<div class="fcmodetog calcpresets">'+btns+'</div>'
+    +'<div class="goalgrid" style="margin-top:12px">'+fields+'</div>'
+    +'<div class="gcheck">Leave a macro blank to let it land wherever it lands.</div></div>';
+}
+function calcFoodsCard(){
+  var foods=recentFoods();
+  var picker=foods.length
+    ?'<select class="miadd" data-a="calcadd"><option value="">+ Add a food…</option>'
+      +foods.map(function(f){return '<option value="'+f.id+'">'+esc(f.name)+'</option>';}).join('')+'</select>'
+    :'<div class="minofoods">Save a food first — search for one on the Log page.</div>';
+  var rows=calcRows.map(function(r){
+    var f=calcFood(r);
+    if(!f)return '';
+    var m=calcRowMacros(r);
+    return '<div class="calcrow'+(r.pinned?' pinned':'')+'">'
+      +'<button type="button" class="pinbtn'+(r.pinned?' on':'')+'" data-a="calcpin" data-id="'+r.id+'" title="'+(r.pinned?'Fixed — the rest solve around this':'Let the solver set this')+'">'+(r.pinned?'📌':'○')+'</button>'
+      +'<span class="calcname">'+esc(f.name)+'</span>'
+      +'<input type="number" step="any" data-a="calcamt" data-id="'+r.id+'" value="'+esc(r.amount===''?'':trimNum(num(r.amount)))+'">'
+      +'<span class="calcunit" id="calcunit-'+r.id+'">'+esc(unitLabel(num(r.amount)||1,f.unit))+'</span>'
+      +'<span class="calcmac" id="calcmac-'+r.id+'">'+(m?Math.round(m.calories)+' cal · '+m.protein.toFixed(1)+'P '+m.carbs.toFixed(1)+'C '+m.fat.toFixed(1)+'F':'')+'</span>'
+      +'<span class="midel" data-a="calcdel" data-id="'+r.id+'">×</span></div>';
+  }).join('');
+  return '<div class="fincard"><h3>With these foods</h3>'
+    +(rows||'<div class="tempty">Add a food and this works out how much of it you need.</div>')
+    +'<div class="mlfoot">'+picker+'</div>'
+    +(calcRows.length?'<div class="gcheck">📌 pins a food at the amount you typed — everything unpinned gets solved around it.</div>':'')
+    +'</div>';
+}
+function calcResultCard(){
+  if(!calcRows.length)return '';
+  var t=calcTotals();
+  var rows=MACROS.map(function(k){
+    var want=num(calcTargets[k]),have=t[k];
+    var d=have-want;
+    var dp=k==='calories'?0:1;
+    var cell=want>0
+      ?'<span class="'+(Math.abs(d)<=Math.max(want*0.02,k==='calories'?5:1)?'ok':'off')+'">'+(d>0?'+':'')+d.toFixed(dp)+'</span>'
+      :'<span class="none">—</span>';
+    return '<div class="calcres"><span>'+MACRO_LABEL[k]+'</span>'
+      +'<span>'+have.toFixed(dp)+'</span>'
+      +'<span class="calcwant">'+(want>0?'/ '+trimNum(want):'/ —')+'</span>'
+      +cell+'</div>';
+  }).join('');
+  var usable=calcRows.some(function(r){return calcFood(r)&&num(r.amount)>0;});
+  return '<div class="fincard"><h3>Which gets you</h3>'+rows
+    +'<div class="mlfoot">'
+    +'<button type="button" class="mllog" data-a="calclog"'+(usable?'':' disabled')+'>'+PLUS_ICON+' Log all</button>'
+    +'<button type="button" class="blockaddbtn" style="width:auto;padding:6px 15px" data-a="calcsave"'+(usable?'':' disabled')+'>Save as meal</button>'
+    +'</div></div>';
+}
 function buildCalc(){
   return '<div class="hrow"><h1>Calc</h1></div>'
-    +'<div class="fincard"><h3>Coming next</h3>'
-    +'<div class="tempty">Pick a target — what\'s left of today\'s goal, a share of it, or exact numbers — then choose foods and this works out how much of each to eat. Pin the ones you\'ve already measured and it solves the rest around them.</div></div>';
+    +'<div class="sub2">Say what you want the meal to hit, pick the foods, and it tells you how much of each — instead of measuring first and finding out after.</div>'
+    +calcTargetCard()+calcFoodsCard()+'<div id="calcresult">'+calcResultCard()+'</div>';
+}
+// Re-solve and repaint in place. A full render() here would yank focus out of
+// whichever number you're mid-way through typing.
+function refreshCalc(){
+  solveCalc();
+  var focused=document.activeElement;
+  calcRows.forEach(function(r){
+    var f=calcFood(r);if(!f)return;
+    var inp=app.querySelector('[data-a="calcamt"][data-id="'+r.id+'"]');
+    if(inp&&inp!==focused)inp.value=(r.amount===''?'':trimNum(num(r.amount)));
+    var m=calcRowMacros(r);
+    var mc=document.getElementById('calcmac-'+r.id);
+    if(mc)mc.textContent=m?Math.round(m.calories)+' cal · '+m.protein.toFixed(1)+'P '+m.carbs.toFixed(1)+'C '+m.fat.toFixed(1)+'F':'';
+    var un=document.getElementById('calcunit-'+r.id);
+    if(un)un.textContent=unitLabel(num(r.amount)||1,f.unit);
+    var pin=app.querySelector('[data-a="calcpin"][data-id="'+r.id+'"]');
+    if(pin){pin.className='pinbtn'+(r.pinned?' on':'');pin.textContent=r.pinned?'📌':'○';}
+    if(inp&&inp.parentNode)inp.parentNode.className='calcrow'+(r.pinned?' pinned':'');
+  });
+  var res=document.getElementById('calcresult');
+  if(res)res.innerHTML=calcResultCard();
+}
+function calcLogAll(){
+  var gid=uid(),any=false;
+  calcRows.forEach(function(r){
+    var f=calcFood(r),m=calcRowMacros(r);
+    if(!f||!m||num(r.amount)<=0)return;
+    state.health.log.push({id:uid(),date:todayStr(),gid:gid,meal:'Calc',name:f.name,
+      qty:Math.round(num(r.amount)*100)/100,unit:f.unit||'g',
+      calories:Math.round(m.calories),protein:Math.round(m.protein*10)/10,
+      carbs:Math.round(m.carbs*10)/10,fat:Math.round(m.fat*10)/10});
+    f.lastUsed=Date.now();
+    any=true;
+  });
+  if(!any)return;
+  calcRows=[];
+  syncTodayMacros();save();
+  page='today';render();
+}
+function calcSaveAsMeal(){
+  var name=prompt('Name this meal:');
+  if(!name||!name.trim())return;
+  var items=[];
+  calcRows.forEach(function(r){
+    var f=calcFood(r);
+    if(!f||num(r.amount)<=0)return;
+    // meals store an amount you're holding, which is exactly what Calc just worked out
+    items.push({id:uid(),foodId:f.id,mode:'have',tmac:'protein',tamt:Math.round(num(r.amount)*100)/100});
+  });
+  if(!items.length)return;
+  state.health.meals=state.health.meals||[];
+  var nm={id:uid(),name:name.trim(),mult:1,items:items};
+  state.health.meals.push(nm);
+  save();
+  page='log';logTab='meals';openItem={type:'meal',id:nm.id};
+  render();
 }
 function buildHistory(){
   var today=todayStr();
@@ -1478,6 +1694,20 @@ app.addEventListener('click',function(e){
     return;
   }
   if(a==='logtab'){logTab=t.dataset.tab;openItem=null;render();return;}
+  if(a==='calcpreset'){
+    var p=t.dataset.p;
+    calcTargets=p==='remaining'?calcRemaining():calcShareOfDay(p==='half'?0.5:p==='third'?1/3:0.25);
+    calcMode=p;
+    solveCalc();render();return;
+  }
+  if(a==='calcpin'){
+    var pr=calcRows.filter(function(x){return x.id===t.dataset.id;})[0];
+    if(pr){pr.pinned=!pr.pinned;solveCalc();render();}
+    return;
+  }
+  if(a==='calcdel'){calcRows=calcRows.filter(function(x){return x.id!==t.dataset.id;});solveCalc();render();return;}
+  if(a==='calclog'){calcLogAll();return;}
+  if(a==='calcsave'){calcSaveAsMeal();return;}
   if(a==='togglesettings'){settingsOpen=!settingsOpen;render();}
   else if(a==='closesettings'){settingsOpen=false;render();}
   else if(a==='setswtch'){var sk=t.dataset.k;state.settings[sk]=!state.settings[sk];save();render();}
@@ -1565,6 +1795,19 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
   }
   if(a==='fdbquery'){foodDbQuery=t.value;return;}
   if(a==='fdckey'){state.settings.fdcKey=t.value.trim();save();return;}
+  if(a==='calctarget'){calcTargets[t.dataset.k]=t.value===''?'':parseFloat(t.value);calcMode='';refreshCalc();return;}
+  if(a==='calcamt'){
+    var cr=calcRows.filter(function(x){return x.id===t.dataset.id;})[0];
+    // typing an amount IS the pin — you're saying you've already decided this one
+    if(cr){cr.amount=t.value===''?'':parseFloat(t.value);cr.pinned=true;refreshCalc();}
+    return;
+  }
+  if(a==='calcadd'){
+    var fid=t.value;if(!fid)return;
+    calcRows.push({id:uid(),foodId:fid,amount:'',pinned:false});
+    solveCalc();render();
+    return;
+  }
   if(a==='goalfield'){
     // refresh only the bars, not the whole page — a render() here would pull
     // focus out of the field mid-keystroke
