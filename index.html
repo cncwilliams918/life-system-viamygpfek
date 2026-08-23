@@ -12,13 +12,12 @@
 <meta name="apple-mobile-web-app-title" content="Life System">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#daf1de">
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 // meta no-cache tags aren't reliably honored by every engine (confirmed in testing) —
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-23T22:33:59Z';
+  var PAGE_VERSION='2026-08-23T22:41:53Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1070,21 +1069,40 @@ function fillFoodForm(info){
   var nameInput=app.querySelector('[data-a="fnew"][data-f="name"]');
   if(nameInput){nameInput.scrollIntoView({behavior:'smooth',block:'center'});nameInput.focus();}
 }
+// the qrcode library is a real download (barcode decoding engine) that almost
+// nobody needs every session — load it on first scan instead of on every page
+// load, and only once even if the scanner gets opened/closed/reopened.
+var scannerScriptPromise=null;
+function loadScannerScript(){
+  if(typeof Html5Qrcode!=='undefined')return Promise.resolve();
+  if(scannerScriptPromise)return scannerScriptPromise;
+  scannerScriptPromise=new Promise(function(resolve,reject){
+    var s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+    s.onload=function(){resolve();};
+    s.onerror=function(){scannerScriptPromise=null;reject(new Error('scanner script failed to load'));};
+    document.head.appendChild(s);
+  });
+  return scannerScriptPromise;
+}
 function openScanner(){
-  if(typeof Html5Qrcode==='undefined'){alert('Scanner failed to load — check your connection and try again.');return;}
-  var overlay=document.createElement('div');
-  overlay.id='scanoverlay';overlay.className='scanoverlay';
-  overlay.innerHTML='<div class="scanbox"><div class="scanhead"><span>Scan a barcode</span><button type="button" id="scancancel">×</button></div><div id="reader"></div><div class="scanhint" id="scanhint">Point your camera at the barcode.</div></div>';
-  document.body.appendChild(overlay);
-  document.getElementById('scancancel').addEventListener('click',closeScanner);
-  var qr=new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E]});
-  window.__activeScanner=qr;
-  qr.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:150}},
-    function(decodedText){onBarcodeScanned(decodedText);},
-    function(){}
-  ).catch(function(err){
-    var hint=document.getElementById('scanhint');
-    if(hint)hint.textContent='Could not access the camera — check camera permission for this site.';
+  loadScannerScript().then(function(){
+    var overlay=document.createElement('div');
+    overlay.id='scanoverlay';overlay.className='scanoverlay';
+    overlay.innerHTML='<div class="scanbox"><div class="scanhead"><span>Scan a barcode</span><button type="button" id="scancancel">×</button></div><div id="reader"></div><div class="scanhint" id="scanhint">Point your camera at the barcode.</div></div>';
+    document.body.appendChild(overlay);
+    document.getElementById('scancancel').addEventListener('click',closeScanner);
+    var qr=new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E]});
+    window.__activeScanner=qr;
+    qr.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:150}},
+      function(decodedText){onBarcodeScanned(decodedText);},
+      function(){}
+    ).catch(function(err){
+      var hint=document.getElementById('scanhint');
+      if(hint)hint.textContent='Could not access the camera — check camera permission for this site.';
+    });
+  }).catch(function(){
+    alert('Scanner failed to load — check your connection and try again.');
   });
 }
 function closeScanner(){
