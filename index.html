@@ -18,7 +18,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-23T22:23:53Z';
+  var PAGE_VERSION='2026-08-23T22:27:15Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -407,6 +407,7 @@ function fmtShort(dateStr){var d=new Date(dateStr+'T00:00:00');if(isNaN(d))retur
 function render(){
   app.innerHTML=topbar()+buildHealth();
   applyBands();
+  if(foodSearchQuery)applyFoodSearch();
   var ed=app.querySelector('[data-e="1"]');if(ed){ed.focus();if(ed.select)ed.select();}
 }
 
@@ -902,6 +903,15 @@ function buildFoodSheet(){
     +'</div>';
 }
 var foodAddOpen=false;
+var foodSearchQuery='';
+function applyFoodSearch(){
+  var q=foodSearchQuery.trim().toLowerCase();
+  var cards=app.querySelectorAll('#foodlist .fcard');
+  for(var ci=0;ci<cards.length;ci++){
+    var nm=cards[ci].getAttribute('data-name')||'';
+    cards[ci].style.display=(!q||nm.indexOf(q)>-1)?'':'none';
+  }
+}
 function foodAddHtml(){
   return '<div class="settingsoverlay"><div class="settingscard wide">'
     +'<div class="settingshead"><h3>Add a food</h3><button class="settingsclose" data-a="closefoodadd">×</button></div>'
@@ -922,7 +932,7 @@ function buildFoods(){
   var open=openSection==='foods';
   var sorted=(state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});
   var foods=sorted.map(foodCard).join('');
-  var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search foods…">':'';
+  var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search foods…" value="'+esc(foodSearchQuery)+'">':'';
   var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">'+PLUS_ICON+' Add a food</button>';
   var list=open?(search+'<div id="foodlist">'+(foods||'<div class="tempty">No foods saved yet.</div>')+'</div>'):'';
   return sectionHeader('foods','Foods')
@@ -1217,13 +1227,11 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
     return;
   }
   if(a==='foodsearch'){
-    // filter in the DOM rather than re-rendering, so typing doesn't lose focus
-    var q=t.value.trim().toLowerCase();
-    var cards=app.querySelectorAll('#foodlist .fcard');
-    for(var ci=0;ci<cards.length;ci++){
-      var nm=cards[ci].getAttribute('data-name')||'';
-      cards[ci].style.display=(!q||nm.indexOf(q)>-1)?'':'none';
-    }
+    // filter in the DOM rather than re-rendering, so typing doesn't lose focus —
+    // but remember the query so a render triggered by something else (e.g.
+    // mis-tapping a food card) restores it instead of silently clearing it
+    foodSearchQuery=t.value;
+    applyFoodSearch();
     return;
   }
   return;});
