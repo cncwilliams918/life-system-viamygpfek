@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-23T23:38:28Z';
+  var PAGE_VERSION='2026-08-23T22:53:30Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -87,8 +87,7 @@ html,body{background:var(--ground);margin:0;overflow-x:hidden;-webkit-tap-highli
    padding puts its content back on the centered column. */
 .band{margin:0 calc(50% - 50vw);padding:16px calc(50vw - 50%)}
 .band.alt{background:var(--ground-alt)}
-/* bottom padding clears the fixed .bottomnav so the last card is never trapped under it */
-#app{color:var(--on-surface);font-family:var(--sans);line-height:1.5;max-width:920px;margin:0 auto;padding:8px 16px 108px}
+#app{color:var(--on-surface);font-family:var(--sans);line-height:1.5;max-width:920px;margin:0 auto;padding:8px 16px 40px}
 #app *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 #app h1,#app h2,#app h3{margin:0;font-weight:600;letter-spacing:-.01em}
 #app p{margin:0}
@@ -306,42 +305,6 @@ textarea{resize:vertical;min-height:52px}
 .piecap{font-size:11.5px;color:var(--on-surface-faint);line-height:1.5;margin-top:3px}
 @media(max-width:680px){.piewrap{gap:16px}.pie{width:112px}}
 @media(max-width:680px){.fsrow{grid-template-columns:1fr 46px 40px 40px 40px 18px;gap:4px;font-size:11px;padding:7px 8px}.fsname{font-size:12px}}
-/* ── bottom nav — the app is five pages now, and this is its spine.
-   Fixed, so #app carries matching bottom padding; both overlays sit at
-   z-index 999 and must stay above it. ── */
-.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:900;display:flex;gap:2px;
-  background:var(--surface);padding:6px 6px calc(6px + env(safe-area-inset-bottom));
-  box-shadow:0 -10px 28px rgba(5,31,32,.22)}
-.navbtn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-radius:14px;color:var(--on-surface-faint)}
-.navbtn.on{color:var(--accent-2)}
-.navicon{display:flex;align-items:center;justify-content:center;width:44px;height:26px;border-radius:999px;transition:background .15s}
-.navbtn.on .navicon{background:var(--accent-wash)}
-.navicon svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.navlab{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase}
-/* ── today's goal bars — the "how much room is left" HUD ── */
-.goalbars{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:var(--surface);border-radius:18px;padding:12px 14px;margin-bottom:2px}
-.goalbars.empty{display:block;text-align:center;font-family:var(--mono);font-size:11.5px;color:var(--on-surface-faint);cursor:pointer;padding:15px}
-.goalbars.empty:hover{color:var(--accent)}
-.gb{display:flex;flex-direction:column;gap:5px;min-width:0}
-.gblab{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-faint)}
-.gbtrack{height:5px;border-radius:999px;background:var(--surface-3);overflow:hidden}
-.gbtrack span{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .25s}
-.gb.over .gbtrack span{background:var(--negative)}
-.gb.over .gbnum{color:var(--negative)}
-.gbnum{font-family:var(--mono);font-size:12.5px;color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gbnum small{font-size:10px;color:var(--on-surface-faint)}
-/* ── tabs (Log page) — sit on the ground, so they take on-ground ink ── */
-.tabs{display:flex;gap:5px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none}
-.tabs::-webkit-scrollbar{display:none}
-.tab{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;background:var(--on-ground-wash);color:var(--on-ground);border-radius:999px;padding:8px 15px;white-space:nowrap;flex:none}
-.tab.on{background:var(--surface);color:var(--on-surface)}
-/* ── goals page ── */
-.goalgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-@media(max-width:680px){.goalgrid{grid-template-columns:1fr}}
-.gcheck{font-family:var(--mono);font-size:11.5px;color:var(--on-surface-dim);margin-top:14px;line-height:1.6}
-.gcheck b{color:var(--on-surface)}
-.gcheck.off{color:var(--negative)}
-.keylink{color:var(--accent);text-decoration:underline}
 /* Blocks are dark green, so their text is --on-surface (the light tiers). These
    elements sit straight on the pale mint/sage ground instead, so they go dark. */
 .brand,.hrow h1,.sub2,.ph h3,.ph .sectoggle,.band .tempty{color:var(--on-ground)}
@@ -388,17 +351,6 @@ function fixState(d){
     if(r.qty===undefined){r.qty=r.grams===undefined?0:r.grams;r.unit=r.unit||'g';delete r.grams;}
   });
   if(d.health.targetWeight===undefined)d.health.targetWeight=200;
-  // daily targets — everything in the app now measures against these
-  if(!d.health.goals)d.health.goals={};
-  var g=d.health.goals;
-  // the old lone weight target becomes one goal among five; the original field
-  // is left in place rather than deleted, same non-destructive rule as above
-  if(g.weight===undefined||g.weight==='')g.weight=d.health.targetWeight;
-  ['calories','protein','carbs','fat'].forEach(function(k){if(g[k]===undefined)g[k]='';});
-  // USDA FoodData Central key. Deliberately per-device in localStorage and never
-  // in the source: USDA deactivates any key it finds in a public repo, and this
-  // repo is public.
-  if(d.settings.fdcKey===undefined)d.settings.fdcKey='';
   return d;
 }
 async function loadState(){
@@ -464,71 +416,25 @@ function dateOnly(x){var d=new Date(x+'T00:00:00');return isNaN(d)?null:d;}
 function todayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function fmtShort(dateStr){var d=new Date(dateStr+'T00:00:00');if(isNaN(d))return dateStr;return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});}
 
-// Five pages behind a fixed bottom nav. Page lives in a module var rather than
-// in state — reopening the app should always land on Today, not wherever you
-// happened to leave off.
-var page='today';
-var PAGES=[
-  {key:'today',label:'Today'},
-  {key:'log',label:'Log'},
-  {key:'calc',label:'Calc'},
-  {key:'goals',label:'Goals'},
-  {key:'history',label:'History'}
-];
-var NAV_ICONS={
-  today:'<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 8 8" stroke-width="3.6"/>',
-  log:'<circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v7.6M8.2 12h7.6"/>',
-  calc:'<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.6 7.6h6.8"/><path d="M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01" stroke-width="2.6"/>',
-  goals:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 12h.01" stroke-width="2.8"/>',
-  history:'<path d="M4 18.5h16"/><path d="M6 15l4-5 3.5 3L19 7"/>'
-};
-function pageBody(){
-  if(page==='log')return buildLog();
-  if(page==='calc')return buildCalc();
-  if(page==='goals')return buildGoals();
-  if(page==='history')return buildHistory();
-  return buildToday();
-}
 function render(){
-  app.innerHTML=topbar()+goalBars()+pageBody()+bottomNav();
+  app.innerHTML=topbar()+quickActions()+buildHealth();
   applyBands();
   if(foodSearchQuery)applyFoodSearch();
   var ed=app.querySelector('[data-e="1"]');if(ed){ed.focus();if(ed.select)ed.select();}
 }
-// The running "how much room is left today" read-out. It rides above every page
-// you'd log or calculate from; Goals and History are about other days, so it's
-// omitted there rather than showing a number that doesn't apply.
-function goalBars(){
-  if(page==='goals'||page==='history')return '';
-  var g=state.health.goals||{};
-  var t=logTotals(logFor(todayStr()));
-  var defs=[{k:'calories',lab:'Cal',v:t.calories,u:'',dp:0},
-            {k:'protein',lab:'Protein',v:t.protein,u:'g',dp:1},
-            {k:'carbs',lab:'Carbs',v:t.carbs,u:'g',dp:1},
-            {k:'fat',lab:'Fat',v:t.fat,u:'g',dp:1}];
-  if(!defs.some(function(d){return num(g[d.k])>0;}))
-    return '<div class="goalbars empty" data-a="nav" data-page="goals">Set your daily targets to track against them →</div>';
-  return '<div class="goalbars">'+defs.map(function(d){
-    var goal=num(g[d.k]),have=d.dp?Math.round(d.v*10)/10:Math.round(d.v);
-    if(goal<=0)return '<div class="gb"><div class="gblab">'+d.lab+'</div><div class="gbtrack"></div>'
-      +'<div class="gbnum">'+have+d.u+'<small>/—</small></div></div>';
-    var over=d.v>goal*1.02;
-    return '<div class="gb'+(over?' over':'')+'"><div class="gblab">'+d.lab+'</div>'
-      +'<div class="gbtrack"><span style="width:'+Math.min(d.v/goal*100,100).toFixed(1)+'%"></span></div>'
-      +'<div class="gbnum">'+have+'<small>/'+trimNum(goal)+d.u+'</small></div></div>';
-  }).join('')+'</div>';
-}
-function bottomNav(){
-  return '<div class="bottomnav">'+PAGES.map(function(p){
-    return '<button type="button" class="navbtn'+(page===p.key?' on':'')+'" data-a="nav" data-page="'+p.key+'">'
-      +'<span class="navicon"><svg viewBox="0 0 24 24">'+NAV_ICONS[p.key]+'</svg></span>'
-      +'<span class="navlab">'+p.label+'</span></button>';
-  }).join('')+'</div>';
+// a prominent, always-reachable-without-scrolling entry point for the two
+// things you actually do most — this app is only about tracking now, so
+// logging shouldn't require scrolling into a collapsed accordion first
+function quickActions(){
+  return '<div class="quickadd">'
+    +'<button type="button" data-a="openfoodadd">'+PLUS_ICON+' Add a food</button>'
+    +'<button type="button" data-a="openmealadd">'+PLUS_ICON+' Add a meal</button>'
+    +'</div>';
 }
 
 // Wrap each page section in a band so the ground alternates cognac/amber.
 // A new band starts at every .ph section header; the color change replaces divider rules.
-var BANDSKIP=['topbar','settingsoverlay','goalbars','bottomnav','tabs'];
+var BANDSKIP=['topbar','settingsoverlay'];
 function applyBands(){
   var kids=[].slice.call(app.children),alt=false,started=false,cur=null;
   kids.forEach(function(el){
@@ -576,9 +482,6 @@ function settingsHtml(){
     +swtch(!!s.haptics,'Haptics','Vibrate on key actions','haptics')
     +swtch(!!s.notifications,'Notifications','Daily reminder to open the app','notifications')
     +swtch(s.reduceMotion,'Reduce motion','Fewer transitions and animations','reduceMotion')
-    +'<div class="setrow"><div class="setlbl"><span>USDA food database key</span>'
-    +'<small>Free from <a class="keylink" href="https://fdc.nal.usda.gov/api-key-signup/" target="_blank" rel="noopener">fdc.nal.usda.gov</a> — better search results. Stored only on this device.</small></div></div>'
-    +'<input data-a="fdckey" placeholder="Paste your key" value="'+esc(s.fdcKey||'')+'" style="font-family:var(--mono);font-size:12px">'
     +data
     +'</div></div>';
 }
@@ -610,7 +513,7 @@ function weightChart(entriesDesc){return metricChart(entriesDesc,'weight','var(-
 function healthSummaryHtml(){
   var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var latest=entries.filter(function(e){return e.weight!=='';})[0];
-  var tw=parseFloat((state.health.goals||{}).weight)||parseFloat(state.health.targetWeight)||0;
+  var tw=parseFloat(state.health.targetWeight)||0;
   var curW=latest?parseFloat(latest.weight):null;
   var delta30=null;
   if(curW!==null){
@@ -721,6 +624,11 @@ function refreshFoodCard(id){
 }
 var openItem=null; // {type:'food'|'meal', id} of the single expanded food/meal card, or null
 function isOpenItem(type,id){return !!openItem&&openItem.type===type&&openItem.id===id;}
+var openSection=null; // 'foods'|'meals'|'dailylog'|null — accordion across the three collapsible Health sections
+function sectionHeader(key,label){
+  var open=openSection===key;
+  return '<div class="ph sechead" data-a="togglesection" data-sec="'+key+'"><h3>'+label+'</h3><span class="sectoggle">'+(open?'▾':'▸')+'</span></div>';
+}
 function foodCard(f){
   var open=isOpenItem('food',f.id);
   var countable=isCountableUnit(f.unit),amt=f.tamt,inputRow;
@@ -895,9 +803,19 @@ function mealCard(m){
 var mealAddOpen=false;
 function mealAddHtml(){
   return '<div class="settingsoverlay"><div class="settingscard">'
-    +'<div class="settingshead"><h3>Create a meal</h3><button class="settingsclose" data-a="closemealadd">×</button></div>'
+    +'<div class="settingshead"><h3>Add a meal</h3><button class="settingsclose" data-a="closemealadd">×</button></div>'
     +'<div class="mealadd"><input data-a="mealn" placeholder="New meal… e.g. Breakfast"><button data-a="addmeal">Create meal</button></div>'
     +'</div></div>';
+}
+function buildMeals(){
+  var open=openSection==='meals';
+  var cards=(state.health.meals||[]).map(mealCard).join('');
+  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Add a meal</button>';
+  var list=open?(cards||'<div class="tempty">No meals yet.</div>'):'';
+  return sectionHeader('meals','Meals')
+    +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
+    +addBtn+list
+    +(mealAddOpen?mealAddHtml():'');
 }
 function addMeal(){
   var ti=app.querySelector('[data-a="mealn"]');if(!ti)return;
@@ -905,9 +823,8 @@ function addMeal(){
   state.health.meals=state.health.meals||[];
   var nm={id:uid(),name:v,mult:1,items:[]};
   state.health.meals.push(nm);
-  mealAddOpen=false;              // the dialog stayed open after creating before
-  page='log';logTab='meals';
   openItem={type:'meal',id:nm.id};
+  openSection='meals';
   save();render();
 }
 function logMeal(id){
@@ -917,7 +834,6 @@ function logMeal(id){
     var f=fFood(mi.foodId);if(!f)return;
     var r=resolveMealItem(f,mi,mult);if(!r)return;
     state.health.log.push({id:uid(),date:todayStr(),gid:gid,meal:m.name,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
-    f.lastUsed=Date.now();
     any=true;
   });
   if(any){syncTodayMacros();save();render();}
@@ -941,7 +857,6 @@ function addFoodLog(id){
   var r=foodResolved(f);if(!r)return;
   state.health.log=state.health.log||[];
   state.health.log.push({id:uid(),date:todayStr(),name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
-  f.lastUsed=Date.now();  // drives the Recent tab's ordering
   syncTodayMacros();save();render();
 }
 function fsRow(r,isChild){
@@ -1028,82 +943,36 @@ function foodDbResultsHtml(){
       +'<span class="fdbcal">'+Math.round(r.calories)+' cal / '+esc(fmtQty(r.serving,r.unit))+'</span></button>';
   }).join('')+'</div>';
 }
-// Prefill for the review form. A search hit or barcode scan lands here first,
-// so the values are baked into the HTML rather than poked into the DOM after
-// render — a re-render would otherwise wipe them.
-var pendingFood=null;
-function openFoodForm(info){pendingFood=info||null;foodAddOpen=true;render();}
 function foodAddHtml(){
-  var p=pendingFood||{};
-  var v=function(k){var x=p[k];return (x===undefined||x===null||x==='')?'':esc(trimNum(num(x)));};
-  var unit=p.unit||'g';
   return '<div class="settingsoverlay"><div class="settingscard wide">'
-    +'<div class="settingshead"><h3>'+(pendingFood?'Review food':'New food')+'</h3><button class="settingsclose" data-a="closefoodadd">×</button></div>'
-    +(pendingFood?'<div class="settingsnote">Straight from the database — check the numbers against the label, then save it.</div>':'')
+    +'<div class="settingshead"><h3>Add a food</h3><button class="settingsclose" data-a="closefoodadd">×</button></div>'
     +'<div class="foodadd">'
-    +'<input data-a="fnew" data-f="name" placeholder="Food name" value="'+(p.name?esc(p.name):'')+'">'
-    +'<div class="foodgrid">'
-    +'<label>Serving<input type="number" step="any" data-a="fnew" data-f="serving" placeholder="100" value="'+v('serving')+'"></label>'
-    +'<label>Unit<select data-a="fnew" data-f="unit">'+UNITS.map(function(u){return '<option value="'+u+'"'+(u===unit?' selected':'')+'>'+u+'</option>';}).join('')+'</select></label>'
-    +'<label>Protein (g)<input type="number" step="0.1" data-a="fnew" data-f="protein" placeholder="0" value="'+v('protein')+'"></label>'
-    +'<label>Carbs (g)<input type="number" step="0.1" data-a="fnew" data-f="carbs" placeholder="0" value="'+v('carbs')+'"></label>'
-    +'<label>Fat (g)<input type="number" step="0.1" data-a="fnew" data-f="fat" placeholder="0" value="'+v('fat')+'"></label>'
-    +'<label>Calories<input type="number" step="1" data-a="fnew" data-f="calories" placeholder="0" value="'+v('calories')+'"></label>'
-    +'</div><button data-a="foodadd">'+PLUS_ICON+' Save food</button></div>'
-    +'</div></div>';
-}
-// ── the Log page: four tabs over one job, adding something to today ──
-var logTab='recent';
-var LOG_TABS=[['recent','Recent'],['search','Search'],['meals','Meals'],['all','All foods']];
-function buildLog(){
-  var body=logTab==='search'?logSearchTab():logTab==='meals'?logMealsTab():logTab==='all'?logAllTab():logRecentTab();
-  return '<div class="hrow"><h1>Add to log</h1></div>'
-    +'<div class="tabs">'+LOG_TABS.map(function(t){
-      return '<button type="button" class="tab'+(logTab===t[0]?' on':'')+'" data-a="logtab" data-tab="'+t[0]+'">'+t[1]+'</button>';
-    }).join('')+'</div>'
-    +body
-    +(foodAddOpen?foodAddHtml():'')
-    +(mealAddOpen?mealAddHtml():'');
-}
-// Recency, not the alphabet: what you ate yesterday is overwhelmingly what
-// you're about to eat again, and alphabetical order buries it.
-function recentFoods(){
-  return (state.health.foods||[]).slice().sort(function(a,b){
-    var d=num(b.lastUsed)-num(a.lastUsed);
-    if(d)return d;                                    // most recently logged first
-    if(a.lastUsed&&!b.lastUsed)return -1;             // anything ever logged beats never
-    if(b.lastUsed&&!a.lastUsed)return 1;
-    return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});
-  });
-}
-function logRecentTab(){
-  var foods=recentFoods();
-  if(!foods.length)return '<div class="tempty">Nothing saved yet — search the database or add a food by hand.</div>'
-    +'<button type="button" class="blockaddbtn spaced" data-a="logtab" data-tab="search">Search the food database</button>';
-  return '<div id="foodlist">'+foods.slice(0,25).map(foodCard).join('')+'</div>';
-}
-function logAllTab(){
-  var sorted=sortedFoods();
-  var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search your foods…" value="'+esc(foodSearchQuery)+'">':'';
-  return '<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">'+PLUS_ICON+' New food (enter by hand)</button>'
-    +search+'<div id="foodlist">'+(sorted.map(foodCard).join('')||'<div class="tempty">No foods saved yet.</div>')+'</div>';
-}
-function logMealsTab(){
-  var cards=(state.health.meals||[]).map(mealCard).join('');
-  return '<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Create a meal</button>'
-    +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
-    +(cards||'<div class="tempty">No meals yet.</div>');
-}
-function logSearchTab(){
-  var keyed=!!(state.settings.fdcKey||'').trim();
-  var note=keyed?'':'<div class="fdbnote">Searching Open Food Facts. For better results — USDA data, generic foods first — add a '
-    +'<a class="keylink" href="https://fdc.nal.usda.gov/api-key-signup/" target="_blank" rel="noopener">free USDA key</a> in Settings.</div>';
-  return '<div class="fdbsearchrow"><input data-a="fdbquery" placeholder="Search foods…" value="'+esc(foodDbQuery)+'">'
-    +'<button type="button" data-a="fdbsearch"'+(foodDbBusy?' disabled':'')+'>'+(foodDbBusy?'…':'Search')+'</button></div>'
-    +note
+    +'<div class="fdbsearchrow"><input data-a="fdbquery" placeholder="Search a food database…" value="'+esc(foodDbQuery)+'">'
+      +'<button type="button" data-a="fdbsearch"'+(foodDbBusy?' disabled':'')+'>'+(foodDbBusy?'…':'Search')+'</button></div>'
     +foodDbResultsHtml()
     +'<button type="button" class="scanbtn" data-a="scanbarcode">📷 Scan barcode</button>'
-    +'<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">'+PLUS_ICON+' Enter one by hand instead</button>';
+    +'<input data-a="fnew" data-f="name" placeholder="Food name">'
+    +'<div class="foodgrid">'
+    +'<label>Serving<input type="number" step="any" data-a="fnew" data-f="serving" placeholder="100"></label>'
+    +'<label>Unit<select data-a="fnew" data-f="unit">'+UNITS.map(function(u){return '<option value="'+u+'">'+u+'</option>';}).join('')+'</select></label>'
+    +'<label>Protein (g)<input type="number" step="0.1" data-a="fnew" data-f="protein" placeholder="0"></label>'
+    +'<label>Carbs (g)<input type="number" step="0.1" data-a="fnew" data-f="carbs" placeholder="0"></label>'
+    +'<label>Fat (g)<input type="number" step="0.1" data-a="fnew" data-f="fat" placeholder="0"></label>'
+    +'<label>Calories<input type="number" step="1" data-a="fnew" data-f="calories" placeholder="0"></label>'
+    +'</div><button data-a="foodadd">'+PLUS_ICON+' Add food</button></div>'
+    +'</div></div>';
+}
+function buildFoods(){
+  var open=openSection==='foods';
+  var sorted=(state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});
+  var foods=sorted.map(foodCard).join('');
+  var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search foods…" value="'+esc(foodSearchQuery)+'">':'';
+  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">'+PLUS_ICON+' Add a food</button>';
+  var list=open?(search+'<div id="foodlist">'+(foods||'<div class="tempty">No foods saved yet.</div>')+'</div>'):'';
+  return sectionHeader('foods','Foods')
+    +'<div class="sub2">Save a food once with its label numbers, then work backwards — say how much of a macro you want and it tells you the serving size and everything else.</div>'
+    +addBtn+list
+    +(foodAddOpen?foodAddHtml():'');
 }
 function addFood(){
   var get=function(f){var el=app.querySelector('[data-a="fnew"][data-f="'+f+'"]');return el?el.value:'';};
@@ -1112,14 +981,11 @@ function addFood(){
   state.health.foods=state.health.foods||[];
   var nf={id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),tmac:'protein',tamt:''};
   state.health.foods.push(nf);
-  // land on the new food, opened and ready to dial in — that's the next thing
-  // you want after saving one, whether it came from search or from typing
-  foodAddOpen=false;pendingFood=null;resetFoodDb();
-  page='log';logTab='recent';
   openItem={type:'food',id:nf.id};
+  openSection='foods';
   save();render();
 }
-// Open Food Facts is the fallback nutrition source, no key required —
+// Open Food Facts is the single nutrition data source, no key required —
 // used for barcode lookups and, now, text search. Both funnel through this
 // one parser so a search result and a scanned product resolve identically.
 function parseOFFProduct(p,fallbackName){
@@ -1169,7 +1035,7 @@ var foodDbQuery='';
 var foodDbResults=null;
 var foodDbBusy=false;
 var foodDbErr='';
-async function searchOFF(query){
+async function searchFoodDatabase(query){
   // the v2 API's search_terms param doesn't actually filter (confirmed: it returns
   // near-identical "results" for any query, matching or not) — only this legacy
   // endpoint does real full-text search.
@@ -1177,67 +1043,13 @@ async function searchOFF(query){
   var res=await fetch(url);
   if(!res.ok)throw new Error('search failed');
   var data=await res.json();
+  var products=data.products||[];
   var out=[];
-  (data.products||[]).forEach(function(p){
+  products.forEach(function(p){
     var info=parseOFFProduct(p,p.product_name||'Unnamed product');
     if(info){info.brand=p.brands||'';out.push(info);}
   });
   return out;
-}
-// USDA FoodData Central. Its search results report every nutrient per 100g with
-// the label serving carried separately — the same shape parseOFFProduct already
-// untangles, so this normalizes into that function's exact output contract.
-var FDC_NUTRIENTS={1003:'protein',1004:'fat',1005:'carbs',1008:'calories'};
-// Generic USDA entries first, brands last. "Chicken breast" should return
-// chicken breast, not whichever supermarket uploaded a label for it — this
-// ranking is the main thing that makes search feel better than MyFitnessPal.
-var FDC_RANK={'Foundation':0,'SR Legacy':1,'Survey (FNDDS)':2,'Branded':3};
-function parseFDCFood(f){
-  var per100={};
-  (f.foodNutrients||[]).forEach(function(n){
-    var key=FDC_NUTRIENTS[n.nutrientId];
-    if(!key)return;
-    // Energy also comes through in kJ on some records; only take the kcal row
-    if(key==='calories'&&String(n.unitName||'').toUpperCase()!=='KCAL')return;
-    if(per100[key]===undefined)per100[key]=num(n.value);
-  });
-  if(per100.protein===undefined&&per100.carbs===undefined&&per100.fat===undefined&&per100.calories===undefined)return null;
-  var name=f.description||'Unnamed food';
-  var sz=num(f.servingSize),unit=String(f.servingSizeUnit||'').toLowerCase();
-  var scale=1,serving=100,servUnit='g';
-  if(sz>0&&(unit==='g'||unit==='ml')){serving=sz;servUnit=unit;scale=sz/100;}
-  var info={name:name,serving:serving,unit:servUnit,
-    protein:num(per100.protein)*scale,carbs:num(per100.carbs)*scale,
-    fat:num(per100.fat)*scale,calories:Math.round(num(per100.calories)*scale)};
-  info.brand=f.brandName||f.brandOwner||'';
-  // householdServingFullText is the human phrasing off the label ("1 slice")
-  if(f.householdServingFullText)info.brand=(info.brand?info.brand+' · ':'')+f.householdServingFullText;
-  return info;
-}
-async function searchFDC(query,key){
-  var url='https://api.nal.usda.gov/fdc/v1/foods/search?api_key='+encodeURIComponent(key)
-    +'&query='+encodeURIComponent(query)+'&pageSize=25';
-  var res=await fetch(url);
-  if(!res.ok)throw new Error('fdc search failed');
-  var data=await res.json();
-  var foods=(data.foods||[]).slice().sort(function(a,b){
-    var ra=FDC_RANK[a.dataType],rb=FDC_RANK[b.dataType];
-    return (ra===undefined?9:ra)-(rb===undefined?9:rb);
-  });
-  var out=[];
-  foods.forEach(function(f){var info=parseFDCFood(f);if(info)out.push(info);});
-  return out.slice(0,20);
-}
-async function searchFoodDatabase(query){
-  var key=(state.settings.fdcKey||'').trim();
-  if(key){
-    // a bad key or a USDA outage shouldn't mean no search at all
-    try{
-      var hits=await searchFDC(query,key);
-      if(hits.length)return hits;
-    }catch(e){}
-  }
-  return await searchOFF(query);
 }
 function resetFoodDb(){foodDbQuery='';foodDbResults=null;foodDbBusy=false;foodDbErr='';}
 async function runFoodDbSearch(){
@@ -1253,7 +1065,13 @@ async function runFoodDbSearch(){
   }
   foodDbBusy=false;render();
 }
-function fillFoodForm(info){openFoodForm(info);}
+function fillFoodForm(info){
+  var set=function(f,v){var el=app.querySelector('[data-a="fnew"][data-f="'+f+'"]');if(el)el.value=v;};
+  set('name',info.name);set('serving',info.serving);set('protein',info.protein);set('carbs',info.carbs);set('fat',info.fat);set('calories',info.calories);
+  var unitSel=app.querySelector('[data-a="fnew"][data-f="unit"]');if(unitSel)unitSel.value=info.unit;
+  var nameInput=app.querySelector('[data-a="fnew"][data-f="name"]');
+  if(nameInput){nameInput.scrollIntoView({behavior:'smooth',block:'center'});nameInput.focus();}
+}
 // the qrcode library is a real download (barcode decoding engine) that almost
 // nobody needs every session — load it on first scan instead of on every page
 // load, and only once even if the scanner gets opened/closed/reopened.
@@ -1316,7 +1134,7 @@ async function onBarcodeScanned(code){
     alert('Barcode lookup failed — check your connection and try again, or add it manually.');
   }
 }
-function buildToday(){
+function buildHealth(){
   var today=todayStr();
   var te=healthEntry(today)||{weight:'',calories:'',protein:'',note:''};
   var fromLog=logFor(today).length>0;
@@ -1328,71 +1146,8 @@ function buildToday(){
     +'<div class="fld"><label>Protein (g)</label><input type="number" data-a="hfield" data-field="protein" value="'+esc(te.protein)+'"'+ro+'>'+lockNote+'</div>'
     +'<div class="fld"><label>Note</label><input data-a="hfield" data-field="note" value="'+esc(te.note)+'"></div>'
     +'</div></div>';
-  return '<div class="hrow"><h1>Today</h1></div>'+buildFoodSheet()+todayForm;
-}
-// Goals are the spine of the whole app now — the bars up top, Calc's targets,
-// and "remaining today" all read from here.
-var GOAL_FIELDS=[
-  {k:'calories',lab:'Calories',step:'1',ph:'2200'},
-  {k:'protein',lab:'Protein (g)',step:'1',ph:'180'},
-  {k:'carbs',lab:'Carbs (g)',step:'1',ph:'220'},
-  {k:'fat',lab:'Fat (g)',step:'1',ph:'70'}
-];
-// 4/4/9 is the only arithmetic tying the four macro goals together, so surfacing
-// the mismatch is what stops you setting targets that can't all be met at once.
-function goalCheckHtml(){
-  var g=state.health.goals||{};
-  var cal=num(g.calories),fromMacros=num(g.protein)*4+num(g.carbs)*4+num(g.fat)*9;
-  if(cal>0&&fromMacros>0){
-    var diff=fromMacros-cal,off=Math.abs(diff)>cal*0.03;
-    return '<div class="gcheck'+(off?' off':'')+'">Your macros come to <b>'+Math.round(fromMacros)+' cal</b> against a '+Math.round(cal)+' cal goal'
-      +(off?' — that\'s '+(diff>0?'+':'')+Math.round(diff)+' out. Adjust one so the day adds up.':' — that adds up.')+'</div>';
-  }
-  if(cal>0||fromMacros>0)
-    return '<div class="gcheck">Fill in all four and this checks that they add up (4 cal/g protein and carbs, 9 cal/g fat).</div>';
-  return '';
-}
-function goalWeightNoteHtml(){
-  var gw=num((state.health.goals||{}).weight);
-  var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
-  var latest=entries.filter(function(e){return e.weight!=='';})[0];
-  var curW=latest?parseFloat(latest.weight):null;
-  if(curW===null||gw<=0)return '<div class="gcheck">Log your weight on Today to track progress against this.</div>';
-  if(Math.abs(curW-gw)<0.05)return '<div class="gcheck">Currently <b>'+curW+' lb</b> — right on target.</div>';
-  return '<div class="gcheck">Currently <b>'+curW+' lb</b> — <b>'+Math.abs(curW-gw).toFixed(1)+' lb</b> to '+(curW>gw?'lose':'gain')+'.</div>';
-}
-function refreshGoalCheck(){
-  var a=document.getElementById('goalcheck');if(a)a.innerHTML=goalCheckHtml();
-  var b=document.getElementById('goalwnote');if(b)b.innerHTML=goalWeightNoteHtml();
-}
-function buildGoals(){
-  var g=state.health.goals||{};
-  var macroFields=GOAL_FIELDS.map(function(f){
-    return '<div class="fld"><label>'+f.lab+'</label><input type="number" step="'+f.step+'" placeholder="'+f.ph+'" data-a="goalfield" data-k="'+f.k+'" value="'+esc(g[f.k]===undefined?'':g[f.k])+'"></div>';
-  }).join('');
-  return '<div class="hrow"><h1>Goals</h1></div>'
-    +'<div class="sub2">Everything else measures against these — the bars up top, and what Calc treats as "remaining today".</div>'
-    +'<div class="fincard"><h3>Daily targets</h3><div class="goalgrid">'+macroFields+'</div>'
-    +'<div id="goalcheck">'+goalCheckHtml()+'</div></div>'
-    +'<div class="fincard"><h3>Goal weight</h3><div class="goalgrid">'
-    +'<div class="fld"><label>Target weight (lb)</label><input type="number" step="0.1" placeholder="185" data-a="goalfield" data-k="weight" value="'+esc(g.weight===undefined?'':g.weight)+'"></div>'
-    +'</div><div id="goalwnote">'+goalWeightNoteHtml()+'</div></div>';
-}
-function buildCalc(){
-  return '<div class="hrow"><h1>Calc</h1></div>'
-    +'<div class="fincard"><h3>Coming next</h3>'
-    +'<div class="tempty">Pick a target — what\'s left of today\'s goal, a share of it, or exact numbers — then choose foods and this works out how much of each to eat. Pin the ones you\'ve already measured and it solves the rest around them.</div></div>';
-}
-function buildHistory(){
-  var today=todayStr();
-  var all=(state.health.entries||[]).slice();
-  var entries=all.slice().sort(function(a,b){return a.date<b.date?1:-1;});
-  var rows=entries.filter(function(e){return e.date!==today;}).slice(0,30).map(healthRow).join('');
-  var endBtn=all.length?'<button type="button" class="blockaddbtn spaced" data-a="endperiod">End period — log average of '+all.length+' day'+(all.length===1?'':'s')+'</button>':'';
-  return '<div class="hrow"><h1>History</h1></div>'
-    +'<div id="health-summary">'+healthSummaryHtml()+'</div>'
-    +'<div class="ph"><h3>Past days</h3></div>'
-    +(rows||'<div class="tempty">No earlier entries yet.</div>')+endBtn+periodsHtml();
+  return '<div class="hrow"><h1>Health</h1></div>'
+    +'<div id="health-summary">'+healthSummaryHtml()+'</div>'+todayForm+buildFoodSheet()+buildFoods()+buildMeals()+buildDailyLog();
 }
 // a period is the daily log condensed to one record when a goal changes —
 // same "commit a running total, then start clean" idea as End Day, one
@@ -1415,6 +1170,19 @@ function periodsHtml(){
       +'<span class="hdel" data-a="delperiod" data-id="'+p.id+'">×</span></div>';
   }).join('');
   return '<div class="ph"><h3>Past periods</h3></div><div class="pdlist">'+rows+'</div>';
+}
+function buildDailyLog(){
+  var open=openSection==='dailylog';
+  var body='';
+  if(open){
+    var today=todayStr();
+    var all=(state.health.entries||[]).slice();
+    var entries=all.slice().sort(function(a,b){return a.date<b.date?1:-1;});
+    var rows=entries.filter(function(e){return e.date!==today;}).slice(0,30).map(healthRow).join('');
+    var endBtn=all.length?'<button type="button" class="blockaddbtn spaced" data-a="endperiod">End period — log average of '+all.length+' day'+(all.length===1?'':'s')+'</button>':'';
+    body=(rows||'<div class="tempty">No earlier entries yet.</div>')+endBtn+periodsHtml();
+  }
+  return sectionHeader('dailylog','Daily log')+body;
 }
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
 
@@ -1473,17 +1241,13 @@ app.addEventListener('click',function(e){
     else{state._rst=true;render();setTimeout(function(){if(state._rst){state._rst=false;render();}},4000);}
     return;
   }
-  if(a==='nav'){
-    if(page!==t.dataset.page){page=t.dataset.page;openItem=null;window.scrollTo(0,0);render();}
-    return;
-  }
-  if(a==='logtab'){logTab=t.dataset.tab;openItem=null;render();return;}
   if(a==='togglesettings'){settingsOpen=!settingsOpen;render();}
   else if(a==='closesettings'){settingsOpen=false;render();}
   else if(a==='setswtch'){var sk=t.dataset.k;state.settings[sk]=!state.settings[sk];save();render();}
   else if(a==='hdel'){state.health.entries=(state.health.entries||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
-  else if(a==='openfoodadd'){openFoodForm(null);}
-  else if(a==='closefoodadd'){foodAddOpen=false;pendingFood=null;resetFoodDb();render();}
+  else if(a==='togglesection'){openSection=openSection===t.dataset.sec?null:t.dataset.sec;render();}
+  else if(a==='openfoodadd'){foodAddOpen=true;render();}
+  else if(a==='closefoodadd'){foodAddOpen=false;resetFoodDb();render();}
   else if(a==='foodadd'){addFood();}
   else if(a==='scanbarcode'){openScanner();}
   else if(a==='fdbsearch'){runFoodDbSearch();}
@@ -1564,15 +1328,6 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
     return;
   }
   if(a==='fdbquery'){foodDbQuery=t.value;return;}
-  if(a==='fdckey'){state.settings.fdcKey=t.value.trim();save();return;}
-  if(a==='goalfield'){
-    // refresh only the bars, not the whole page — a render() here would pull
-    // focus out of the field mid-keystroke
-    state.health.goals[t.dataset.k]=t.value===''?'':parseFloat(t.value);
-    if(t.dataset.k==='weight')state.health.targetWeight=t.value===''?'':parseFloat(t.value);
-    save();refreshGoalCheck();
-    return;
-  }
   if(a==='foodsearch'){
     // filter in the DOM rather than re-rendering, so typing doesn't lose focus —
     // but remember the query so a render triggered by something else (e.g.
