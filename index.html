@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-23T23:47:07Z';
+  var PAGE_VERSION='2026-08-23T23:57:01Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1179,9 +1179,9 @@ function parseOFFProduct(p,fallbackName){
 // overlay+camera element directly) since a re-render would tear down the video
 // feed mid-scan.
 async function lookupBarcode(code){
-  var res=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json');
-  if(!res.ok)throw new Error('lookup failed');
-  var data=await res.json();
+  // direct product lookup, not the flaky search endpoint — but same host, so it
+  // gets the same retry treatment
+  var data=await fetchJSON('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json');
   if(data.status!==1||!data.product)return null;
   return parseOFFProduct(data.product,'Product '+code);
 }
@@ -1191,14 +1191,31 @@ var foodDbQuery='';
 var foodDbResults=null;
 var foodDbBusy=false;
 var foodDbErr='';
+// Open Food Facts turns away a large share of anonymous traffic — measured 3 in 4
+// failing on spaced, sequential requests — and the refusal comes back as a
+// CORS-less network error rather than a clean status, so it can't be told apart
+// from being offline. Retrying absorbs it.
+async function fetchJSON(url,tries){
+  tries=tries===undefined?3:tries;
+  var last;
+  for(var i=0;i<tries;i++){
+    try{
+      var res=await fetch(url);
+      if(!res.ok)throw new Error('http '+res.status);
+      return await res.json();
+    }catch(e){
+      last=e;
+      if(i<tries-1)await new Promise(function(r){setTimeout(r,500*(i+1));});
+    }
+  }
+  throw last;
+}
 async function searchOFF(query){
   // the v2 API's search_terms param doesn't actually filter (confirmed: it returns
   // near-identical "results" for any query, matching or not) — only this legacy
   // endpoint does real full-text search.
   var url='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(query)+'&search_simple=1&action=process&json=1&page_size=15&fields=product_name,generic_name,brands,nutriments,serving_quantity,serving_quantity_unit';
-  var res=await fetch(url);
-  if(!res.ok)throw new Error('search failed');
-  var data=await res.json();
+  var data=await fetchJSON(url);
   var out=[];
   (data.products||[]).forEach(function(p){
     var info=parseOFFProduct(p,p.product_name||'Unnamed product');
@@ -1239,9 +1256,7 @@ function parseFDCFood(f){
 async function searchFDC(query,key){
   var url='https://api.nal.usda.gov/fdc/v1/foods/search?api_key='+encodeURIComponent(key)
     +'&query='+encodeURIComponent(query)+'&pageSize=25';
-  var res=await fetch(url);
-  if(!res.ok)throw new Error('fdc search failed');
-  var data=await res.json();
+  var data=await fetchJSON(url);
   var foods=(data.foods||[]).slice().sort(function(a,b){
     var ra=FDC_RANK[a.dataType],rb=FDC_RANK[b.dataType];
     return (ra===undefined?9:ra)-(rb===undefined?9:rb);
@@ -1271,7 +1286,11 @@ async function runFoodDbSearch(){
     if(!foodDbResults.length)foodDbErr='No matches — try a different search, or enter it manually below.';
   }catch(e){
     foodDbResults=null;
-    foodDbErr='Search failed — check your connection and try again.';
+    // Don't blame the user's connection when the real cause is almost always
+    // Open Food Facts refusing anonymous traffic — name the actual fix.
+    foodDbErr=(state.settings.fdcKey||'').trim()
+      ?'Search failed — give it another go in a moment.'
+      :'Search failed. Open Food Facts turns away a lot of anonymous requests; adding a free USDA key in Settings fixes this properly.';
   }
   foodDbBusy=false;render();
 }
