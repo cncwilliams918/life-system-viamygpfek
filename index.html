@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T15:55:17Z';
+  var PAGE_VERSION='2026-08-24T16:07:55Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -349,6 +349,23 @@ textarea{resize:vertical;min-height:52px}
 .datelabel{text-align:center;min-width:0}
 .datemain{display:block;font-size:22px;font-weight:600;letter-spacing:-.01em;color:var(--on-ground)}
 .datesub{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-ground-outline);margin-top:1px}
+/* ── Add: a chooser of big targets, not a page of its own ── */
+.addmenu{display:grid;gap:12px}
+.addtile{display:grid;grid-template-columns:56px 1fr;grid-template-rows:auto auto;column-gap:15px;
+  background:var(--surface);border-radius:20px;padding:18px;text-align:left;width:100%}
+.addtile:hover{background:var(--surface-2)}
+.addtileicon{grid-row:1/3;align-self:center;width:56px;height:56px;border-radius:18px;background:var(--accent-wash);color:var(--accent);display:flex;align-items:center;justify-content:center}
+.addtileicon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.addtilelab{align-self:end;font-size:19px;font-weight:600;color:var(--on-surface)}
+.addtilesub{align-self:start;font-family:var(--mono);font-size:11.5px;color:var(--on-surface-faint);margin-top:3px}
+/* ── weigh-in ── */
+.wbig{display:flex;align-items:center;justify-content:center;gap:10px;margin:4px 0 2px}
+.wbig input{width:auto;max-width:190px;font-family:var(--mono);font-size:32px;padding:12px 16px;text-align:center}
+.wunit{font-family:var(--mono);font-size:15px;color:var(--on-surface-faint)}
+.wrecent{display:flex;flex-direction:column;gap:5px}
+.wrrow{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);background:var(--surface-2);border-radius:12px;padding:8px 12px}
+.dayweigh{font-family:var(--mono);font-size:12px;color:var(--on-ground);padding:12px 2px 2px}
+.dayweigh b{color:var(--on-ground)}
 /* ── adding into a day that isn't today — deliberately doesn't look like the
    normal page, and carries its own way out ── */
 .addbanner{display:flex;align-items:center;gap:12px;background:var(--accent);color:var(--on-accent);border-radius:16px;padding:11px 14px;margin:12px 0 14px;font-size:14px}
@@ -1154,8 +1171,54 @@ function addTabsHtml(){
     +(foodAddOpen?foodAddHtml():'')
     +(mealAddOpen?mealAddHtml():'');
 }
+// Add is a chooser, not a page of its own — each tile hands off to the surface
+// that actually does the job.
+var ICON_FOOD='<path d="M4 11h16"/><path d="M5.2 11a6.8 6.8 0 0 0 13.6 0"/><path d="M9.5 7.4c0-1.1.8-1.7 1.2-2.6"/><path d="M13.3 7.4c0-1.1.8-1.7 1.2-2.6"/>';
+var ICON_SCALE='<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><path d="M8.2 14.4a3.8 3.8 0 0 1 7.6 0"/><path d="M12 14.4l2.4-2.9"/>';
+var addView='menu';   // 'menu' | 'weight'
+function addTile(action,icon,label,sub){
+  return '<button type="button" class="addtile" data-a="'+action+'">'
+    +'<span class="addtileicon"><svg viewBox="0 0 24 24">'+icon+'</svg></span>'
+    +'<span class="addtilelab">'+label+'</span>'
+    +'<span class="addtilesub">'+sub+'</span></button>';
+}
 function buildAdd(){
-  return '<div class="hrow"><h1>Add to log</h1></div>'+addTabsHtml();
+  if(addView==='weight')return buildWeighIn();
+  return '<div class="hrow"><h1>Add</h1></div>'
+    +'<div class="addmenu">'
+    +addTile('addfood',ICON_FOOD,'Food','Search, scan, or pick from your saved foods')
+    +addTile('addweight',ICON_SCALE,'Weight','Today’s weigh-in')
+    +'</div>';
+}
+function buildWeighIn(){
+  var today=todayStr();
+  var te=healthEntry(today)||{weight:'',note:''};
+  var recent=(state.health.entries||[])
+    .filter(function(e){return e.weight!==''&&e.weight!=null&&e.date!==today;})
+    .sort(function(a,b){return a.date<b.date?1:-1;}).slice(0,5);
+  var list=recent.length
+    ?'<div class="wrecent">'+recent.map(function(e){
+        return '<div class="wrrow"><span>'+esc(fmtShort(e.date))+'</span><span>'+esc(e.weight)+' lb</span></div>';
+      }).join('')+'</div>'
+    :'';
+  return '<div class="addbanner"><button type="button" class="addback" data-a="addmenu" aria-label="Back">✕</button>'
+    +'<span>Weigh-in for <b>today</b></span></div>'
+    +'<div class="fincard"><h3>Weight — '+fmtShort(today)+'</h3>'
+    +'<div class="wbig"><input type="number" step="0.1" inputmode="decimal" placeholder="—" data-a="hfield" data-field="weight" value="'+esc(te.weight)+'"><span class="wunit">lb</span></div>'
+    +'<div id="wnote">'+weighNoteHtml()+'</div>'
+    +'<div class="fld" style="margin-top:14px"><label>Note (optional)</label>'
+    +'<input data-a="hfield" data-field="note" value="'+esc(te.note||'')+'"></div>'
+    +'</div>'
+    +(list?'<div class="ph"><h3>Recent weigh-ins</h3></div>'+list:'');
+}
+function weighNoteHtml(){
+  var gw=num((state.health.goals||{}).weight);
+  var cur=num((healthEntry(todayStr())||{}).weight);
+  if(!cur)return '<div class="gcheck">Enter today’s weight to see how it sits against your goal.</div>';
+  if(gw<=0)return '<div class="gcheck">Set a goal weight on Goals to track this against a target.</div>';
+  var d=cur-gw;
+  if(Math.abs(d)<0.05)return '<div class="gcheck">Right on your <b>'+trimNum(gw)+' lb</b> goal.</div>';
+  return '<div class="gcheck"><b>'+Math.abs(d).toFixed(1)+' lb</b> to '+(d>0?'lose':'gain')+' to reach '+trimNum(gw)+' lb.</div>';
 }
 // Same picker, but it stays on the Log page: you're adding to the day you were
 // looking at, and logging one thing drops you straight back to that day's sheet.
@@ -1445,19 +1508,14 @@ function dateNavHtml(){
 }
 function buildDay(){
   if(dayAddOpen)return dayAddHtml();
-  var te=healthEntry(viewDate)||{weight:'',calories:'',protein:'',note:''};
-  var fromLog=logFor(viewDate).length>0;
-  var lockNote=fromLog?'<div class="hint">from food log</div>':'';
-  var ro=fromLog?' readonly class="derived"':'';
-  var dayForm='<div class="fincard"><h3>Weight &amp; notes — '+fmtShort(viewDate)+'</h3><div class="fgrid">'
-    +'<div class="fld"><label>Weight (lb)</label><input type="number" step="0.1" data-a="hfield" data-field="weight" value="'+esc(te.weight)+'"></div>'
-    +'<div class="fld"><label>Calories</label><input type="number" data-a="hfield" data-field="calories" value="'+esc(te.calories)+'"'+ro+'>'+lockNote+'</div>'
-    +'<div class="fld"><label>Protein (g)</label><input type="number" data-a="hfield" data-field="protein" value="'+esc(te.protein)+'"'+ro+'>'+lockNote+'</div>'
-    +'<div class="fld"><label>Note</label><input data-a="hfield" data-field="note" value="'+esc(te.note)+'"></div>'
-    +'</div></div>';
+  // Weight lives under Add → Weight and reads back out in History; the Log page
+  // is only about what you ate that day.
+  var w=(healthEntry(viewDate)||{}).weight;
+  var wLine=(w!==''&&w!=null)
+    ?'<div class="dayweigh">Weighed in at <b>'+esc(w)+' lb</b></div>':'';
   var backToToday=viewDate!==todayStr()
     ?'<button type="button" class="blockaddbtn spaced" data-a="daytoday">Jump back to today</button>':'';
-  return dateNavHtml()+buildFoodSheet(viewDate)+dayForm+backToToday;
+  return dateNavHtml()+buildFoodSheet(viewDate)+wLine+backToToday;
 }
 // Goals are the spine of the whole app now — the bars up top, Calc's targets,
 // and "remaining today" all read from here.
@@ -1803,8 +1861,8 @@ app.addEventListener('click',function(e){
       page=t.dataset.page;openItem=null;
       foodAddOpen=false;mealAddOpen=false;pendingFood=null;
       // the day-add overlay belongs to the day you left; logging goes back to
-      // landing on today
-      dayAddOpen=false;addTarget=todayStr();
+      // landing on today, and Add always reopens on its menu
+      dayAddOpen=false;addTarget=todayStr();addView='menu';
       window.scrollTo(0,0);render();
     }
     return;
@@ -1817,6 +1875,15 @@ app.addEventListener('click',function(e){
     window.scrollTo(0,0);render();return;
   }
   if(a==='dayaddclose'){closeDayAdd();window.scrollTo(0,0);render();return;}
+  // Food hands straight off to the day picker for today — literally the same
+  // surface the Log page's own add button opens
+  if(a==='addfood'){
+    viewDate=todayStr();addTarget=todayStr();
+    dayAddOpen=true;logTab='recent';openItem=null;page='log';
+    window.scrollTo(0,0);render();return;
+  }
+  if(a==='addweight'){addView='weight';window.scrollTo(0,0);render();return;}
+  if(a==='addmenu'){addView='menu';window.scrollTo(0,0);render();return;}
   if(a==='logtab'){logTab=t.dataset.tab;openItem=null;render();return;}
   if(a==='calcpreset'){
     var p=t.dataset.p;
@@ -1907,7 +1974,14 @@ app.addEventListener('keydown',function(e){var t=e.target,a=t.dataset&&t.dataset
 });
 app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a;
   if(a==='setrange'){state.settings[t.dataset.k]=parseInt(t.value,10);save();return;}
-  if(a==='hfield'){var v=t.value;var fv=t.type==='number'?(v===''?'':parseFloat(v)):v;upsertHealth(viewDate,t.dataset.field,fv);save();refreshHealth();return;}
+  if(a==='hfield'){
+    var v=t.value;var fv=t.type==='number'?(v===''?'':parseFloat(v)):v;
+    upsertHealth(contextDate(),t.dataset.field,fv);
+    save();refreshHealth();
+    // repaint the goal read-out in place — a render() would drop focus mid-type
+    var wn=document.getElementById('wnote');if(wn)wn.innerHTML=weighNoteHtml();
+    return;
+  }
   if(a==='hedit'){var he=(state.health.entries||[]).filter(function(x){return x.id===t.dataset.id;})[0];if(he){var v2=t.value;he[t.dataset.field]=t.type==='number'?(v2===''?'':parseFloat(v2)):v2;save();refreshHealth();}return;}
   if(a==='foodamt'){var fd=fFood(t.dataset.id);if(fd){fd.tamt=t.value;save();refreshFoodCard(fd.id);}return;}
   if(a==='mealmult'){var mm=fMeal(t.dataset.id);if(mm){mm.mult=t.value===''?'':parseFloat(t.value);save();refreshMeal(mm.id);}return;}
