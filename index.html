@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T00:00:51Z';
+  var PAGE_VERSION='2026-08-24T15:05:26Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -641,7 +641,10 @@ function healthSummaryHtml(){
     var past=withW.filter(function(e){return dateOnly(e.date)<=cutoff;})[0]||withW[withW.length-1];
     if(past&&past.id!==latest.id)delta30=curW-parseFloat(past.weight);
   }
-  var week=entries.slice(0,7);
+  // today is still in progress — syncTodayMacros keeps updating it as you log
+  // more, so folding it into the average understates every day until bedtime
+  var today=todayStr();
+  var week=entries.filter(function(e){return e.date!==today;}).slice(0,7);
   function avg(field){var v=week.filter(function(e){return e[field]!=='';});if(!v.length)return null;var s=0;v.forEach(function(e){s+=parseFloat(e[field])||0;});return Math.round(s/v.length);}
   var avgCal=avg('calories'),avgPro=avg('protein');
   var stats='<div class="statrow">'
