@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T16:50:35Z';
+  var PAGE_VERSION='2026-08-24T18:29:48Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -358,6 +358,28 @@ textarea{resize:vertical;min-height:52px}
 .datelabel{text-align:center;min-width:0}
 .datemain{display:block;font-size:22px;font-weight:600;letter-spacing:-.01em;color:var(--on-ground)}
 .datesub{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-ground-outline);margin-top:1px}
+/* ── food picker: one search box, a scan button, then rows ── */
+.searchrow{display:flex;gap:8px;margin-bottom:12px}
+.searchrow input{flex:1;font-size:14px;padding:11px 14px;border-radius:14px}
+.scanbtn2{flex:none;width:52px;border-radius:14px;background:var(--surface);font-size:19px;display:flex;align-items:center;justify-content:center;padding:0}
+.scanbtn2:hover{background:var(--surface-2)}
+.frow{display:grid;grid-template-columns:22px 1fr auto;gap:11px;align-items:center;width:100%;text-align:left;
+  background:var(--surface);border-radius:14px;padding:12px 14px;margin-bottom:6px}
+.frow:hover{background:var(--surface-2)}
+.srcbadge{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-faint)}
+.srcbadge.db{color:var(--accent)}
+.srcbadge svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.frname{font-size:14px;color:var(--on-surface);min-width:0;overflow-wrap:anywhere}
+.frbrand{display:block;font-family:var(--mono);font-size:10.5px;color:var(--on-surface-faint);margin-top:2px}
+.frmeta{font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);text-align:right;white-space:nowrap}
+.frmeta small{display:block;font-size:10px;color:var(--on-surface-faint);margin-top:2px}
+/* ── the food page ── */
+.fdhead{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:start;padding:4px 2px 2px}
+.fdhead .srcbadge{width:26px;height:26px;margin-top:3px}
+.fdhead .srcbadge svg{width:19px;height:19px}
+.fdhead h1{grid-column:2;font-size:24px;color:var(--on-ground);overflow-wrap:anywhere}
+.fdbrand{grid-column:2;font-family:var(--mono);font-size:11.5px;color:var(--on-ground-outline);margin-top:3px}
+.fdbase{grid-column:2;font-family:var(--mono);font-size:11.5px;color:var(--on-ground-outline);margin-top:6px}
 /* ── Add: a chooser of big targets, not a page of its own ── */
 .addmenu{display:grid;gap:12px}
 .addtile{display:grid;grid-template-columns:56px 1fr;grid-template-rows:auto auto;column-gap:15px;
@@ -437,7 +459,8 @@ function fixState(d){
   if(!d.health)d.health={};
   if(!d.health.entries)d.health.entries=[];
   if(!d.health.foods)d.health.foods=[];
-  (d.health.foods||[]).forEach(function(f){if(!f.unit)f.unit='g';});
+  // anything saved before provenance was tracked was necessarily hand-entered
+  (d.health.foods||[]).forEach(function(f){if(!f.unit)f.unit='g';if(!f.source)f.source='manual';});
   if(!d.health.meals)d.health.meals=[];
   (d.health.meals||[]).forEach(function(m){
     if(m.mult===undefined||m.mult==='')m.mult=1;
@@ -581,7 +604,7 @@ function pageBody(){
 function render(){
   app.innerHTML=topbar()+goalBars()+pageBody()+bottomNav();
   applyBands();
-  if(foodSearchQuery)applyFoodSearch();
+  if(foodQuery&&document.getElementById('localfoods'))refreshPicker();
   var ed=app.querySelector('[data-e="1"]');if(ed){ed.focus();if(ed.select)ed.select();}
 }
 // The running "how much room is left" read-out for whichever day is on screen.
@@ -760,7 +783,13 @@ function healthRow(e){
 }
 // foods — reverse macro calculator
 var TARGETS=[{key:'protein',label:'Protein'},{key:'carbs',label:'Carbs'},{key:'fat',label:'Fat'},{key:'calories',label:'Calories'}];
-function fFood(id){return (state.health.foods||[]).filter(function(f){return f.id===id;})[0];}
+function fFood(id){
+  var f=(state.health.foods||[]).filter(function(f){return f.id===id;})[0];
+  // an unsaved database hit answers to its id too, so the solver, the amount
+  // handlers and the log path all treat it exactly like a saved food
+  if(!f&&draftFood&&draftFood.id===id)return draftFood;
+  return f;
+}
 function num(v){var n=parseFloat(v);return isNaN(n)?0:n;}
 var UNITS=['g','oz','lb','ml','l','cup','tbsp','tsp','slice','scoop','serving','bar','packet'];
 var COUNTABLE_UNITS=['serving','scoop','slice','bar','packet'];
@@ -836,50 +865,8 @@ function refreshFoodCard(id){
   var u=document.getElementById('fcunit-'+id);
   if(u)u.textContent=qtyMode?unitLabel(num(f.tamt)||1,f.unit):((f.tmac||'protein')==='calories'?'cal':'g');
 }
-var openItem=null; // {type:'food'|'meal', id} of the single expanded food/meal card, or null
+var openItem=null; // {type:'meal', id} of the single expanded meal card, or null
 function isOpenItem(type,id){return !!openItem&&openItem.type===type&&openItem.id===id;}
-function foodCard(f){
-  var open=isOpenItem('food',f.id);
-  var countable=isCountableUnit(f.unit),amt=f.tamt,inputRow;
-  var mode=f.mode==='have'?'have':'want';
-  var qtyMode=countable||mode==='have';
-  var modeTog='';
-  if(countable){
-    inputRow='<div class="fcrow"><span class="fclbl">Quantity</span>'
-      +'<input type="number" step="any" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="1">'
-      +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,f.unit))+'</span></div>';
-  }else{
-    // weight/volume units can go either direction: dial in a macro target and get told
-    // how much to eat ("I want"), or hand over a known amount and get told its macros
-    // ("I have" — e.g. 6.5 lbs of meal-prepped chicken breast)
-    modeTog='<div class="fcmodetog">'
-      +'<button type="button" class="fcmodebtn'+(mode==='want'?' on':'')+'" data-a="foodmode" data-id="'+f.id+'" data-mode="want">I want</button>'
-      +'<button type="button" class="fcmodebtn'+(mode==='have'?' on':'')+'" data-a="foodmode" data-id="'+f.id+'" data-mode="have">I have</button>'
-      +'</div>';
-    if(mode==='have'){
-      inputRow='<div class="fcrow"><span class="fclbl">I have</span>'
-        +'<input type="number" step="any" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="0">'
-        +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,f.unit))+'</span></div>';
-    }else{
-      var tk=f.tmac||'protein';
-      var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
-      inputRow='<div class="fcrow"><span class="fclbl">I want</span>'
-        +'<input type="number" step="0.1" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="0">'
-        +'<span class="fcunit2" id="fcunit-'+f.id+'">'+(tk==='calories'?'cal':'g')+'</span><span class="fclbl">of</span>'
-        +'<select data-a="foodmac" data-id="'+f.id+'">'+opts+'</select></div>';
-    }
-  }
-  var quickAction=open
-    ?'<span class="fdel" data-a="fooddel" data-id="'+f.id+'">×</span>'
-    :'<button class="flogbtn" data-a="foodquicklog" data-id="'+f.id+'">'+PLUS_ICON+' Log</button>';
-  var head='<div class="fctop" data-a="togglefood" data-id="'+f.id+'"><span class="fccaret">'+(open?'▾':'▸')+'</span><span class="fcname">'+esc(f.name)+'</span>'
-    +(open?'':'<span class="fcmini">'+num(f.calories)+' cal</span>')
-    +quickAction+'</div>';
-  var body=open?('<span class="fcbase">Measure '+esc(fmtQty(num(f.serving),f.unit))+' — '+num(f.protein)+'P / '+num(f.carbs)+'C / '+num(f.fat)+'F · '+num(f.calories)+'cal</span>'
-    +modeTog+inputRow
-    +'<div id="fcout-'+f.id+'">'+(qtyMode?foodOutQtyHtml(f):foodOutHtml(f))+'</div>'):'';
-  return '<div class="fcard'+(open?' open':'')+'" data-name="'+esc(f.name.toLowerCase())+'">'+head+body+'</div>';
-}
 // meals — a bus: each item keeps its own target, the multiplier scales every output
 function fMeal(id){return (state.health.meals||[]).filter(function(m){return m.id===id;})[0];}
 function sortedFoods(){return (state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});}
@@ -1024,7 +1011,7 @@ function addMeal(){
   state.health.meals.push(nm);
   mealAddOpen=false;              // the dialog stayed open after creating before
   if(!dayAddOpen)page='add';      // stay put if we're inside the day-add overlay
-  logTab='meals';
+
   openItem={type:'meal',id:nm.id};
   save();render();
 }
@@ -1054,6 +1041,7 @@ function logTotals(rows){
 // back to landing on today
 function closeDayAdd(){
   dayAddOpen=false;addTarget=todayStr();openItem=null;
+  pickDetail=null;draftFood=null;
   foodAddOpen=false;mealAddOpen=false;pendingFood=null;resetFoodDb();
 }
 function syncMacros(dateStr){
@@ -1067,9 +1055,15 @@ function syncMacros(dateStr){
 function addFoodLog(id){
   var f=fFood(id);if(!f)return;
   var r=foodResolved(f);if(!r)return;
+  // logging a database hit is what commits it to your library — that's what puts
+  // it in your recents next time, without ever making you fill in a form
+  if(draftFood&&draftFood.id===id){
+    state.health.foods=state.health.foods||[];
+    state.health.foods.push(draftFood);draftFood=null;
+  }
   state.health.log=state.health.log||[];
   state.health.log.push({id:uid(),date:addTarget,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
-  f.lastUsed=Date.now();  // drives the Recent tab's ordering
+  f.lastUsed=Date.now();  // drives the recents ordering
   syncMacros(addTarget);
   if(dayAddOpen)closeDayAdd();   // one food logged, back to the day you came from
   save();render();
@@ -1143,24 +1137,20 @@ function buildFoodSheet(dateStr){
     +'</div>';
 }
 var foodAddOpen=false;
-var foodSearchQuery='';
-function applyFoodSearch(){
-  var q=foodSearchQuery.trim().toLowerCase();
-  var cards=app.querySelectorAll('#foodlist .fcard');
-  for(var ci=0;ci<cards.length;ci++){
-    var nm=cards[ci].getAttribute('data-name')||'';
-    cards[ci].style.display=(!q||nm.indexOf(q)>-1)?'':'none';
-  }
+// One box does both jobs: it filters your own foods on every keystroke, and
+// after a short pause also asks the database. Repainting the two lists in place
+// rather than re-rendering is what lets you keep typing through it.
+var foodQuery='';
+var foodQueryTimer=null;
+function refreshPicker(){
+  var l=document.getElementById('localfoods');if(l)l.innerHTML=localFoodsHtml();
+  var d=document.getElementById('dbresults');if(d)d.innerHTML=dbResultsHtml();
 }
-function foodDbResultsHtml(){
-  if(foodDbBusy)return '<div class="fdbnote">Searching…</div>';
-  if(foodDbErr)return '<div class="fdbnote">'+esc(foodDbErr)+'</div>';
-  if(!foodDbResults||!foodDbResults.length)return '';
-  return '<div class="fdbresults">'+foodDbResults.map(function(r,i){
-    return '<button type="button" class="fdbresult" data-a="fdbpick" data-idx="'+i+'">'
-      +'<span class="fdbname">'+esc(r.name)+(r.brand?' <span class="fdbbrand">'+esc(r.brand)+'</span>':'')+'</span>'
-      +'<span class="fdbcal">'+Math.round(r.calories)+' cal / '+esc(fmtQty(r.serving,r.unit))+'</span></button>';
-  }).join('')+'</div>';
+function scheduleDbSearch(){
+  if(foodQueryTimer)clearTimeout(foodQueryTimer);
+  var q=foodQuery.trim();
+  if(q.length<3){foodDbResults=null;foodDbErr='';refreshPicker();return;}
+  foodQueryTimer=setTimeout(function(){runFoodDbSearch();},450);
 }
 // Prefill for the review form. A search hit or barcode scan lands here first,
 // so the values are baked into the HTML rather than poked into the DOM after
@@ -1196,23 +1186,12 @@ function foodAddHtml(){
     +'</div><button data-a="foodadd">'+PLUS_ICON+' Save food</button></div>'
     +'</div></div>';
 }
-// ── the Add page: four tabs over one job, putting something in the log ──
-var logTab='recent';
-var LOG_TABS=[['recent','Recent'],['search','Search'],['meals','Meals'],['all','All foods']];
-function addTabsHtml(){
-  var body=logTab==='search'?logSearchTab():logTab==='meals'?logMealsTab():logTab==='all'?logAllTab():logRecentTab();
-  return '<div class="tabs">'+LOG_TABS.map(function(t){
-      return '<button type="button" class="tab'+(logTab===t[0]?' on':'')+'" data-a="logtab" data-tab="'+t[0]+'">'+t[1]+'</button>';
-    }).join('')+'</div>'
-    +body
-    +(foodAddOpen?foodAddHtml():'')
-    +(mealAddOpen?mealAddHtml():'');
-}
 // Add and History are choosers, not pages of their own — each tile hands off to
 // the surface that actually does the job.
 var ICON_FOOD='<path d="M4 11h16"/><path d="M5.2 11a6.8 6.8 0 0 0 13.6 0"/><path d="M9.5 7.4c0-1.1.8-1.7 1.2-2.6"/><path d="M13.3 7.4c0-1.1.8-1.7 1.2-2.6"/>';
 var ICON_SCALE='<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><path d="M8.2 14.4a3.8 3.8 0 0 1 7.6 0"/><path d="M12 14.4l2.4-2.9"/>';
-var addView='menu';   // 'menu' | 'weight'
+var ICON_MEAL='<path d="M6 3v8a2.5 2.5 0 0 0 5 0V3"/><path d="M8.5 11v10"/><path d="M17.5 3c-1.4 0-2.5 2.2-2.5 5s1.1 4 2.5 4"/><path d="M17.5 12v9"/>';
+var addView='menu';   // 'menu' | 'meals' | 'weight'
 function menuTile(action,icon,label,sub){
   return '<button type="button" class="addtile" data-a="'+action+'">'
     +'<span class="addtileicon"><svg viewBox="0 0 24 24">'+icon+'</svg></span>'
@@ -1221,11 +1200,22 @@ function menuTile(action,icon,label,sub){
 }
 function buildAdd(){
   if(addView==='weight')return buildWeighIn();
+  if(addView==='meals')return buildMeals();
   return '<div class="hrow"><h1>Add</h1></div>'
     +'<div class="addmenu">'
-    +menuTile('addfood',ICON_FOOD,'Food','Search, scan, or pick from your saved foods')
+    +menuTile('addfood',ICON_FOOD,'Food','Search, scan, or pick from your recents')
+    +menuTile('addmeals',ICON_MEAL,'Meals','Log or build a group of foods')
     +menuTile('addweight',ICON_SCALE,'Weight','Today’s weigh-in')
     +'</div>';
+}
+function buildMeals(){
+  var cards=(state.health.meals||[]).map(mealCard).join('');
+  return '<div class="addbanner"><button type="button" class="addback" data-a="addmenu" aria-label="Back">✕</button>'
+    +'<span>Meals</span></div>'
+    +'<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Create a meal</button>'
+    +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
+    +(cards||'<div class="tempty">No meals yet.</div>')
+    +(mealAddOpen?mealAddHtml():'');
 }
 function buildWeighIn(){
   var today=todayStr();
@@ -1260,9 +1250,11 @@ function weighNoteHtml(){
 // Same picker, but it stays on the Log page: you're adding to the day you were
 // looking at, and logging one thing drops you straight back to that day's sheet.
 function dayAddHtml(){
+  if(pickDetail)return foodDetailHtml();
   return '<div class="addbanner"><button type="button" class="addback" data-a="dayaddclose" aria-label="Cancel">✕</button>'
     +'<span>Adding to <b>'+esc(fmtLong(viewDate))+'</b></span></div>'
-    +addTabsHtml();
+    +foodPickerHtml()
+    +(foodAddOpen?foodAddHtml():'');
 }
 // Recency, not the alphabet: what you ate yesterday is overwhelmingly what
 // you're about to eat again, and alphabetical order buries it.
@@ -1275,48 +1267,122 @@ function recentFoods(){
     return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});
   });
 }
-function logRecentTab(){
-  var foods=recentFoods();
-  if(!foods.length)return '<div class="tempty">Nothing saved yet — search the database or add a food by hand.</div>'
-    +'<button type="button" class="blockaddbtn spaced" data-a="logtab" data-tab="search">Search the food database</button>';
-  return '<div id="foodlist">'+foods.slice(0,25).map(foodCard).join('')+'</div>';
+// Where a food came from, at a glance: one you typed in yourself versus one
+// pulled from USDA or Open Food Facts. They sit in the same list once logged,
+// so the row itself has to say which is which.
+var ICON_PEN='<path d="M4 20h4L18 10a2.47 2.47 0 0 0-3.5-3.5L4.5 16.5z"/><path d="M13.6 7.6l3 3"/>';
+var ICON_DB='<ellipse cx="12" cy="6.4" rx="7" ry="2.8"/><path d="M5 6.4v11.2c0 1.55 3.13 2.8 7 2.8s7-1.25 7-2.8V6.4"/><path d="M5 12c0 1.55 3.13 2.8 7 2.8s7-1.25 7-2.8"/>';
+function isDbFood(f){return f&&(f.source==='usda'||f.source==='off');}
+function sourceBadge(f){
+  var db=isDbFood(f);
+  return '<span class="srcbadge'+(db?' db':'')+'" title="'+(db?'From the food database':'You entered this yourself')+'">'
+    +'<svg viewBox="0 0 24 24">'+(db?ICON_DB:ICON_PEN)+'</svg></span>';
 }
-function logAllTab(){
-  var sorted=sortedFoods();
-  var search=sorted.length>1?'<input class="foodsearch" data-a="foodsearch" placeholder="Search your foods…" value="'+esc(foodSearchQuery)+'">':'';
-  return '<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">'+PLUS_ICON+' New food (enter by hand)</button>'
-    +search+'<div id="foodlist">'+(sorted.map(foodCard).join('')||'<div class="tempty">No foods saved yet.</div>')+'</div>';
+function foodRow(f,attrs){
+  return '<button type="button" class="frow" '+attrs+'>'
+    +sourceBadge(f)
+    +'<span class="frname">'+esc(f.name)+(f.brand?'<span class="frbrand">'+esc(f.brand)+'</span>':'')+'</span>'
+    +'<span class="frmeta">'+Math.round(num(f.calories))+' cal<small>'+esc(fmtQty(num(f.serving),f.unit))+'</small></span>'
+    +'</button>';
 }
-function logMealsTab(){
-  var cards=(state.health.meals||[]).map(mealCard).join('');
-  return '<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Create a meal</button>'
-    +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
-    +(cards||'<div class="tempty">No meals yet.</div>');
+function localFoodsHtml(){
+  var q=foodQuery.trim().toLowerCase();
+  var foods=recentFoods().filter(function(f){return !q||f.name.toLowerCase().indexOf(q)>-1;});
+  if(!foods.length)
+    return '<div class="tempty">'+(q?'None of your foods match that.':'Nothing logged yet — search for a food above.')+'</div>';
+  return foods.map(function(f){
+    return foodRow(f,'data-a="opendetail" data-kind="saved" data-id="'+f.id+'"');
+  }).join('');
 }
-function logSearchTab(){
+function dbResultsHtml(){
+  if(foodDbBusy)return '<div class="ph"><h3>Database</h3></div><div class="tempty">Searching…</div>';
+  if(foodDbErr)return '<div class="ph"><h3>Database</h3></div><div class="tempty">'+esc(foodDbErr)+'</div>';
+  if(!foodDbResults||!foodDbResults.length)return '';
+  return '<div class="ph"><h3>Database</h3></div>'
+    +foodDbResults.map(function(r,i){
+      return foodRow(r,'data-a="opendetail" data-kind="db" data-idx="'+i+'"');
+    }).join('');
+}
+function foodPickerHtml(){
   var keyed=!!(state.settings.fdcKey||'').trim();
   var note=keyed?'':'<div class="fdbnote">Searching Open Food Facts. For better results — USDA data, generic foods first — add a '
     +'<a class="keylink" href="https://fdc.nal.usda.gov/api-key-signup/" target="_blank" rel="noopener">free USDA key</a> in Settings.</div>';
-  return '<div class="fdbsearchrow"><input data-a="fdbquery" placeholder="Search foods…" value="'+esc(foodDbQuery)+'">'
-    +'<button type="button" data-a="fdbsearch"'+(foodDbBusy?' disabled':'')+'>'+(foodDbBusy?'…':'Search')+'</button></div>'
+  return '<div class="searchrow">'
+    +'<input data-a="foodq" placeholder="Search foods…" value="'+esc(foodQuery)+'">'
+    +'<button type="button" class="scanbtn2" data-a="scanbarcode" aria-label="Scan a barcode">📷</button></div>'
     +note
-    +foodDbResultsHtml()
-    +'<button type="button" class="scanbtn" data-a="scanbarcode">📷 Scan barcode</button>'
-    +'<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">'+PLUS_ICON+' Enter one by hand instead</button>';
+    +'<div id="localfoods">'+localFoodsHtml()+'</div>'
+    +'<div id="dbresults">'+dbResultsHtml()+'</div>'
+    +'<button type="button" class="blockaddbtn spaced" data-a="openfoodadd">'+PLUS_ICON+' Enter one by hand</button>';
+}
+// A database hit you haven't logged yet. It behaves exactly like a saved food —
+// fFood() resolves it — but only joins your library once you actually log it, so
+// browsing results doesn't litter the list.
+var draftFood=null;
+var pickDetail=null;   // null | {kind:'saved',id} | {kind:'db'}
+function detailFood(){
+  if(!pickDetail)return null;
+  return pickDetail.kind==='db'?draftFood:fFood(pickDetail.id);
+}
+// The food page, full width — the solver gets room to breathe, and there's
+// space here for micronutrients later without redesigning anything.
+function foodDetailHtml(){
+  var f=detailFood();
+  if(!f)return '<div class="tempty">That food is gone.</div>';
+  var countable=isCountableUnit(f.unit),amt=f.tamt;
+  var mode=f.mode==='have'?'have':'want';
+  var qtyMode=countable||mode==='have';
+  var modeTog='',inputRow;
+  if(countable){
+    inputRow='<div class="fcrow"><span class="fclbl">Quantity</span>'
+      +'<input type="number" step="any" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="1">'
+      +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,f.unit))+'</span></div>';
+  }else{
+    modeTog='<div class="fcmodetog">'
+      +'<button type="button" class="fcmodebtn'+(mode==='want'?' on':'')+'" data-a="foodmode" data-id="'+f.id+'" data-mode="want">I want</button>'
+      +'<button type="button" class="fcmodebtn'+(mode==='have'?' on':'')+'" data-a="foodmode" data-id="'+f.id+'" data-mode="have">I have</button>'
+      +'</div>';
+    if(mode==='have'){
+      inputRow='<div class="fcrow"><span class="fclbl">I have</span>'
+        +'<input type="number" step="any" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="0">'
+        +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,f.unit))+'</span></div>';
+    }else{
+      var tk=f.tmac||'protein';
+      var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
+      inputRow='<div class="fcrow"><span class="fclbl">I want</span>'
+        +'<input type="number" step="0.1" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="0">'
+        +'<span class="fcunit2" id="fcunit-'+f.id+'">'+(tk==='calories'?'cal':'g')+'</span><span class="fclbl">of</span>'
+        +'<select data-a="foodmac" data-id="'+f.id+'">'+opts+'</select></div>';
+    }
+  }
+  var where=addTarget===todayStr()?'today':fmtLong(addTarget);
+  return '<div class="addbanner"><button type="button" class="addback" data-a="detailback" aria-label="Back">‹</button>'
+    +'<span>Logging to <b>'+esc(where)+'</b></span></div>'
+    +'<div class="fdhead">'+sourceBadge(f)
+    +'<h1>'+esc(f.name)+'</h1>'
+    +(f.brand?'<div class="fdbrand">'+esc(f.brand)+'</div>':'')
+    +'<div class="fdbase">Per '+esc(fmtQty(num(f.serving),f.unit))+' — '
+    +num(f.protein)+'P / '+num(f.carbs)+'C / '+num(f.fat)+'F · '+num(f.calories)+' cal</div></div>'
+    +'<div class="fincard">'+modeTog+inputRow
+    +'<div id="fcout-'+f.id+'">'+(qtyMode?foodOutQtyHtml(f):foodOutHtml(f))+'</div></div>'
+    +(pickDetail.kind==='saved'
+      ?'<button type="button" class="blockaddbtn spaced" data-a="fooddel" data-id="'+f.id+'">Delete this food</button>'
+      :'<div class="gcheck" style="padding:0 2px">Logging this saves it to your foods so it shows up next time.</div>');
 }
 function addFood(){
   var get=function(f){var el=app.querySelector('[data-a="fnew"][data-f="'+f+'"]');return el?el.value:'';};
   var name=get('name').trim();if(!name)return;
   var serving=num(get('serving'));if(serving<=0)return;
   state.health.foods=state.health.foods||[];
-  var nf={id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),tmac:'protein',tamt:''};
+  var src=(pendingFood&&pendingFood.source)||'manual';
+  var nf={id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),source:src,brand:(pendingFood&&pendingFood.brand)||'',tmac:'protein',tamt:''};
   state.health.foods.push(nf);
-  // land on the new food, opened and ready to dial in — that's the next thing
-  // you want after saving one, whether it came from search or from typing
+  // land on the new food's page, ready to dial in — that's the next thing you
+  // want after saving one, whether it came from a scan or from typing
   foodAddOpen=false;pendingFood=null;resetFoodDb();
-  if(!dayAddOpen)page='add';      // stay put if we're inside the day-add overlay
-  logTab='recent';
-  openItem={type:'food',id:nf.id};
+  if(!dayAddOpen){page='log';viewDate=todayStr();addTarget=todayStr();dayAddOpen=true;}
+  draftFood=null;
+  pickDetail={kind:'saved',id:nf.id};
   save();render();
 }
 // Open Food Facts is the fallback nutrition source, no key required —
@@ -1397,7 +1463,7 @@ async function searchOFF(query){
   var out=[];
   (data.products||[]).forEach(function(p){
     var info=parseOFFProduct(p,p.product_name||'Unnamed product');
-    if(info){info.brand=p.brands||'';out.push(info);}
+    if(info){info.brand=p.brands||'';info.source='off';out.push(info);}
   });
   return out;
 }
@@ -1440,6 +1506,7 @@ function parseFDCFood(f){
   info.brand=f.brandName||f.brandOwner||'';
   // householdServingFullText is the human phrasing off the label ("1 slice")
   if(f.householdServingFullText)info.brand=(info.brand?info.brand+' · ':'')+f.householdServingFullText;
+  info.source='usda';
   return info;
 }
 async function searchFDC(query,key){
@@ -1465,14 +1532,18 @@ async function searchFoodDatabase(query){
   }
   return await searchOFF(query);
 }
-function resetFoodDb(){foodDbQuery='';foodDbResults=null;foodDbBusy=false;foodDbErr='';}
+function resetFoodDb(){foodQuery='';foodDbResults=null;foodDbBusy=false;foodDbErr='';
+  if(foodQueryTimer){clearTimeout(foodQueryTimer);foodQueryTimer=null;}}
 async function runFoodDbSearch(){
-  var q=foodDbQuery.trim();
+  var q=foodQuery.trim();
   if(!q||foodDbBusy)return;
-  foodDbBusy=true;foodDbErr='';render();
+  foodDbBusy=true;foodDbErr='';refreshPicker();
   try{
-    foodDbResults=await searchFoodDatabase(q);
-    if(!foodDbResults.length)foodDbErr='No matches — try a different search, or enter it manually below.';
+    var hits=await searchFoodDatabase(q);
+    // the box may have moved on while this was in flight — don't clobber it
+    if(q!==foodQuery.trim()){foodDbBusy=false;return;}
+    foodDbResults=hits;
+    if(!foodDbResults.length)foodDbErr='No matches in the database for that.';
   }catch(e){
     foodDbResults=null;
     // Don't blame the user's connection when the real cause is almost always
@@ -1481,7 +1552,7 @@ async function runFoodDbSearch(){
       ?'Search failed — give it another go in a moment.'
       :'Search failed. Open Food Facts turns away a lot of anonymous requests; adding a free USDA key in Settings fixes this properly.';
   }
-  foodDbBusy=false;render();
+  foodDbBusy=false;refreshPicker();
 }
 function fillFoodForm(info){openFoodForm(info);}
 // the qrcode library is a real download (barcode decoding engine) that almost
@@ -1809,7 +1880,7 @@ function calcSaveAsMeal(){
   var nm={id:uid(),name:name.trim(),mult:1,items:items};
   state.health.meals.push(nm);
   save();
-  page='add';logTab='meals';openItem={type:'meal',id:nm.id};
+  page='add';addView='meals';openItem={type:'meal',id:nm.id};
   render();
 }
 // Like Add, History is a chooser — Macros is the only thing behind it today,
@@ -1923,6 +1994,7 @@ app.addEventListener('click',function(e){
       // the day-add overlay belongs to the day you left; logging goes back to
       // landing on today, and both choosers reopen on their menu
       dayAddOpen=false;addTarget=todayStr();addView='menu';historyView='menu';
+      pickDetail=null;draftFood=null;resetFoodDb();
       window.scrollTo(0,0);render();
     }
     return;
@@ -1931,7 +2003,7 @@ app.addEventListener('click',function(e){
   if(a==='daytoday'){viewDate=todayStr();render();return;}
   if(a==='addtoday'){
     viewDate=t.dataset.date;addTarget=viewDate;
-    dayAddOpen=true;logTab='recent';openItem=null;
+    dayAddOpen=true;openItem=null;
     window.scrollTo(0,0);render();return;
   }
   if(a==='dayaddclose'){closeDayAdd();window.scrollTo(0,0);render();return;}
@@ -1939,14 +2011,29 @@ app.addEventListener('click',function(e){
   // surface the Log page's own add button opens
   if(a==='addfood'){
     viewDate=todayStr();addTarget=todayStr();
-    dayAddOpen=true;logTab='recent';openItem=null;page='log';
+    dayAddOpen=true;openItem=null;page='log';
     window.scrollTo(0,0);render();return;
   }
   if(a==='addweight'){addView='weight';window.scrollTo(0,0);render();return;}
   if(a==='addmenu'){addView='menu';window.scrollTo(0,0);render();return;}
   if(a==='histmacros'){historyView='macros';window.scrollTo(0,0);render();return;}
   if(a==='histmenu'){historyView='menu';window.scrollTo(0,0);render();return;}
-  if(a==='logtab'){logTab=t.dataset.tab;openItem=null;render();return;}
+  if(a==='opendetail'){
+    if(t.dataset.kind==='db'){
+      var hit=foodDbResults&&foodDbResults[parseInt(t.dataset.idx,10)];
+      if(!hit)return;
+      // clone it so dialling in an amount doesn't mutate the search results
+      draftFood={id:uid(),name:hit.name,brand:hit.brand||'',source:hit.source||'usda',
+        serving:hit.serving,unit:hit.unit,protein:hit.protein,carbs:hit.carbs,
+        fat:hit.fat,calories:hit.calories,tmac:'protein',tamt:''};
+      pickDetail={kind:'db'};
+    }else{
+      pickDetail={kind:'saved',id:t.dataset.id};
+    }
+    window.scrollTo(0,0);render();return;
+  }
+  if(a==='detailback'){pickDetail=null;draftFood=null;window.scrollTo(0,0);render();return;}
+  if(a==='addmeals'){addView='meals';window.scrollTo(0,0);render();return;}
   if(a==='calcpreset'){
     var p=t.dataset.p;
     calcTargets=p==='remaining'?calcRemaining():calcShareOfDay(p==='half'?0.5:p==='third'?1/3:0.25);
@@ -1969,26 +2056,16 @@ app.addEventListener('click',function(e){
   else if(a==='closefoodadd'){foodAddOpen=false;pendingFood=null;resetFoodDb();render();}
   else if(a==='foodadd'){addFood();}
   else if(a==='scanbarcode'){openScanner();}
-  else if(a==='fdbsearch'){runFoodDbSearch();}
-  else if(a==='fdbpick'){
-    var picked=foodDbResults&&foodDbResults[parseInt(t.dataset.idx,10)];
-    if(picked)fillFoodForm(picked);
-  }
-  else if(a==='togglefood'){openItem=isOpenItem('food',t.dataset.id)?null:{type:'food',id:t.dataset.id};render();}
   else if(a==='foodmode'){
     var fmd=fFood(t.dataset.id);
     // the number typed under the old mode means something different under the new one
     // (grams needed vs. grams on hand) — clear it rather than carry over a stale value
     if(fmd&&fmd.mode!==t.dataset.mode){fmd.mode=t.dataset.mode;fmd.tamt='';save();render();}
   }
-  else if(a==='foodquicklog'){
-    var fq=fFood(t.dataset.id);
-    // nothing dialed in yet (fresh food, tamt never set) — open it instead of
-    // logging nothing, since there's no amount to actually log
-    if(fq&&foodResolved(fq))addFoodLog(t.dataset.id);
-    else{openItem={type:'food',id:t.dataset.id};render();}
+  else if(a==='fooddel'){
+    state.health.foods=(state.health.foods||[]).filter(function(x){return x.id!==t.dataset.id;});
+    pickDetail=null;save();render();
   }
-  else if(a==='fooddel'){state.health.foods=(state.health.foods||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='foodlog'){addFoodLog(t.dataset.id);}
   else if(a==='logdel'){state.health.log=(state.health.log||[]).filter(function(x){return x.id!==t.dataset.id;});syncMacros(viewDate);save();render();}
   else if(a==='logdelgroup'){state.health.log=(state.health.log||[]).filter(function(x){return x.gid!==t.dataset.gid;});syncMacros(viewDate);save();render();}
@@ -2030,7 +2107,7 @@ app.addEventListener('keydown',function(e){var t=e.target,a=t.dataset&&t.dataset
   if(e.key==='Enter'){
     if(a==='fnew'){e.preventDefault();addFood();}
     else if(a==='mealn'){e.preventDefault();addMeal();}
-    else if(a==='fdbquery'){e.preventDefault();runFoodDbSearch();}
+    else if(a==='foodq'){e.preventDefault();t.blur();runFoodDbSearch();}
     else if(['tdcommit','cmln'].indexOf(a)>-1){e.preventDefault();t.blur();}
   }else if(e.key==='Escape'){state.editing=null;render();}
 });
@@ -2053,7 +2130,6 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
     if(im){var it=(im.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];if(it){it.tamt=t.value;save();refreshMeal(im.id);}}
     return;
   }
-  if(a==='fdbquery'){foodDbQuery=t.value;return;}
   if(a==='fdckey'){state.settings.fdcKey=t.value.trim();save();return;}
   if(a==='calctarget'){calcTargets[t.dataset.k]=t.value===''?'':parseFloat(t.value);calcMode='';refreshCalc();return;}
   if(a==='calcamt'){
@@ -2076,12 +2152,12 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
     save();refreshGoalCheck();
     return;
   }
-  if(a==='foodsearch'){
-    // filter in the DOM rather than re-rendering, so typing doesn't lose focus —
-    // but remember the query so a render triggered by something else (e.g.
-    // mis-tapping a food card) restores it instead of silently clearing it
-    foodSearchQuery=t.value;
-    applyFoodSearch();
+  if(a==='foodq'){
+    // your own foods filter on every keystroke; the database gets asked once
+    // you pause. Both lists repaint in place so typing is never interrupted.
+    foodQuery=t.value;
+    refreshPicker();
+    scheduleDbSearch();
     return;
   }
   return;});
