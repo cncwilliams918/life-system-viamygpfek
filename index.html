@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T16:38:15Z';
+  var PAGE_VERSION='2026-08-24T16:50:35Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1175,7 +1175,11 @@ function openFoodForm(info){
 }
 function foodAddHtml(){
   var p=pendingFood||{};
-  var v=function(k){var x=p[k];return (x===undefined||x===null||x==='')?'':esc(trimNum(num(x)));};
+  // trimNum rounds anything at or above 20 to a whole number — fine for a
+  // headline read-out, lossy for a value about to be saved and multiplied
+  // against forever after (22.5g protein was landing in the form as 23).
+  var v=function(k){var x=p[k];
+    return (x===undefined||x===null||x==='')?'':esc(String(Math.round(num(x)*100)/100));};
   var unit=p.unit||'g';
   return '<div class="settingsoverlay"><div class="settingscard wide">'
     +'<div class="settingshead"><h3>'+(pendingFood?'Review food':'New food')+'</h3><button class="settingsclose" data-a="closefoodadd">×</button></div>'
@@ -1400,20 +1404,31 @@ async function searchOFF(query){
 // USDA FoodData Central. Its search results report every nutrient per 100g with
 // the label serving carried separately — the same shape parseOFFProduct already
 // untangles, so this normalizes into that function's exact output contract.
-var FDC_NUTRIENTS={1003:'protein',1004:'fat',1005:'carbs',1008:'calories'};
+var FDC_NUTRIENTS={1003:'protein',1004:'fat',1005:'carbs'};
+// Energy needs its own lookup. Branded and SR Legacy carry nutrient 1008 in
+// kcal, but plenty of Foundation foods have no 1008 at all — raw chicken breast
+// (fdcId 2646170) ships only the two Atwater rows, which is why it used to come
+// through at 0 cal. Order matters: 1008 is the figure printed on labels; 2047
+// (Atwater General) is the 4/4/9 basis those labels are built on and what the
+// macro donut here assumes, so it beats the food-specific 2048 for consistency.
+var FDC_ENERGY=[1008,2047,2048];
 // Generic USDA entries first, brands last. "Chicken breast" should return
 // chicken breast, not whichever supermarket uploaded a label for it — this
 // ranking is the main thing that makes search feel better than MyFitnessPal.
 var FDC_RANK={'Foundation':0,'SR Legacy':1,'Survey (FNDDS)':2,'Branded':3};
 function parseFDCFood(f){
-  var per100={};
+  var per100={},energy={};
   (f.foodNutrients||[]).forEach(function(n){
     var key=FDC_NUTRIENTS[n.nutrientId];
-    if(!key)return;
-    // Energy also comes through in kJ on some records; only take the kcal row
-    if(key==='calories'&&String(n.unitName||'').toUpperCase()!=='KCAL')return;
-    if(per100[key]===undefined)per100[key]=num(n.value);
+    if(key){if(per100[key]===undefined)per100[key]=num(n.value);return;}
+    // energy also comes through in kJ on some records; only take the kcal rows
+    if(FDC_ENERGY.indexOf(n.nutrientId)>-1
+       &&String(n.unitName||'').toUpperCase()==='KCAL'
+       &&energy[n.nutrientId]===undefined)energy[n.nutrientId]=num(n.value);
   });
+  for(var ei=0;ei<FDC_ENERGY.length;ei++){
+    if(energy[FDC_ENERGY[ei]]!==undefined){per100.calories=energy[FDC_ENERGY[ei]];break;}
+  }
   if(per100.protein===undefined&&per100.carbs===undefined&&per100.fat===undefined&&per100.calories===undefined)return null;
   var name=f.description||'Unnamed food';
   var sz=num(f.servingSize),unit=String(f.servingSizeUnit||'').toLowerCase();
