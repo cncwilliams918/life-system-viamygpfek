@@ -11,13 +11,16 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Life System">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#daf1de">
+<meta name="theme-color" content="#f4efe3">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
 <script>
 // meta no-cache tags aren't reliably honored by every engine (confirmed in testing) —
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T19:31:31Z';
+  var PAGE_VERSION='2026-08-24T19:43:23Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -32,7 +35,7 @@
 </script>
 </head>
 <body>
-<div id="app"><div style="font-family:monospace;color:#051f20;padding:40px 4px">Loading…</div></div>
+<div id="app"><div style="font-family:system-ui,sans-serif;color:#051f20;padding:40px 4px">Loading…</div></div>
 <style>
 /* ============================================================
    PALETTE — every color in the app is one of these roles.
@@ -42,44 +45,54 @@
    variables, so it must be updated by hand to match --ground.
    ============================================================ */
 :root{
-  /* ground: the page background, and text/borders that sit directly on it (no card).
-     The ground is LIGHT and blocks are DARK, so on-ground text is the darkest green.
-     One ground colour only — sage is an accent now, never a background. */
-  --ground:#daf1de;              /* mint */
+  /* ground: the page itself — warm cream. Cards sit ON it and run lighter still,
+     which is the inverse of how this app used to work: the deep greens are no
+     longer what a block is made of, they're chrome (see --ink). */
+  --ground:#f4efe3;              /* cream */
   --on-ground:#051f20;           /* darkest green — text on the ground */
-  --on-ground-outline:rgba(5,31,32,.35);
-  --on-ground-wash:rgba(5,31,32,.08);
-  --on-ground-negative:#8f2f22;  /* --negative is too light to read on the pale ground; darker stand-in */
-  --on-ground-negative-wash:rgba(143,47,34,.12);
+  --on-ground-outline:rgba(5,31,32,.42);
+  --on-ground-wash:rgba(5,31,32,.07);
+  --on-ground-negative:#9c4a36;
+  --on-ground-negative-wash:rgba(156,74,54,.12);
 
-  /* surface: block backgrounds and their text tiers. Nothing is outlined — depth
-     is the only separator, so these three tones must stay distinguishable:
-     a block is lightest, a control inside it is darker, a field is darkest. */
-  --surface:#235347;             /* every block */
-  --surface-2:#235347;           /* inset within a block: buttons, panels, table head/total rows */
-  --surface-3:#0b2b26;           /* deepest: form fields, and the 1px gaps used as rules */
-  --surface-wash:rgba(218,241,222,.16);  /* translucent light fill on a block (e.g. XP bar track) */
-  --on-surface:#daf1de;          /* mint — primary text on a block */
-  --on-surface-dim:#b3d4bd;      /* secondary text on a block */
-  --on-surface-faint:#8eb69b;    /* tertiary/muted text on a block */
-  --divider:#0b2b26;             /* shown through grid/flex gaps, never as a border */
+  /* surface: cards. Lifted by shadow, never outlined, so the three tones must
+     stay distinguishable: a card is lightest, a control inside it darker, a
+     field darker still. */
+  --surface:#fffdf7;             /* every card */
+  --surface-2:#efe8d8;           /* inset within a card: buttons, table head/total rows */
+  --surface-3:#e7dfd0;           /* deepest: form fields */
+  --surface-wash:rgba(5,31,32,.06);
+  --on-surface:#051f20;          /* primary text on a card */
+  --on-surface-dim:rgba(5,31,32,.66);
+  --on-surface-faint:rgba(5,31,32,.44);
+  --divider:rgba(5,31,32,.10);   /* shown through grid/flex gaps, never as a border */
+  --cardshadow:0 2px 10px rgba(5,31,32,.07);
 
-  /* accent: interactive/brand colors — accent is the default, 2 and 3 are alternates
-     (per-goal color, macro donut slices). Accents sit on dark blocks, so they run light. */
-  --accent:#8eb69b;
-  --accent-2:#daf1de;
-  --accent-3:#4e8f79;
-  --accent-wash:rgba(142,182,155,.14);
-  --on-accent:#051f20;           /* text/icon on a filled accent background */
+  /* ink: the deep greens, now reserved for chrome — the nav bar and the banners
+     that have to read as a different layer from the page. */
+  --ink:#163832;
+  --ink-2:#0b2b26;
+  --on-ink:#daf1de;
+  --on-ink-dim:rgba(218,241,222,.72);
+  --on-ink-faint:rgba(218,241,222,.50);
 
-  /* status — derived, not from the source palette: a six-tone monochrome can't
-     signal good/bad on its own, and danger in particular has to read as danger. */
-  --positive:#7fd1a5;
-  --negative:#e0796b;
-  --negative-wash:rgba(224,121,107,.14);
+  /* accent: gold leads every action. 2 and 3 are the alternates that carry data
+     series — deep green and terracotta, both readable on a light card. */
+  --accent:#c9a45c;              /* gold */
+  --accent-2:#235347;            /* deep green */
+  --accent-3:#b96f5a;            /* terracotta */
+  --accent-wash:rgba(201,164,92,.20);
+  --on-accent:#051f20;           /* gold is light — dark ink on it, not white */
 
-  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  /* status — the board's palette can't signal good/bad on its own, and these now
+     sit on LIGHT cards, so they run dark rather than pastel. */
+  --positive:#2f7d5b;
+  --negative:#9c4a36;
+  --negative-wash:rgba(156,74,54,.12);
+
+  --display:'Playfair Display',Georgia,'Times New Roman',serif;
+  --label:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --sans:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 html,body{background:var(--ground);margin:0;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 /* The ground is one flat mint. Sections used to alternate mint/sage with the
@@ -90,6 +103,8 @@ html,body{background:var(--ground);margin:0;overflow-x:hidden;-webkit-tap-highli
 #app{color:var(--on-surface);font-family:var(--sans);line-height:1.5;max-width:920px;margin:0 auto;padding:8px 16px 108px}
 #app *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 #app h1,#app h2,#app h3{margin:0;font-weight:600;letter-spacing:-.01em}
+/* Playfair carries the display voice; Inter does all the work */
+#app h1,.datemain,.fcbig,.stat .sv{font-family:var(--display);font-weight:600;letter-spacing:0}
 #app p{margin:0}
 button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit;transition:transform .12s cubic-bezier(.34,1.56,.64,1);touch-action:manipulation}
 .plusicon{display:inline-block;width:1.15em;height:1.15em;vertical-align:-.15em;margin-right:.3em;background-color:currentColor;
@@ -97,11 +112,11 @@ button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:
 button:active{transform:scale(1.08)}
 input,textarea,select{background:var(--surface-3);border:none;color:var(--on-surface);border-radius:12px;padding:8px 10px;font-family:var(--sans);font-size:14px;width:100%}
 input:focus,textarea:focus,select:focus{outline:none;box-shadow:0 0 0 2px var(--ac,var(--accent))}
-input[type=time],input[type=date]{color-scheme:dark;font-family:var(--mono);font-size:13px}
+input[type=time],input[type=date]{color-scheme:light;font-family:var(--label);font-size:13px}
 input::placeholder,textarea::placeholder{color:var(--on-surface-faint);opacity:1}
 input[type=checkbox]{width:auto;accent-color:var(--ac,var(--accent))}
 textarea{resize:vertical;min-height:52px}
-.brand{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-dim)}
+.brand{font-family:var(--label);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-dim)}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 2px 14px}
 /* Only the PNGs' alpha is used, so their own color is irrelevant. Without mask
    support the fill would paint as a solid square — blank it instead. */
@@ -113,7 +128,7 @@ textarea{resize:vertical;min-height:52px}
 .settingsbtn svg{width:22px;height:22px;fill:currentColor}
 /* Settings is a popover, not a page — it blurs and dims whatever's behind it. */
 .settingsoverlay{position:fixed;inset:0;background:rgba(5,31,32,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
-.settingscard{background:var(--surface);border-radius:22px;padding:20px;max-width:380px;width:100%;max-height:85vh;overflow-y:auto}
+.settingscard{background:var(--surface);border-radius:22px;padding:20px;max-width:380px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 18px 50px rgba(5,31,32,.28)}
 .settingscard.wide{max-width:460px}
 .settingshead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .settingshead h3{font-size:18px;font-weight:600;color:var(--on-surface)}
@@ -136,157 +151,160 @@ textarea{resize:vertical;min-height:52px}
 .hrow h1{font-size:23px}
 .sub2{font-size:13px;color:var(--on-surface-dim);padding:0 2px 8px}
 .ph{display:flex;align-items:baseline;gap:12px;margin:0 0 12px;padding-bottom:2px}
-.ph h3{font-size:14px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-dim);font-weight:500}
+.ph h3{font-size:14px;font-family:var(--label);letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-dim);font-weight:500}
 .ph.sechead{cursor:pointer;user-select:none}
-.ph .sectoggle{margin-left:auto;font-family:var(--mono);font-size:19px;color:var(--on-surface-dim)}
-.tempty{font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);padding:8px 0}
-.blockaddbtn{font-family:var(--mono);font-size:12px;background:var(--surface-2);border-radius:12px;padding:8px 0;color:var(--on-surface-dim);width:100%}
-.blockaddbtn:hover{color:var(--ac)}
+.ph .sectoggle{margin-left:auto;font-family:var(--label);font-size:19px;color:var(--on-surface-dim)}
+.tempty{font-family:var(--label);font-size:12px;color:var(--on-surface-dim);padding:8px 0}
+.blockaddbtn{font-family:var(--label);font-size:12.5px;font-weight:500;background:var(--surface-2);border-radius:12px;padding:11px 0;color:var(--on-surface);width:100%;letter-spacing:.01em}
+.blockaddbtn:hover{background:var(--accent-wash)}
 .blockaddbtn.spaced{margin-bottom:14px}
+/* the one call to action on a page gets the gold */
+.blockaddbtn.primary{background:var(--accent);color:var(--on-accent);font-weight:600;font-size:13.5px;padding:13px 0}
+.blockaddbtn.primary:hover{opacity:.92;background:var(--accent)}
 
-.fincard{border-radius:20px;background:var(--surface);padding:16px;margin-top:14px}
-.fincard h3{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-faint);font-weight:500;margin-bottom:12px}
+.fincard{border-radius:20px;background:var(--surface);padding:16px;margin-top:14px;box-shadow:var(--cardshadow)}
+.fincard h3{font-family:var(--label);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-faint);font-weight:500;margin-bottom:12px}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .fld label{display:block;font-size:12px;color:var(--on-surface-dim);margin-bottom:4px}
-.fld input{font-family:var(--mono);font-size:14px}
+.fld input{font-family:var(--label);font-size:14px}
 .fld .hint{font-size:11px;color:var(--on-surface-faint);margin-top:3px}
-.sysfoot{margin:16px 0 0;padding-top:14px;display:flex;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:11px}
-.sysfoot .undo,.sysfoot .exp,.sysfoot .imp,.sysfoot .rst{font-family:var(--mono);font-size:11px;border-radius:12px;padding:6px 12px;color:var(--on-surface-dim);background:var(--surface-2)}
+.sysfoot{margin:16px 0 0;padding-top:14px;display:flex;gap:8px;flex-wrap:wrap;font-family:var(--label);font-size:11px}
+.sysfoot .undo,.sysfoot .exp,.sysfoot .imp,.sysfoot .rst{font-family:var(--label);font-size:11px;border-radius:12px;padding:6px 12px;color:var(--on-surface-dim);background:var(--surface-2)}
 .sysfoot .undo.dis{opacity:.35;cursor:default}
 .sysfoot .rst{color:var(--on-surface-faint)}
 .sysfoot .rst:hover,.sysfoot .rst.arm{color:var(--negative)}
 .sysfoot .rst.arm{background:var(--negative-wash)}
 .statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
 .stat{border-radius:16px;padding:11px;background:var(--surface-2)}
-.stat .sl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
-.stat .sv{font-family:var(--mono);font-size:17px;margin-top:5px;font-variant-numeric:tabular-nums}
+.stat .sl{font-family:var(--label);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
+.stat .sv{font-family:var(--label);font-size:17px;margin-top:5px;font-variant-numeric:tabular-nums}
 .stat.good .sv{color:var(--positive)}.stat.bad .sv{color:var(--negative)}.stat.neu .sv{color:var(--on-surface)}
 @media(max-width:680px){.fgrid,.statrow{grid-template-columns:1fr}}
 /* health */
 .wchart{margin-top:14px;border-radius:20px;padding:14px 16px 12px;background:var(--surface)}
 .wchart.empty{padding:14px 16px 16px}
 .wchead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
-.wchead h3{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-faint);font-weight:500}
-.wcnow{font-family:var(--mono);font-size:14px;color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap}
+.wchead h3{font-family:var(--label);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-faint);font-weight:500}
+.wcnow{font-family:var(--label);font-size:14px;color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap}
 .wcdelta{font-size:11px;color:var(--on-surface-faint);margin-left:7px}
-.wcempty{font-family:var(--mono);font-size:12px;color:var(--on-surface-faint);padding:14px 0 4px;text-align:center}
+.wcempty{font-family:var(--label);font-size:12px;color:var(--on-surface-faint);padding:14px 0 4px;text-align:center}
 /* x labels live outside the stretched SVG; percentages mirror the plot's own x scale */
 .wxaxis{position:relative;height:13px;margin-top:6px}
-.wxaxis span{position:absolute;top:0;font-family:var(--mono);font-size:10px;color:var(--on-surface-faint);white-space:nowrap}
-.wcfoot{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-faint);text-align:right;margin-top:6px;opacity:.75}
+.wxaxis span{position:absolute;top:0;font-family:var(--label);font-size:10px;color:var(--on-surface-faint);white-space:nowrap}
+.wcfoot{font-family:var(--label);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-faint);text-align:right;margin-top:6px;opacity:.75}
 .harow{display:grid;grid-template-columns:64px 1fr 1fr 1fr 20px;gap:8px;align-items:center;border-radius:14px;padding:7px 9px;background:var(--surface);margin-bottom:6px}
-.harow input{font-size:12px;padding:5px 7px;font-family:var(--mono)}
-.hdate{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint)}
+.harow input{font-size:12px;padding:5px 7px;font-family:var(--label)}
+.hdate{font-family:var(--label);font-size:11px;color:var(--on-surface-faint)}
 .hdel{color:var(--on-surface-faint);font-size:15px;cursor:pointer;text-align:center}
 .hdel:hover{color:var(--negative)}
 @media(max-width:680px){.harow{grid-template-columns:1fr 1fr 20px}.harow .hdate{grid-column:1/3}}
 .pdlist{display:flex;flex-direction:column;gap:5px}
-.pdrow{display:flex;gap:12px;align-items:baseline;font-family:var(--mono);font-size:11.5px;color:var(--on-surface-dim);padding:7px 10px;border-radius:12px;background:var(--surface-2);flex-wrap:wrap}
+.pdrow{display:flex;gap:12px;align-items:baseline;font-family:var(--label);font-size:11.5px;color:var(--on-surface-dim);padding:7px 10px;border-radius:12px;background:var(--surface-2);flex-wrap:wrap}
 .pddate{color:var(--on-surface);min-width:100px}
 .pdn{margin-left:auto;color:var(--on-surface-faint)}
 /* foods */
 .fcard{border-radius:18px;background:var(--surface);padding:12px 14px;margin-bottom:7px}
 .fctop{display:flex;align-items:center;gap:10px;cursor:pointer}
 .fccaret{color:var(--on-surface-faint);font-size:18px;flex:none;width:16px}
-.fcmini{font-family:var(--mono);font-size:12px;color:var(--on-surface-faint);flex:none}
+.fcmini{font-family:var(--label);font-size:12px;color:var(--on-surface-faint);flex:none}
 .fcname{font-size:20px;font-weight:700;letter-spacing:-.01em;color:var(--on-surface);flex:1;min-width:0;overflow-wrap:anywhere}
-.fcbase{display:block;font-family:var(--mono);font-size:11px;color:var(--on-surface-faint);margin-top:2px}
+.fcbase{display:block;font-family:var(--label);font-size:11px;color:var(--on-surface-faint);margin-top:2px}
 .fdel{color:var(--on-surface-faint);font-size:17px;cursor:pointer;line-height:1;flex:none}
 .fdel:hover{color:var(--negative)}
 .fcmodetog{display:flex;gap:6px;margin-top:9px}
-.fcmodebtn{font-family:var(--mono);font-size:11px;background:var(--surface-2);border-radius:999px;padding:5px 13px;color:var(--on-surface-dim);flex:none}
+.fcmodebtn{font-family:var(--label);font-size:11px;background:var(--surface-2);border-radius:999px;padding:5px 13px;color:var(--on-surface-dim);flex:none}
 .fcmodebtn.on{background:var(--accent);color:var(--on-accent)}
 .fcrow{display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap}
-.fclbl{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint)}
-.fcrow input{width:70px;font-family:var(--mono);font-size:13px;padding:6px 8px}
-.fcrow select{width:auto;font-family:var(--mono);font-size:12px;padding:6px 8px}
-.fcunit2{font-family:var(--mono);font-size:11px;color:var(--on-surface-dim)}
+.fclbl{font-family:var(--label);font-size:11px;color:var(--on-surface-faint)}
+.fcrow input{width:70px;font-family:var(--label);font-size:13px;padding:6px 8px}
+.fcrow select{width:auto;font-family:var(--label);font-size:12px;padding:6px 8px}
+.fcunit2{font-family:var(--label);font-size:11px;color:var(--on-surface-dim)}
 .fcout{margin-top:9px}
-.fcbig{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--on-surface);line-height:1;font-variant-numeric:tabular-nums}
+.fcbig{font-family:var(--label);font-size:26px;font-weight:600;color:var(--on-surface);line-height:1;font-variant-numeric:tabular-nums}
 .fcbig .fcunit{font-size:12px;font-weight:400;color:var(--on-surface-dim);margin-left:7px}
-.fcmacros{display:flex;align-items:center;gap:12px;margin-top:7px;font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);flex-wrap:wrap}
-.fcmacros .on{color:var(--accent)}
-.fcnote{margin-top:9px;font-family:var(--mono);font-size:11.5px;color:var(--on-surface-faint)}
+.fcmacros{display:flex;align-items:center;gap:12px;margin-top:7px;font-family:var(--label);font-size:12px;color:var(--on-surface-dim);flex-wrap:wrap}
+.fcmacros .on{color:var(--accent-2);font-weight:600}
+.fcnote{margin-top:9px;font-family:var(--label);font-size:11.5px;color:var(--on-surface-faint)}
 .fcnote.warn{color:var(--negative)}
 .foodadd{border-radius:16px;padding:12px;background:var(--surface);margin-bottom:18px}
 .foodadd>input{font-size:13px;margin-bottom:9px}
-.scanbtn{font-family:var(--mono);font-size:12px;background:var(--surface-2);border-radius:12px;padding:9px 0;color:var(--accent);width:100%;margin-bottom:9px}
+.scanbtn{font-family:var(--label);font-size:12px;background:var(--accent);border-radius:12px;padding:9px 0;color:var(--on-accent);font-weight:600;width:100%;margin-bottom:9px}
 .scanoverlay{position:fixed;inset:0;background:rgba(28,28,28,.92);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
 .scanbox{background:var(--surface);border-radius:24px;padding:16px;max-width:360px;width:100%}
-.scanhead{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:13px;color:var(--on-surface);margin-bottom:10px}
+.scanhead{display:flex;align-items:center;justify-content:space-between;font-family:var(--label);font-size:13px;color:var(--on-surface);margin-bottom:10px}
 .scanhead button{font-size:20px;line-height:1;color:var(--on-surface-faint);width:auto}
 .scanhead button:hover{color:var(--negative)}
 #reader{border-radius:16px;overflow:hidden;background:#000}
-.scanhint{font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);margin-top:10px;text-align:center}
+.scanhint{font-family:var(--label);font-size:12px;color:var(--on-surface-dim);margin-top:10px;text-align:center}
 .fdbsearchrow{display:flex;gap:6px;margin-bottom:9px}
 .fdbsearchrow input{flex:1;font-size:13px}
-.fdbsearchrow button{font-family:var(--mono);font-size:12px;background:var(--surface-2);border-radius:12px;padding:0 14px;color:var(--accent);white-space:nowrap;flex:none;width:auto}
-.fdbnote{font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);padding:8px 2px;margin-bottom:9px}
+.fdbsearchrow button{font-family:var(--label);font-size:12px;background:var(--accent);border-radius:12px;padding:0 14px;color:var(--on-accent);font-weight:600;white-space:nowrap;flex:none;width:auto}
+.fdbnote{font-family:var(--label);font-size:12px;color:var(--on-surface-dim);padding:8px 2px;margin-bottom:9px}
 .fdbresults{display:flex;flex-direction:column;gap:5px;margin-bottom:9px;max-height:220px;overflow-y:auto}
 .fdbresult{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface-2);border-radius:12px;padding:9px 11px;text-align:left;width:100%}
 .fdbresult:hover{background:var(--surface-3)}
 .fdbname{font-size:13px;color:var(--on-surface);min-width:0;overflow-wrap:anywhere}
-.fdbbrand{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint)}
-.fdbcal{font-family:var(--mono);font-size:11px;color:var(--on-surface-dim);flex:none;white-space:nowrap}
+.fdbbrand{font-family:var(--label);font-size:11px;color:var(--on-surface-faint)}
+.fdbcal{font-family:var(--label);font-size:11px;color:var(--on-surface-dim);flex:none;white-space:nowrap}
 .foodgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
-.foodgrid label{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--on-surface-faint);display:flex;flex-direction:column;gap:4px}
-.foodgrid input,.foodgrid select{font-family:var(--mono);font-size:13px;padding:6px 8px}
-.foodadd>button{font-family:var(--mono);font-size:13px;background:var(--surface-2);border-radius:12px;padding:9px 0;color:var(--accent);width:100%;margin-top:10px}
+.foodgrid label{font-family:var(--label);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--on-surface-faint);display:flex;flex-direction:column;gap:4px}
+.foodgrid input,.foodgrid select{font-family:var(--label);font-size:13px;padding:6px 8px}
+.foodadd>button{font-family:var(--label);font-size:13px;background:var(--accent);border-radius:12px;padding:9px 0;color:var(--on-accent);font-weight:600;width:100%;margin-top:10px}
 @media(max-width:860px){.foodgrid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:680px){.foodgrid{grid-template-columns:repeat(2,1fr)}}
-.flogbtn{font-family:var(--mono);font-size:11px;background:var(--surface-2);border-radius:999px;padding:4px 13px;color:var(--accent);margin-left:auto}
+.flogbtn{font-family:var(--label);font-size:11px;background:var(--accent);border-radius:999px;padding:4px 13px;color:var(--on-accent);font-weight:600;margin-left:auto}
 .foodsearch{font-size:13px;margin-bottom:11px}
 .derived{background:var(--surface-2);color:var(--on-surface-dim);cursor:default}
 /* food sheet — 1px flex gaps stand in for the row rules */
 .fsheet{border-radius:16px;overflow:hidden;display:flex;flex-direction:column;gap:1px;background:var(--divider)}
-.fsrow{display:grid;grid-template-columns:1fr 58px 52px 52px 52px 20px;gap:6px;align-items:center;padding:8px 10px;font-family:var(--mono);font-size:12px;color:var(--on-surface);background:var(--surface)}
+.fsrow{display:grid;grid-template-columns:1fr 58px 52px 52px 52px 20px;gap:6px;align-items:center;padding:8px 10px;font-family:var(--label);font-size:12px;color:var(--on-surface);background:var(--surface)}
 .fsrow>span:not(.fsname):not(.fsdel){text-align:right;font-variant-numeric:tabular-nums}
 .fshead{background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .fsname{font-family:var(--sans);font-size:13px;display:flex;align-items:baseline;gap:7px;min-width:0}
-.fsg{font-family:var(--mono);font-size:10.5px;color:var(--on-surface-faint);flex:none}
+.fsg{font-family:var(--label);font-size:10.5px;color:var(--on-surface-faint);flex:none}
 .fsdel{color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
 .fsdel:hover{color:var(--negative)}
-.fstot{background:var(--surface-2);color:var(--accent)}
-.fstot>span:first-child{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
+.fstot{background:var(--surface-2);color:var(--accent-2)}
+.fstot>span:first-child{font-family:var(--label);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
 .fsparent .fsname{font-weight:600;color:var(--on-surface)}
 .fsparent{background:var(--surface-2)}
 .fschild .fsname{padding-left:16px;position:relative;color:var(--on-surface-dim)}
-.fschild .fsname:before{content:'└';position:absolute;left:4px;color:var(--on-surface-faint);font-family:var(--mono)}
+.fschild .fsname:before{content:'└';position:absolute;left:4px;color:var(--on-surface-faint);font-family:var(--label)}
 /* meals */
 .mealadd{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:14px}
 .mealadd input{font-size:13px}
-.mealadd button{font-family:var(--mono);font-size:13px;border-radius:12px;padding:0 15px;color:var(--on-surface-dim);white-space:nowrap}
+.mealadd button{font-family:var(--label);font-size:13px;border-radius:12px;padding:0 15px;color:var(--on-surface-dim);white-space:nowrap}
 .mlcard{border-radius:18px;background:var(--surface);padding:14px 16px;margin-bottom:12px}
 .mltop{display:flex;align-items:center;gap:10px;cursor:pointer}
 .mlcaret{color:var(--on-surface-faint);font-size:18px;flex:none;width:16px}
-.mlmini{font-family:var(--mono);font-size:12px;color:var(--on-surface-faint);flex:none}
+.mlmini{font-family:var(--label);font-size:12px;color:var(--on-surface-faint);flex:none}
 .mlname{font-size:15px;font-weight:600;color:var(--on-surface);flex:1;cursor:text}
 .mlmult{display:flex;align-items:center;gap:5px}
-.mlmult label{font-family:var(--mono);font-size:13px;color:var(--on-surface-faint)}
-.mlmult input{width:66px;font-family:var(--mono);font-size:13px;padding:4px 7px;text-align:center}
+.mlmult label{font-family:var(--label);font-size:13px;color:var(--on-surface-faint)}
+.mlmult input{width:66px;font-family:var(--label);font-size:13px;padding:4px 7px;text-align:center}
 .mldel{color:var(--on-surface-faint);font-size:15px;cursor:pointer;line-height:1}
 .mldel:hover{color:var(--negative)}
 .mitems{margin-top:12px;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;gap:1px;background:var(--divider)}
-.mitem{display:grid;grid-template-columns:1fr 158px 50px 44px 44px 44px 18px;gap:6px;align-items:center;padding:7px 10px;font-family:var(--mono);font-size:12px;background:var(--surface)}
+.mitem{display:grid;grid-template-columns:1fr 158px 50px 44px 44px 44px 18px;gap:6px;align-items:center;padding:7px 10px;font-family:var(--label);font-size:12px;background:var(--surface)}
 .mitem>span:not(.miname):not(.mitarget):not(.midel){text-align:right;font-variant-numeric:tabular-nums}
 .mihead{background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
-.mitot{background:var(--surface-2);color:var(--accent)}
+.mitot{background:var(--surface-2);color:var(--accent-2)}
 .mitot>span:first-child{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
 .miname{font-family:var(--sans);font-size:13px;color:var(--on-surface);display:flex;align-items:baseline;gap:7px;min-width:0}
-.miqty{font-family:var(--mono);font-size:10.5px;color:var(--accent);flex:none}
+.miqty{font-family:var(--label);font-size:10.5px;color:var(--accent-2);flex:none}
 .mitarget{display:flex;align-items:center;gap:4px;min-width:0}
-.mimode{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.02em;background:var(--surface-3);border-radius:6px;padding:3px 5px;color:var(--on-surface-dim);flex:none}
+.mimode{font-family:var(--label);font-size:9px;text-transform:uppercase;letter-spacing:.02em;background:var(--surface-3);border-radius:6px;padding:3px 5px;color:var(--on-surface-dim);flex:none}
 .mimode.have{background:var(--accent);color:var(--on-accent)}
-.mitarget input{width:52px;flex:none;font-family:var(--mono);font-size:11.5px;padding:3px 5px;text-align:right}
-.mitarget select{width:auto;flex:1;min-width:0;font-family:var(--mono);font-size:11px;padding:3px 4px}
-.miu{font-family:var(--mono);font-size:10px;color:var(--on-surface-faint);flex:none}
+.mitarget input{width:52px;flex:none;font-family:var(--label);font-size:11.5px;padding:3px 5px;text-align:right}
+.mitarget select{width:auto;flex:1;min-width:0;font-family:var(--label);font-size:11px;padding:3px 4px}
+.miu{font-family:var(--label);font-size:10px;color:var(--on-surface-faint);flex:none}
 .midel{color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
 .midel:hover{color:var(--negative)}
 .mitem.gone .miname{color:var(--negative);font-style:italic}
 .mlfoot{display:flex;align-items:center;gap:10px;margin-top:11px}
-.miadd{width:auto;flex:1;max-width:230px;font-family:var(--mono);font-size:12px;padding:5px 8px}
-.minofoods{font-family:var(--mono);font-size:11.5px;color:var(--on-surface-faint);flex:1}
-.mllog{font-family:var(--mono);font-size:12px;background:var(--surface-2);border-radius:999px;padding:6px 15px;color:var(--accent);white-space:nowrap;margin-left:auto}
+.miadd{width:auto;flex:1;max-width:230px;font-family:var(--label);font-size:12px;padding:5px 8px}
+.minofoods{font-family:var(--label);font-size:11.5px;color:var(--on-surface-faint);flex:1}
+.mllog{font-family:var(--label);font-size:12px;background:var(--accent);border-radius:999px;padding:6px 15px;color:var(--on-accent);font-weight:600;white-space:nowrap;margin-left:auto}
 .mllog:hover{background:var(--accent-wash)}
 @media(max-width:680px){
   /* mihead/mitem/mitot all share the same 7-span shape (name/total, target,
@@ -300,9 +318,9 @@ textarea{resize:vertical;min-height:52px}
 .pie{flex:none;width:132px}
 .pie svg{width:100%;height:auto;display:block}
 .pietot{font-family:var(--sans);font-size:21px;font-weight:600;fill:var(--on-surface)}
-.pietotl{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;fill:var(--on-surface-faint)}
+.pietotl{font-family:var(--label);font-size:9px;letter-spacing:.14em;text-transform:uppercase;fill:var(--on-surface-faint)}
 .pielegend{flex:1;min-width:190px;display:flex;flex-direction:column;gap:7px}
-.plrow{display:grid;grid-template-columns:11px 1fr auto auto;gap:9px;align-items:center;font-family:var(--mono);font-size:12px}
+.plrow{display:grid;grid-template-columns:11px 1fr auto auto;gap:9px;align-items:center;font-family:var(--label);font-size:12px}
 .plsw{width:11px;height:11px;border-radius:50%}
 .pln{font-family:var(--sans);font-size:13px;color:var(--on-surface)}
 .plv{color:var(--on-surface-dim);font-variant-numeric:tabular-nums}
@@ -313,85 +331,95 @@ textarea{resize:vertical;min-height:52px}
 /* ── bottom nav — the app is five pages now, and this is its spine.
    Fixed, so #app carries matching bottom padding; both overlays sit at
    z-index 999 and must stay above it. ── */
-.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:900;display:flex;gap:2px;
-  background:var(--surface);padding:6px 6px calc(6px + env(safe-area-inset-bottom));
-  box-shadow:0 -10px 28px rgba(5,31,32,.22)}
-.navbtn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-radius:14px;color:var(--on-surface-faint)}
-.navbtn.on{color:var(--accent-2)}
+.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:900;display:flex;align-items:flex-start;gap:2px;
+  background:var(--ink);padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+  box-shadow:0 -10px 28px rgba(5,31,32,.20)}
+.navbtn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-radius:14px;color:var(--on-ink-faint)}
+.navbtn.on{color:var(--accent)}
 .navicon{display:flex;align-items:center;justify-content:center;width:44px;height:26px;border-radius:999px;transition:background .15s}
 .navbtn.on .navicon{background:var(--accent-wash)}
 .navicon svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.navlab{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase}
+.navlab{font-family:var(--label);font-size:9.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase}
+/* the one action worth a raised button of its own */
+.navfab{flex:none;width:54px;height:54px;border-radius:50%;margin:-20px 6px 0;
+  background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 18px rgba(201,164,92,.45)}
+.navfab.on{box-shadow:0 0 0 4px var(--accent-wash),0 6px 18px rgba(201,164,92,.45)}
+.navfab svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
 /* ── today's goal bars — the "how much room is left" HUD ── */
 .goalbars{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:var(--surface);border-radius:18px;padding:12px 14px;margin-bottom:2px}
-.goalbars.empty{display:block;text-align:center;font-family:var(--mono);font-size:11.5px;color:var(--on-surface-faint);cursor:pointer;padding:15px}
-.goalbars.empty:hover{color:var(--accent)}
+.goalbars.empty{display:block;text-align:center;font-family:var(--label);font-size:11.5px;color:var(--on-surface-faint);cursor:pointer;padding:15px}
+.goalbars.empty:hover{color:var(--accent-2)}
 .gb{display:flex;flex-direction:column;gap:5px;min-width:0}
-.gblab{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-faint)}
+.gblab{font-family:var(--label);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-faint)}
 .gbtrack{height:5px;border-radius:999px;background:var(--surface-3);overflow:hidden}
 .gbtrack span{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .25s}
 .gb.over .gbtrack span{background:var(--negative)}
 .gb.over .gbnum{color:var(--negative)}
-.gbnum{font-family:var(--mono);font-size:12.5px;color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gbnum{font-family:var(--label);font-size:12.5px;color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gbnum small{font-size:10px;color:var(--on-surface-faint)}
 /* ── tabs (Log page) — sit on the ground, so they take on-ground ink ── */
 .tabs{display:flex;gap:5px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
-.tab{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;background:var(--on-ground-wash);color:var(--on-ground);border-radius:999px;padding:8px 15px;white-space:nowrap;flex:none}
+.tab{font-family:var(--label);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;background:var(--on-ground-wash);color:var(--on-ground);border-radius:999px;padding:8px 15px;white-space:nowrap;flex:none}
 .tab.on{background:var(--surface);color:var(--on-surface)}
 /* ── goals page ── */
 .goalgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 @media(max-width:680px){.goalgrid{grid-template-columns:1fr}}
-.gcheck{font-family:var(--mono);font-size:11.5px;color:var(--on-surface-dim);margin-top:14px;line-height:1.6}
+.gcheck{font-family:var(--label);font-size:11.5px;color:var(--on-surface-dim);margin-top:14px;line-height:1.6}
 .gcheck b{color:var(--on-surface)}
 .gcheck.off{color:var(--negative)}
-.keylink{color:var(--accent);text-decoration:underline}
+.keylink{color:var(--accent-2);text-decoration:underline}
 /* ── day navigator: "‹  DATE  ›" ── */
 .datenav{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px;padding:14px 2px 10px}
 .datearrow{width:44px;height:44px;border-radius:14px;font-size:26px;line-height:1;color:var(--on-ground);background:var(--on-ground-wash);display:flex;align-items:center;justify-content:center;padding:0}
 .datearrow:hover{background:var(--accent-wash)}
 .datelabel{text-align:center;min-width:0}
 .datemain{display:block;font-size:22px;font-weight:600;letter-spacing:-.01em;color:var(--on-ground)}
-.datesub{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-ground-outline);margin-top:1px}
+.datesub{display:block;font-family:var(--label);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-ground-outline);margin-top:1px}
 /* ── food picker: one search box, a scan button, then rows ── */
 .searchrow{display:flex;gap:8px;margin-bottom:12px}
 .searchrow input{flex:1;font-size:14px;padding:11px 14px;border-radius:14px}
 .scanbtn2{flex:none;width:52px;border-radius:14px;background:var(--surface);font-size:19px;display:flex;align-items:center;justify-content:center;padding:0}
 .scanbtn2:hover{background:var(--surface-2)}
-.frow{display:grid;grid-template-columns:22px 1fr auto;gap:11px;align-items:center;width:100%;text-align:left;
-  background:var(--surface);border-radius:14px;padding:12px 14px;margin-bottom:6px}
+/* two up, like the stat tiles on the brand board */
+.ftiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
+.frow{display:flex;flex-direction:column;align-items:flex-start;gap:7px;width:100%;text-align:left;
+  background:var(--surface);border-radius:18px;padding:14px;box-shadow:var(--cardshadow)}
 .frow:hover{background:var(--surface-2)}
-.srcbadge{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-faint)}
-.srcbadge.db{color:var(--accent)}
-.srcbadge svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.frname{font-size:14px;color:var(--on-surface);min-width:0;overflow-wrap:anywhere}
-.frbrand{display:block;font-family:var(--mono);font-size:10.5px;color:var(--on-surface-faint);margin-top:2px}
-.frmeta{font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);text-align:right;white-space:nowrap}
-.frmeta small{display:block;font-size:10px;color:var(--on-surface-faint);margin-top:2px}
+.srcbadge{width:22px;height:22px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  color:var(--accent-2);background:var(--surface-wash);flex:none}
+.srcbadge.db{color:var(--accent-2);background:var(--accent-wash)}
+.srcbadge svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.frname{font-size:14px;font-weight:500;line-height:1.32;color:var(--on-surface);min-width:0;overflow-wrap:anywhere}
+.frbrand{display:block;font-size:10.5px;font-weight:400;color:var(--on-surface-faint);margin-top:3px}
+.frmeta{margin-top:auto;font-family:var(--label);font-size:17px;font-weight:600;color:var(--accent-2);font-variant-numeric:tabular-nums}
+.frmeta small{display:block;font-size:10.5px;font-weight:400;color:var(--on-surface-faint);margin-top:1px;letter-spacing:.02em}
+@media(max-width:400px){.ftiles{grid-template-columns:1fr}}
 /* ── the food page ── */
 .fdhead{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:start;padding:4px 2px 2px}
 .fdhead .srcbadge{width:26px;height:26px;margin-top:3px}
 .fdhead .srcbadge svg{width:19px;height:19px}
 .fdhead h1{grid-column:2;font-size:24px;color:var(--on-ground);overflow-wrap:anywhere}
-.fdbrand{grid-column:2;font-family:var(--mono);font-size:11.5px;color:var(--on-ground-outline);margin-top:3px}
-.fdbase{grid-column:2;font-family:var(--mono);font-size:11.5px;color:var(--on-ground-outline);margin-top:6px}
+.fdbrand{grid-column:2;font-family:var(--label);font-size:11.5px;color:var(--on-ground-outline);margin-top:3px}
+.fdbase{grid-column:2;font-family:var(--label);font-size:11.5px;color:var(--on-ground-outline);margin-top:6px}
 /* ── nutrition: reference material, so it sits on the page rather than in a
    block — nothing here is editable and it shouldn't look like it is ── */
-.ph .nutper{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--on-ground-outline);text-transform:none;letter-spacing:0}
+.ph .nutper{margin-left:auto;font-family:var(--label);font-size:10.5px;color:var(--on-ground-outline);text-transform:none;letter-spacing:0}
 .nutlist{display:flex;flex-direction:column}
 .nutrow{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
   padding:8px 2px;font-size:14px;color:var(--on-ground);
   border-bottom:1px solid var(--on-ground-wash)}
-.nutrow span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.nutrow span:last-child{font-family:var(--label);font-variant-numeric:tabular-nums;white-space:nowrap}
 .nutrow.sub{padding-left:18px;font-size:12.5px;color:var(--on-ground-outline)}
-.nutgrp{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+.nutgrp{font-family:var(--label);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--on-ground-outline);padding:16px 2px 5px}
-.nutnote{font-family:var(--mono);font-size:11px;color:var(--on-ground-outline);padding:10px 2px 2px;line-height:1.5}
-.unitsel{width:auto;flex:1;min-width:0;font-family:var(--mono);font-size:12px;padding:6px 8px}
+.nutnote{font-family:var(--label);font-size:11px;color:var(--on-ground-outline);padding:10px 2px 2px;line-height:1.5}
+.unitsel{width:auto;flex:1;min-width:0;font-family:var(--label);font-size:12px;padding:6px 8px}
 .blockaddbtn.danger{color:var(--on-ground-negative);background:var(--on-ground-negative-wash)}
 /* ── confirm before anything is destroyed ── */
 .confirmrow{display:flex;gap:8px;margin-top:18px}
-.cbtn{flex:1;font-family:var(--mono);font-size:13px;border-radius:12px;padding:11px 0;background:var(--surface-2);color:var(--on-surface)}
+.cbtn{flex:1;font-family:var(--label);font-size:13px;border-radius:12px;padding:11px 0;background:var(--surface-2);color:var(--on-surface)}
 .cbtn.danger{background:var(--negative);color:var(--on-accent);font-weight:600}
 .cbtn.danger:hover{opacity:.9}
 /* ── Add: a chooser of big targets, not a page of its own ── */
@@ -402,21 +430,21 @@ textarea{resize:vertical;min-height:52px}
 .addtileicon{grid-row:1/3;align-self:center;width:56px;height:56px;border-radius:18px;background:var(--accent-wash);color:var(--accent);display:flex;align-items:center;justify-content:center}
 .addtileicon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .addtilelab{align-self:end;font-size:19px;font-weight:600;color:var(--on-surface)}
-.addtilesub{align-self:start;font-family:var(--mono);font-size:11.5px;color:var(--on-surface-faint);margin-top:3px}
+.addtilesub{align-self:start;font-family:var(--label);font-size:11.5px;color:var(--on-surface-faint);margin-top:3px}
 /* ── weigh-in ── */
 .wbig{display:flex;align-items:center;justify-content:center;gap:10px;margin:4px 0 2px}
-.wbig input{width:auto;max-width:190px;font-family:var(--mono);font-size:32px;padding:12px 16px;text-align:center}
-.wunit{font-family:var(--mono);font-size:15px;color:var(--on-surface-faint)}
+.wbig input{width:auto;max-width:190px;font-family:var(--label);font-size:32px;padding:12px 16px;text-align:center}
+.wunit{font-family:var(--label);font-size:15px;color:var(--on-surface-faint)}
 .wrecent{display:flex;flex-direction:column;gap:5px}
-.wrrow{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--on-surface-dim);background:var(--surface-2);border-radius:12px;padding:8px 12px}
-.dayweigh{font-family:var(--mono);font-size:12px;color:var(--on-ground);padding:12px 2px 2px}
+.wrrow{display:flex;justify-content:space-between;font-family:var(--label);font-size:12px;color:var(--on-surface-dim);background:var(--surface-2);border-radius:12px;padding:8px 12px}
+.dayweigh{font-family:var(--label);font-size:12px;color:var(--on-ground);padding:12px 2px 2px}
 .dayweigh b{color:var(--on-ground)}
 /* ── adding into a day that isn't today — deliberately doesn't look like the
    normal page, and carries its own way out ── */
-.addbanner{display:flex;align-items:center;gap:12px;background:var(--surface);color:var(--on-surface);border-radius:16px;padding:11px 14px;margin:12px 0 14px;font-size:14px}
-.addbanner b{font-weight:700;color:var(--accent)}
-.addback{width:30px;height:30px;border-radius:10px;flex:none;font-size:15px;line-height:1;color:var(--on-surface-dim);background:var(--surface-3);display:flex;align-items:center;justify-content:center;padding:0}
-.addback:hover{color:var(--on-surface);background:var(--surface-2)}
+.addbanner{display:flex;align-items:center;gap:12px;background:var(--ink);color:var(--on-ink);border-radius:16px;padding:11px 14px;margin:12px 0 14px;font-size:14px}
+.addbanner b{font-weight:600;color:var(--accent)}
+.addback{width:30px;height:30px;border-radius:10px;flex:none;font-size:15px;line-height:1;color:var(--on-ink-dim);background:rgba(218,241,222,.12);display:flex;align-items:center;justify-content:center;padding:0}
+.addback:hover{color:var(--on-ink);background:rgba(218,241,222,.22)}
 /* ── calc ── */
 .calcpresets{flex-wrap:wrap}
 .calcrow{display:grid;grid-template-columns:30px 1fr 78px 44px auto 18px;gap:8px;align-items:center;padding:8px 10px;border-radius:14px;background:var(--surface-2);margin-bottom:6px}
@@ -424,10 +452,10 @@ textarea{resize:vertical;min-height:52px}
 .pinbtn{width:26px;height:26px;border-radius:999px;font-size:12px;line-height:1;background:var(--surface-3);color:var(--on-surface-faint);flex:none;padding:0}
 .pinbtn.on{background:var(--accent-wash);color:var(--accent)}
 .calcname{font-size:13px;color:var(--on-surface);min-width:0;overflow-wrap:anywhere}
-.calcrow input{font-family:var(--mono);font-size:13px;padding:5px 7px;text-align:right}
-.calcunit{font-family:var(--mono);font-size:10.5px;color:var(--on-surface-faint)}
-.calcmac{font-family:var(--mono);font-size:10.5px;color:var(--accent);white-space:nowrap;text-align:right}
-.calcres{display:grid;grid-template-columns:1fr 62px 62px 62px;gap:8px;align-items:baseline;font-family:var(--mono);font-size:12.5px;padding:6px 2px;color:var(--on-surface)}
+.calcrow input{font-family:var(--label);font-size:13px;padding:5px 7px;text-align:right}
+.calcunit{font-family:var(--label);font-size:10.5px;color:var(--on-surface-faint)}
+.calcmac{font-family:var(--label);font-size:10.5px;color:var(--accent-2);white-space:nowrap;text-align:right}
+.calcres{display:grid;grid-template-columns:1fr 62px 62px 62px;gap:8px;align-items:baseline;font-family:var(--label);font-size:12.5px;padding:6px 2px;color:var(--on-surface)}
 .calcres>span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
 .calcres .calcwant{color:var(--on-surface-faint)}
 .calcres .ok{color:var(--positive)}
@@ -587,10 +615,12 @@ var addTarget=todayStr();
 // true while the Log page is showing the food picker for viewDate rather than
 // that day's sheet — it's an overlay on the day, not a trip to the Add tab
 var dayAddOpen=false;
+// Add sits in the middle as a raised gold button — it's the thing you open most,
+// and the board's layout puts the primary action dead centre.
 var PAGES=[
   {key:'log',label:'Log'},
-  {key:'add',label:'Add'},
   {key:'calc',label:'Calc'},
+  {key:'add',label:'Add'},
   {key:'goals',label:'Goals'},
   {key:'history',label:'History'}
 ];
@@ -647,6 +677,9 @@ function goalBars(){
 }
 function bottomNav(){
   return '<div class="bottomnav">'+PAGES.map(function(p){
+    if(p.key==='add')
+      return '<button type="button" class="navfab'+(page===p.key?' on':'')+'" data-a="nav" data-page="add" aria-label="Add">'
+        +'<svg viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></svg></button>';
     return '<button type="button" class="navbtn'+(page===p.key?' on':'')+'" data-a="nav" data-page="'+p.key+'">'
       +'<span class="navicon"><svg viewBox="0 0 24 24">'+NAV_ICONS[p.key]+'</svg></span>'
       +'<span class="navlab">'+p.label+'</span></button>';
@@ -704,7 +737,7 @@ function settingsHtml(){
     +swtch(s.reduceMotion,'Reduce motion','Fewer transitions and animations','reduceMotion')
     +'<div class="setrow"><div class="setlbl"><span>USDA food database key</span>'
     +'<small>Free from <a class="keylink" href="https://fdc.nal.usda.gov/api-key-signup/" target="_blank" rel="noopener">fdc.nal.usda.gov</a> — better search results. Stored only on this device.</small></div></div>'
-    +'<input data-a="fdckey" placeholder="Paste your key" value="'+esc(s.fdcKey||'')+'" style="font-family:var(--mono);font-size:12px">'
+    +'<input data-a="fdckey" placeholder="Paste your key" value="'+esc(s.fdcKey||'')+'" style="font-family:var(--label);font-size:12px">'
     +data
     +'</div></div>';
 }
@@ -756,7 +789,7 @@ function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel,title){
     +'<div class="wcfoot">'+last.length+' day'+(last.length===1?'':'s')+' logged</div>'
     +'</div>';
 }
-function weightChart(entriesDesc){return metricChart(entriesDesc,'weight','var(--accent)',' lb','weight','Weight');}
+function weightChart(entriesDesc){return metricChart(entriesDesc,'weight','var(--accent-2)',' lb','weight','Weight');}
 function healthSummaryHtml(){
   var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var latest=entries.filter(function(e){return e.weight!=='';})[0];
@@ -783,7 +816,7 @@ function healthSummaryHtml(){
     +'<div class="stat neu"><div class="sl">Avg calories / day (7d)</div><div class="sv">'+(avgCal===null?'—':avgCal)+'</div></div>'
     +'<div class="stat neu"><div class="sl">Avg protein / day (7d)</div><div class="sv">'+(avgPro===null?'—':avgPro+'g')+'</div></div>'
     +'</div>'+weightChart(entries)
-    +metricChart(entries,'calories','var(--accent-2)',' cal','calories','Calories / day')
+    +metricChart(entries,'calories','var(--accent)',' cal','calories','Calories / day')
     +metricChart(entries,'protein','var(--accent-3)','g','protein','Protein / day');
   return stats;
 }
@@ -1152,7 +1185,9 @@ function macroPieHtml(dateStr){
   var t=logTotals(logFor(dateStr));
   var pk=t.protein*4,ck=t.carbs*4,fk=t.fat*9,mk=pk+ck+fk;
   if(mk<=0)return '';
-  var segs=[{lab:'Protein',v:'--accent',g:t.protein,kcal:pk},{lab:'Carbs',v:'--accent-2',g:t.carbs,kcal:ck},{lab:'Fat',v:'--accent-3',g:t.fat,kcal:fk}];
+  // deep green / gold / terracotta — three of the board's tones, each readable
+  // against a light card and distinguishable from the other two
+  var segs=[{lab:'Protein',v:'--accent-2',g:t.protein,kcal:pk},{lab:'Carbs',v:'--accent',g:t.carbs,kcal:ck},{lab:'Fat',v:'--accent-3',g:t.fat,kcal:fk}];
   var R=45,SW=17,GAP=0.75,off=0,arcs='';
   segs.forEach(function(s){
     var pct=s.kcal/mk*100;if(pct<=0)return;
@@ -1205,7 +1240,7 @@ function buildFoodSheet(dateStr){
   var endBtn=isToday
     ?'<button type="button" class="blockaddbtn spaced" data-a="endday">End day — save '+Math.round(t.calories)+' cal / '+(Math.round(t.protein*10)/10)+'g protein</button>'
     :'';
-  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="addtoday" data-date="'+dateStr+'">'+PLUS_ICON+' Add food to '+(isToday?'today':fmtShort(dateStr))+'</button>';
+  var addBtn='<button type="button" class="blockaddbtn primary spaced" data-a="addtoday" data-date="'+dateStr+'">'+PLUS_ICON+' Add food to '+(isToday?'today':fmtShort(dateStr))+'</button>';
   return '<div class="fincard"><h3>Food — '+fmtShort(dateStr)+'</h3>'
     +(rows.length?'<div class="fsheet">'+head+body+tot+'</div>'+macroPieHtml(dateStr):'<div class="tempty">Nothing logged '+(isToday?'today':'that day')+' yet.</div>')
     +addBtn+endBtn
@@ -1357,7 +1392,7 @@ function foodRow(f,attrs){
   return '<button type="button" class="frow" '+attrs+'>'
     +sourceBadge(f)
     +'<span class="frname">'+esc(f.name)+(f.brand?'<span class="frbrand">'+esc(f.brand)+'</span>':'')+'</span>'
-    +'<span class="frmeta">'+Math.round(num(f.calories))+' cal<small>'+esc(fmtQty(num(f.serving),f.unit))+'</small></span>'
+    +'<span class="frmeta">'+Math.round(num(f.calories))+'<small>cal per '+esc(fmtQty(num(f.serving),f.unit))+'</small></span>'
     +'</button>';
 }
 function localFoodsHtml(){
@@ -1365,18 +1400,18 @@ function localFoodsHtml(){
   var foods=recentFoods().filter(function(f){return !q||f.name.toLowerCase().indexOf(q)>-1;});
   if(!foods.length)
     return '<div class="tempty">'+(q?'None of your foods match that.':'Nothing logged yet — search for a food above.')+'</div>';
-  return foods.map(function(f){
+  return '<div class="ftiles">'+foods.map(function(f){
     return foodRow(f,'data-a="opendetail" data-kind="saved" data-id="'+f.id+'"');
-  }).join('');
+  }).join('')+'</div>';
 }
 function dbResultsHtml(){
   if(foodDbBusy)return '<div class="ph"><h3>Database</h3></div><div class="tempty">Searching…</div>';
   if(foodDbErr)return '<div class="ph"><h3>Database</h3></div><div class="tempty">'+esc(foodDbErr)+'</div>';
   if(!foodDbResults||!foodDbResults.length)return '';
-  return '<div class="ph"><h3>Database</h3></div>'
+  return '<div class="ph"><h3>Database</h3></div><div class="ftiles">'
     +foodDbResults.map(function(r,i){
       return foodRow(r,'data-a="opendetail" data-kind="db" data-idx="'+i+'"');
-    }).join('');
+    }).join('')+'</div>';
 }
 function foodPickerHtml(){
   var keyed=!!(state.settings.fdcKey||'').trim();
