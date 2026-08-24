@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-23T23:57:01Z';
+  var PAGE_VERSION='2026-08-24T00:00:51Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1054,7 +1054,9 @@ function foodDbResultsHtml(){
 // so the values are baked into the HTML rather than poked into the DOM after
 // render — a re-render would otherwise wipe them.
 var pendingFood=null;
-function openFoodForm(info){pendingFood=info||null;foodAddOpen=true;render();}
+// the form only renders inside buildLog, so make sure we're actually there —
+// a barcode scan can fire from anywhere the scanner was opened
+function openFoodForm(info){pendingFood=info||null;foodAddOpen=true;page='log';render();}
 function foodAddHtml(){
   var p=pendingFood||{};
   var v=function(k){var x=p[k];return (x===undefined||x===null||x==='')?'':esc(trimNum(num(x)));};
@@ -1709,7 +1711,13 @@ app.addEventListener('click',function(e){
     return;
   }
   if(a==='nav'){
-    if(page!==t.dataset.page){page=t.dataset.page;openItem=null;window.scrollTo(0,0);render();}
+    if(page!==t.dataset.page){
+      // leaving the page drops any half-finished dialog rather than having it
+      // reappear the next time you come back
+      page=t.dataset.page;openItem=null;
+      foodAddOpen=false;mealAddOpen=false;pendingFood=null;
+      window.scrollTo(0,0);render();
+    }
     return;
   }
   if(a==='logtab'){logTab=t.dataset.tab;openItem=null;render();return;}
