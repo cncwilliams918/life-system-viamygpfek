@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T16:07:55Z';
+  var PAGE_VERSION='2026-08-24T16:20:41Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -168,8 +168,17 @@ textarea{resize:vertical;min-height:52px}
 .stat.good .sv{color:var(--positive)}.stat.bad .sv{color:var(--negative)}.stat.neu .sv{color:var(--on-surface)}
 @media(max-width:680px){.fgrid,.statrow{grid-template-columns:1fr}}
 /* health */
-.wchart{margin-top:14px;border-radius:20px;padding:14px 16px 6px;background:var(--surface)}
-.wchart.empty{font-family:var(--mono);font-size:12px;color:var(--on-surface-faint);padding:24px;text-align:center;border-radius:20px;background:var(--surface);margin-top:14px}
+.wchart{margin-top:14px;border-radius:20px;padding:14px 16px 12px;background:var(--surface)}
+.wchart.empty{padding:14px 16px 16px}
+.wchead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.wchead h3{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-faint);font-weight:500}
+.wcnow{font-family:var(--mono);font-size:14px;color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap}
+.wcdelta{font-size:11px;color:var(--on-surface-faint);margin-left:7px}
+.wcempty{font-family:var(--mono);font-size:12px;color:var(--on-surface-faint);padding:14px 0 4px;text-align:center}
+/* x labels live outside the stretched SVG; percentages mirror the plot's own x scale */
+.wxaxis{position:relative;height:13px;margin-top:6px}
+.wxaxis span{position:absolute;top:0;font-family:var(--mono);font-size:10px;color:var(--on-surface-faint);white-space:nowrap}
+.wcfoot{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-faint);text-align:right;margin-top:6px;opacity:.75}
 .harow{display:grid;grid-template-columns:64px 1fr 1fr 1fr 20px;gap:8px;align-items:center;border-radius:14px;padding:7px 9px;background:var(--surface);margin-bottom:6px}
 .harow input{font-size:12px;padding:5px 7px;font-family:var(--mono)}
 .hdate{font-family:var(--mono);font-size:11px;color:var(--on-surface-faint)}
@@ -672,9 +681,11 @@ function upsertHealth(dateStr,field,val){
   if(!e){e={id:uid(),date:dateStr,weight:'',calories:'',protein:'',note:''};state.health.entries.push(e);}
   e[field]=val;
 }
-function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel){
+function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel,title){
+  var head='<div class="wchead"><h3>'+title+'</h3>';
   var pts=entriesDesc.filter(function(e){return e[field]!==''&&e[field]!=null&&!isNaN(parseFloat(e[field]));}).slice().reverse();
-  if(pts.length<2)return '<div class="wchart empty">Log '+emptyLabel+' on at least two days to see the trend.</div>';
+  if(pts.length<2)
+    return '<div class="wchart empty">'+head+'</div><div class="wcempty">Log '+emptyLabel+' on at least two days to see the trend.</div></div>';
   var last=pts.slice(-90);
   var W=640,H=160,pad=30;
   var vs=last.map(function(e){return parseFloat(e[field]);});
@@ -685,9 +696,31 @@ function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel){
   var d=last.map(function(e,i){return (i===0?'M':'L')+xs(i).toFixed(1)+','+ys(parseFloat(e[field])).toFixed(1);}).join(' ');
   var dots=last.map(function(e,i){return '<circle cx="'+xs(i).toFixed(1)+'" cy="'+ys(parseFloat(e[field])).toFixed(1)+'" r="2.5" fill="'+color+'"><title>'+fmtShort(e.date)+': '+e[field]+unitSuffix+'</title></circle>';}).join('');
   var gridY=[min,(min+max)/2,max].map(function(v){var y=ys(v);return '<line x1="'+pad+'" x2="'+(W-4)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="var(--divider)" stroke-width="1"/><text x="2" y="'+(y+3).toFixed(1)+'" font-size="9" fill="var(--on-surface-faint)" font-family="ui-monospace,monospace">'+Math.round(v)+'</text>';}).join('');
-  return '<div class="wchart"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:160px">'+gridY+'<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'+dots+'</svg></div>';
+  // Latest reading plus the swing across exactly the window drawn — direction is
+  // reported, not judged: down is good for weight and bad for protein.
+  var v0=vs[0],v1=vs[vs.length-1],delta=v1-v0;
+  var dp=Math.abs(delta)<10?1:0;
+  head+='<span class="wcnow">'+trimNum(v1)+unitSuffix
+    +'<span class="wcdelta">'+(Math.abs(delta)<0.05?'no change':(delta>0?'▲':'▼')+' '+Math.abs(delta).toFixed(dp))+'</span></span></div>';
+  // x labels sit in HTML, not the SVG: preserveAspectRatio="none" stretches the
+  // viewBox horizontally, which would smear any text inside it. Percent
+  // positions mirror xs() exactly, so they stay pinned to their data points.
+  function tick(i,align){
+    var pct=(xs(i)/W*100).toFixed(2);
+    var shift=align==='start'?'0':align==='end'?'-100%':'-50%';
+    return '<span style="left:'+pct+'%;transform:translateX('+shift+')">'+esc(fmtShort(last[i].date))+'</span>';
+  }
+  var axis='<div class="wxaxis">'+tick(0,'start')
+    +(last.length>=5?tick(Math.floor((last.length-1)/2),'mid'):'')
+    +tick(last.length-1,'end')+'</div>';
+  return '<div class="wchart">'+head
+    +'<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:160px">'+gridY
+    +'<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'+dots+'</svg>'
+    +axis
+    +'<div class="wcfoot">'+last.length+' day'+(last.length===1?'':'s')+' logged</div>'
+    +'</div>';
 }
-function weightChart(entriesDesc){return metricChart(entriesDesc,'weight','var(--accent)',' lb','weight');}
+function weightChart(entriesDesc){return metricChart(entriesDesc,'weight','var(--accent)',' lb','weight','Weight');}
 function healthSummaryHtml(){
   var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var latest=entries.filter(function(e){return e.weight!=='';})[0];
@@ -714,8 +747,8 @@ function healthSummaryHtml(){
     +'<div class="stat neu"><div class="sl">Avg calories / day (7d)</div><div class="sv">'+(avgCal===null?'—':avgCal)+'</div></div>'
     +'<div class="stat neu"><div class="sl">Avg protein / day (7d)</div><div class="sv">'+(avgPro===null?'—':avgPro+'g')+'</div></div>'
     +'</div>'+weightChart(entries)
-    +metricChart(entries,'calories','var(--accent-2)',' cal','calories')
-    +metricChart(entries,'protein','var(--accent-3)','g','protein');
+    +metricChart(entries,'calories','var(--accent-2)',' cal','calories','Calories / day')
+    +metricChart(entries,'protein','var(--accent-3)','g','protein','Protein / day');
   return stats;
 }
 function healthRow(e){
