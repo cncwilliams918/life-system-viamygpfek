@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T18:29:48Z';
+  var PAGE_VERSION='2026-08-24T19:05:48Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -380,6 +380,25 @@ textarea{resize:vertical;min-height:52px}
 .fdhead h1{grid-column:2;font-size:24px;color:var(--on-ground);overflow-wrap:anywhere}
 .fdbrand{grid-column:2;font-family:var(--mono);font-size:11.5px;color:var(--on-ground-outline);margin-top:3px}
 .fdbase{grid-column:2;font-family:var(--mono);font-size:11.5px;color:var(--on-ground-outline);margin-top:6px}
+/* ── nutrition: reference material, so it sits on the page rather than in a
+   block — nothing here is editable and it shouldn't look like it is ── */
+.ph .nutper{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--on-ground-outline);text-transform:none;letter-spacing:0}
+.nutlist{display:flex;flex-direction:column}
+.nutrow{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+  padding:8px 2px;font-size:14px;color:var(--on-ground);
+  border-bottom:1px solid var(--on-ground-wash)}
+.nutrow span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.nutrow.sub{padding-left:18px;font-size:12.5px;color:var(--on-ground-outline)}
+.nutgrp{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--on-ground-outline);padding:16px 2px 5px}
+.nutnote{font-family:var(--mono);font-size:11px;color:var(--on-ground-outline);padding:10px 2px 2px;line-height:1.5}
+.unitsel{width:auto;flex:1;min-width:0;font-family:var(--mono);font-size:12px;padding:6px 8px}
+.blockaddbtn.danger{color:var(--on-ground-negative);background:var(--on-ground-negative-wash)}
+/* ── confirm before anything is destroyed ── */
+.confirmrow{display:flex;gap:8px;margin-top:18px}
+.cbtn{flex:1;font-family:var(--mono);font-size:13px;border-radius:12px;padding:11px 0;background:var(--surface-2);color:var(--on-surface)}
+.cbtn.danger{background:var(--negative);color:var(--on-accent);font-weight:600}
+.cbtn.danger:hover{opacity:.9}
 /* ── Add: a chooser of big targets, not a page of its own ── */
 .addmenu{display:grid;gap:12px}
 .addtile{display:grid;grid-template-columns:56px 1fr;grid-template-rows:auto auto;column-gap:15px;
@@ -602,7 +621,7 @@ function pageBody(){
   return buildDay();
 }
 function render(){
-  app.innerHTML=topbar()+goalBars()+pageBody()+bottomNav();
+  app.innerHTML=topbar()+goalBars()+pageBody()+bottomNav()+confirmHtml();
   applyBands();
   if(foodQuery&&document.getElementById('localfoods'))refreshPicker();
   var ed=app.querySelector('[data-e="1"]');if(ed){ed.focus();if(ed.select)ed.select();}
@@ -795,7 +814,55 @@ var UNITS=['g','oz','lb','ml','l','cup','tbsp','tsp','slice','scoop','serving','
 var COUNTABLE_UNITS=['serving','scoop','slice','bar','packet'];
 function isCountableUnit(u){return COUNTABLE_UNITS.indexOf(u)>-1;}
 // units that read as abbreviations: no space before, never pluralized
-var UNIT_ABBR=['g','kg','mg','oz','ml','l','lb'];
+var UNIT_ABBR=['g','kg','mg','oz','ml','l','lb','fl oz'];
+// A label gives one measurement in one system. Anything in the same system can
+// be derived from it — but mass and volume can't cross without a density, which
+// no label carries. That's why a carton of milk offers ml and fl oz but never
+// grams: we genuinely don't know what it weighs.
+var MASS_UNITS={mg:0.001,g:1,kg:1000,oz:28.349523,lb:453.59237};
+var VOL_UNITS={ml:1,l:1000,tsp:4.928922,tbsp:14.786765,'fl oz':29.573530,cup:236.588237};
+function unitDim(u){
+  u=(u||'g').trim();
+  if(MASS_UNITS[u]!==undefined)return 'mass';
+  if(VOL_UNITS[u]!==undefined)return 'vol';
+  return 'count';
+}
+function convertUnit(n,from,to){
+  from=(from||'g').trim();to=(to||'g').trim();
+  if(from===to)return n;
+  var d=unitDim(from);
+  if(d!==unitDim(to)||d==='count')return null;
+  var tbl=d==='mass'?MASS_UNITS:VOL_UNITS;
+  return n*tbl[from]/tbl[to];
+}
+// what this food can legitimately be measured in, given what its label told us
+var MASS_CHOICES=['g','oz','lb'],VOL_CHOICES=['ml','fl oz','cup','tbsp','tsp'];
+function unitChoices(f){
+  var d=unitDim(f.unit);
+  if(d==='mass')return MASS_CHOICES.concat(['serving']);
+  if(d==='vol')return VOL_CHOICES.concat(['serving']);
+  return [f.unit];   // countable: a slice is a slice
+}
+// the unit the amount box is currently in
+function displayUnit(f){
+  var choices=unitChoices(f);
+  return choices.indexOf(f.dunit)>-1?f.dunit:(choices.indexOf(f.unit)>-1?f.unit:choices[0]);
+}
+// how many base servings a given amount in the display unit represents — the
+// single conversion every calculation on the food page goes through
+function servingsFromDisplay(f,amount){
+  var du=displayUnit(f),base=num(f.serving)||1;
+  if(du==='serving'&&unitDim(f.unit)!=='count')return num(amount);
+  var conv=convertUnit(num(amount),du,f.unit);
+  return (conv===null?num(amount):conv)/base;
+}
+function displayFromServings(f,servings){
+  var du=displayUnit(f),base=num(f.serving)||1;
+  if(du==='serving'&&unitDim(f.unit)!=='count')return servings;
+  var inBase=servings*base;
+  var conv=convertUnit(inBase,f.unit,du);
+  return conv===null?inBase:conv;
+}
 function trimNum(n){
   if(Math.abs(n)>=20)return String(Math.round(n));
   return n.toFixed(2).replace(/\.?0+$/,'');
@@ -828,7 +895,19 @@ function resolveFoodQty(f,qty,mult){
   var factor=(num(qty)/base)*(mult===undefined?1:mult);
   return {grams:num(f.serving)*factor,calories:num(f.calories)*factor,protein:num(f.protein)*factor,carbs:num(f.carbs)*factor,fat:num(f.fat)*factor};
 }
-function foodResolved(f){return (isCountableUnit(f.unit)||f.mode==='have')?resolveFoodQty(f,f.tamt):resolveFood(f,f.tmac,f.tamt,1);}
+// The food page's own resolve. "I have" is typed in whatever unit the page is
+// set to, so it converts to the base first — meals keep passing base units
+// straight into resolveFoodQty, so a food's display unit never leaks into them.
+function foodResolved(f){
+  if(!f)return null;
+  if(isCountableUnit(f.unit)||f.mode==='have'){
+    if(f.tamt===''||f.tamt===undefined||f.tamt===null)return null;
+    return resolveFoodQty(f,servingsFromDisplay(f,f.tamt)*(num(f.serving)||1));
+  }
+  return resolveFood(f,f.tmac,f.tamt,1);
+}
+// a resolved result back in the unit you're working in
+function outAmount(f,r){return displayFromServings(f,r.grams/(num(f.serving)||1));}
 // a meal item's food may be measured in servings/scoops (quantity) or grams/oz (macro target) —
 // same branch the standalone food card already uses, now applied inside meals too
 function resolveMealItem(f,mi,mult){return f&&(isCountableUnit(f.unit)||mi.mode==='have')?resolveFoodQty(f,mi.tamt,mult):resolveFood(f,mi.tmac,mi.tamt,mult);}
@@ -837,8 +916,8 @@ function foodOutHtml(f){
   var per=num(f[tk]);
   if(amt===''||amt===undefined)return '<div class="fcnote">Enter an amount to see what you need.</div>';
   if(per<=0)return '<div class="fcnote warn">'+esc(f.name)+' has no '+tk+' recorded — pick a different target.</div>';
-  var r=foodResolved(f);
-  return '<div class="fcout"><div class="fcbig">'+trimNum(r.grams)+'<span class="fcunit">'+esc(unitLabel(parseFloat(trimNum(r.grams)),f.unit))+'</span></div>'
+  var r=foodResolved(f),outAmt=outAmount(f,r),du=displayUnit(f);
+  return '<div class="fcout"><div class="fcbig">'+trimNum(outAmt)+'<span class="fcunit">'+esc(unitLabel(parseFloat(trimNum(outAmt)),du))+'</span></div>'
     +'<div class="fcmacros">'
     +'<span'+(tk==='protein'?' class="on"':'')+'>P '+r.protein.toFixed(1)+'g</span>'
     +'<span'+(tk==='carbs'?' class="on"':'')+'>C '+r.carbs.toFixed(1)+'g</span>'
@@ -848,7 +927,7 @@ function foodOutHtml(f){
     +'</div></div>';
 }
 function foodOutQtyHtml(f){
-  var r=resolveFoodQty(f,f.tamt);
+  var r=foodResolved(f);
   if(!r)return '<div class="fcnote">Enter a quantity to see the macros.</div>';
   return '<div class="fcout"><div class="fcmacros">'
     +'<span>P '+r.protein.toFixed(1)+'g</span>'
@@ -863,7 +942,7 @@ function refreshFoodCard(id){
   var qtyMode=isCountableUnit(f.unit)||f.mode==='have';
   var el=document.getElementById('fcout-'+id);if(el)el.innerHTML=qtyMode?foodOutQtyHtml(f):foodOutHtml(f);
   var u=document.getElementById('fcunit-'+id);
-  if(u)u.textContent=qtyMode?unitLabel(num(f.tamt)||1,f.unit):((f.tmac||'protein')==='calories'?'cal':'g');
+  if(u)u.textContent=qtyMode?unitLabel(num(f.tamt)||1,displayUnit(f)):((f.tmac||'protein')==='calories'?'cal':'g');
 }
 var openItem=null; // {type:'meal', id} of the single expanded meal card, or null
 function isOpenItem(type,id){return !!openItem&&openItem.type===type&&openItem.id===id;}
@@ -1062,7 +1141,9 @@ function addFoodLog(id){
     state.health.foods.push(draftFood);draftFood=null;
   }
   state.health.log=state.health.log||[];
-  state.health.log.push({id:uid(),date:addTarget,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
+  // record it in the unit you actually measured in — if you weighed out 6 oz,
+  // the log should say 6 oz, not 170 g
+  state.health.log.push({id:uid(),date:addTarget,name:f.name,qty:Math.round(outAmount(f,r)*100)/100,unit:displayUnit(f),calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
   f.lastUsed=Date.now();  // drives the recents ordering
   syncMacros(addTarget);
   if(dayAddOpen)closeDayAdd();   // one food logged, back to the day you came from
@@ -1336,7 +1417,7 @@ function foodDetailHtml(){
   if(countable){
     inputRow='<div class="fcrow"><span class="fclbl">Quantity</span>'
       +'<input type="number" step="any" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="1">'
-      +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,f.unit))+'</span></div>';
+      +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,displayUnit(f)))+'</span></div>';
   }else{
     modeTog='<div class="fcmodetog">'
       +'<button type="button" class="fcmodebtn'+(mode==='want'?' on':'')+'" data-a="foodmode" data-id="'+f.id+'" data-mode="want">I want</button>'
@@ -1345,7 +1426,7 @@ function foodDetailHtml(){
     if(mode==='have'){
       inputRow='<div class="fcrow"><span class="fclbl">I have</span>'
         +'<input type="number" step="any" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="0">'
-        +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,f.unit))+'</span></div>';
+        +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,displayUnit(f)))+'</span></div>';
     }else{
       var tk=f.tmac||'protein';
       var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
@@ -1356,18 +1437,58 @@ function foodDetailHtml(){
     }
   }
   var where=addTarget===todayStr()?'today':fmtLong(addTarget);
+  // Only the units this food's label can actually justify. A carton of milk
+  // gives millilitres, so it offers ml and fl oz and never grams — we don't know
+  // its density, and guessing one would quietly corrupt every figure below.
+  var choices=unitChoices(f),du=displayUnit(f);
+  var unitRow=choices.length>1
+    ?'<div class="fcrow"><span class="fclbl">Measure in</span>'
+      +'<select class="unitsel" data-a="funit" data-id="'+f.id+'">'
+      +choices.map(function(u){return '<option value="'+esc(u)+'"'+(u===du?' selected':'')+'>'+esc(u==='serving'?'servings ('+fmtQty(num(f.serving),f.unit)+' each)':u)+'</option>';}).join('')
+      +'</select></div>'
+    :'';
   return '<div class="addbanner"><button type="button" class="addback" data-a="detailback" aria-label="Back">‹</button>'
     +'<span>Logging to <b>'+esc(where)+'</b></span></div>'
     +'<div class="fdhead">'+sourceBadge(f)
     +'<h1>'+esc(f.name)+'</h1>'
     +(f.brand?'<div class="fdbrand">'+esc(f.brand)+'</div>':'')
-    +'<div class="fdbase">Per '+esc(fmtQty(num(f.serving),f.unit))+' — '
-    +num(f.protein)+'P / '+num(f.carbs)+'C / '+num(f.fat)+'F · '+num(f.calories)+' cal</div></div>'
-    +'<div class="fincard">'+modeTog+inputRow
+    +'</div>'
+    +'<div class="ph"><h3>Log settings</h3></div>'
+    +'<div class="fincard">'+unitRow+modeTog+inputRow
     +'<div id="fcout-'+f.id+'">'+(qtyMode?foodOutQtyHtml(f):foodOutHtml(f))+'</div></div>'
+    +nutritionHtml(f)
     +(pickDetail.kind==='saved'
-      ?'<button type="button" class="blockaddbtn spaced" data-a="fooddel" data-id="'+f.id+'">Delete this food</button>'
+      ?'<button type="button" class="blockaddbtn spaced danger" data-a="fooddel" data-id="'+f.id+'">Delete this food</button>'
       :'<div class="gcheck" style="padding:0 2px">Logging this saves it to your foods so it shows up next time.</div>');
+}
+// The label, read-only, sitting straight on the page rather than boxed up —
+// it's reference material, not something to fiddle with.
+function nutritionHtml(f){
+  var m=f.micros||{};
+  function row(lab,val,unit,sub){
+    if(val===undefined||val===null||val==='')return '';
+    var n=num(val);
+    var shown=n>=100?Math.round(n):(n>=10?Math.round(n*10)/10:Math.round(n*100)/100);
+    return '<div class="nutrow'+(sub?' sub':'')+'"><span>'+esc(lab)+'</span>'
+      +'<span>'+shown+(unit?' '+unit:'')+'</span></div>';
+  }
+  var body=row('Calories',f.calories,'')
+    +row('Protein',f.protein,'g')
+    +row('Carbs',f.carbs,'g');
+  MICROS.filter(function(x){return x.grp==='Carbs';}).forEach(function(x){body+=row(x.lab,m[x.k],x.u,true);});
+  body+=row('Fat',f.fat,'g');
+  MICROS.filter(function(x){return x.grp==='Fat';}).forEach(function(x){body+=row(x.lab,m[x.k],x.u,true);});
+  ['Minerals','Vitamins'].forEach(function(g){
+    var rows=MICROS.filter(function(x){return x.grp===g;})
+      .map(function(x){return row(x.lab,m[x.k],x.u);}).join('');
+    if(rows)body+='<div class="nutgrp">'+g+'</div>'+rows;
+  });
+  var known=MICROS.filter(function(x){return m[x.k]!==undefined&&m[x.k]!==null&&m[x.k]!=='';}).length;
+  var note=known
+    ?'<div class="nutnote">'+known+' micronutrient'+(known===1?'':'s')+' on record for this food.</div>'
+    :'<div class="nutnote">No micronutrient data — '+(isDbFood(f)?'the source didn’t carry any for this entry.':'foods entered by hand only hold what you typed.')+'</div>';
+  return '<div class="ph"><h3>Nutrition</h3><span class="nutper">per '+esc(fmtQty(num(f.serving),f.unit))+'</span></div>'
+    +'<div class="nutlist">'+body+'</div>'+note;
 }
 function addFood(){
   var get=function(f){var el=app.querySelector('[data-a="fnew"][data-f="'+f+'"]');return el?el.value:'';};
@@ -1399,24 +1520,47 @@ function parseOFFProduct(p,fallbackName){
   var has100g=n['energy-kcal_100g']!==undefined||n.proteins_100g!==undefined||n.carbohydrates_100g!==undefined||n.fat_100g!==undefined;
   var hasServingNutrients=n['energy-kcal_serving']!==undefined||n.proteins_serving!==undefined||n.carbohydrates_serving!==undefined||n.fat_serving!==undefined;
   if(!has100g&&!hasServingNutrients)return null;
+  // whatever's on the label beyond the big four, scaled the same way the macros are
+  var OFF_MICROS={satfat:'saturated-fat',transfat:'trans-fat',monofat:'monounsaturated-fat',
+    polyfat:'polyunsaturated-fat',cholesterol:'cholesterol',fiber:'fiber',sugars:'sugars',
+    sodium:'sodium',potassium:'potassium',calcium:'calcium',iron:'iron',magnesium:'magnesium',
+    phosphorus:'phosphorus',zinc:'zinc',copper:'copper',manganese:'manganese',selenium:'selenium',
+    vitA:'vitamin-a',vitC:'vitamin-c',vitD:'vitamin-d',vitE:'vitamin-e',vitK:'vitamin-k',
+    thiamin:'vitamin-b1',riboflavin:'vitamin-b2',niacin:'vitamin-pp',vitB6:'vitamin-b6',
+    folate:'folates',vitB12:'vitamin-b12'};
+  // OFF reports minerals and vitamins in base units (grams, not mg/µg) — bring
+  // them onto the same scale the labels use, or sodium reads as 0.66 instead of 660
+  var MICRO_SCALE={cholesterol:1000,sodium:1000,potassium:1000,calcium:1000,iron:1000,
+    magnesium:1000,phosphorus:1000,zinc:1000,copper:1000,manganese:1000,selenium:1e6,
+    vitA:1e6,vitC:1000,vitD:1e6,vitE:1000,vitK:1e6,thiamin:1000,riboflavin:1000,
+    niacin:1000,vitB6:1000,folate:1e6,vitB12:1e6};
+  function microsAt(suffix,factor){
+    var out={};
+    for(var k in OFF_MICROS){
+      var v=n[OFF_MICROS[k]+suffix];
+      if(v===undefined||v===null||v==='')continue;
+      out[k]=num(v)*factor*(MICRO_SCALE[k]||1);
+    }
+    return out;
+  }
   if(hasServingG&&hasServingNutrients){
     // real label serving size (e.g. "40g" for oats) with matching per-serving nutrients — use as printed
-    return {name:name,serving:servingG,unit:'g',
+    return {name:name,serving:servingG,unit:'g',micros:microsAt('_serving',1),
       calories:Math.round(num(n['energy-kcal_serving'])),protein:num(n.proteins_serving),carbs:num(n.carbohydrates_serving),fat:num(n.fat_serving)};
   }
   if(hasServingG&&has100g){
     // known serving weight but no precomputed per-serving figures — scale the 100g numbers ourselves
     var f=servingG/100;
-    return {name:name,serving:servingG,unit:'g',
+    return {name:name,serving:servingG,unit:'g',micros:microsAt('_100g',f),
       calories:Math.round(num(n['energy-kcal_100g'])*f),protein:num(n.proteins_100g)*f,carbs:num(n.carbohydrates_100g)*f,fat:num(n.fat_100g)*f};
   }
   if(hasServingNutrients){
     // per-serving nutrients exist but no gram weight given — don't invent a weight, call it 1 serving
-    return {name:name,serving:1,unit:'serving',
+    return {name:name,serving:1,unit:'serving',micros:microsAt('_serving',1),
       calories:Math.round(num(n['energy-kcal_serving'])),protein:num(n.proteins_serving),carbs:num(n.carbohydrates_serving),fat:num(n.fat_serving)};
   }
   // only 100g data, no serving info at all — same idea, present as 1 serving rather than a specific gram guess
-  return {name:name,serving:1,unit:'serving',
+  return {name:name,serving:1,unit:'serving',micros:microsAt('_100g',1),
     calories:Math.round(num(n['energy-kcal_100g'])),protein:num(n.proteins_100g),carbs:num(n.carbohydrates_100g),fat:num(n.fat_100g)};
 }
 // barcode scanner — runs outside the normal render() cycle (it manages its own
@@ -1478,13 +1622,55 @@ var FDC_NUTRIENTS={1003:'protein',1004:'fat',1005:'carbs'};
 // (Atwater General) is the 4/4/9 basis those labels are built on and what the
 // macro donut here assumes, so it beats the food-specific 2048 for consistency.
 var FDC_ENERGY=[1008,2047,2048];
+// Everything beyond the four headline figures, captured per food and shown on
+// its page. Deliberately not summed across a day: coverage is patchy enough
+// that a daily total would be reporting the foods that happened to carry data,
+// not what you actually ate.
+var MICROS=[
+  {k:'satfat',lab:'Saturated fat',u:'g',grp:'Fat'},
+  {k:'transfat',lab:'Trans fat',u:'g',grp:'Fat'},
+  {k:'monofat',lab:'Monounsaturated',u:'g',grp:'Fat'},
+  {k:'polyfat',lab:'Polyunsaturated',u:'g',grp:'Fat'},
+  {k:'cholesterol',lab:'Cholesterol',u:'mg',grp:'Fat'},
+  {k:'fiber',lab:'Fiber',u:'g',grp:'Carbs'},
+  {k:'sugars',lab:'Sugars',u:'g',grp:'Carbs'},
+  {k:'sodium',lab:'Sodium',u:'mg',grp:'Minerals'},
+  {k:'potassium',lab:'Potassium',u:'mg',grp:'Minerals'},
+  {k:'calcium',lab:'Calcium',u:'mg',grp:'Minerals'},
+  {k:'iron',lab:'Iron',u:'mg',grp:'Minerals'},
+  {k:'magnesium',lab:'Magnesium',u:'mg',grp:'Minerals'},
+  {k:'phosphorus',lab:'Phosphorus',u:'mg',grp:'Minerals'},
+  {k:'zinc',lab:'Zinc',u:'mg',grp:'Minerals'},
+  {k:'copper',lab:'Copper',u:'mg',grp:'Minerals'},
+  {k:'manganese',lab:'Manganese',u:'mg',grp:'Minerals'},
+  {k:'selenium',lab:'Selenium',u:'µg',grp:'Minerals'},
+  {k:'vitA',lab:'Vitamin A',u:'µg',grp:'Vitamins'},
+  {k:'vitC',lab:'Vitamin C',u:'mg',grp:'Vitamins'},
+  {k:'vitD',lab:'Vitamin D',u:'µg',grp:'Vitamins'},
+  {k:'vitE',lab:'Vitamin E',u:'mg',grp:'Vitamins'},
+  {k:'vitK',lab:'Vitamin K',u:'µg',grp:'Vitamins'},
+  {k:'thiamin',lab:'Thiamin (B1)',u:'mg',grp:'Vitamins'},
+  {k:'riboflavin',lab:'Riboflavin (B2)',u:'mg',grp:'Vitamins'},
+  {k:'niacin',lab:'Niacin (B3)',u:'mg',grp:'Vitamins'},
+  {k:'vitB6',lab:'Vitamin B6',u:'mg',grp:'Vitamins'},
+  {k:'folate',lab:'Folate',u:'µg',grp:'Vitamins'},
+  {k:'vitB12',lab:'Vitamin B12',u:'µg',grp:'Vitamins'}
+];
+var MICRO_GROUPS=['Fat','Carbs','Minerals','Vitamins'];
+var FDC_MICROS={1258:'satfat',1257:'transfat',1292:'monofat',1293:'polyfat',1253:'cholesterol',
+  1079:'fiber',2000:'sugars',1093:'sodium',1092:'potassium',1087:'calcium',1089:'iron',
+  1090:'magnesium',1091:'phosphorus',1095:'zinc',1098:'copper',1101:'manganese',1103:'selenium',
+  1106:'vitA',1162:'vitC',1114:'vitD',1109:'vitE',1185:'vitK',1165:'thiamin',1166:'riboflavin',
+  1167:'niacin',1175:'vitB6',1177:'folate',1178:'vitB12'};
 // Generic USDA entries first, brands last. "Chicken breast" should return
 // chicken breast, not whichever supermarket uploaded a label for it — this
 // ranking is the main thing that makes search feel better than MyFitnessPal.
 var FDC_RANK={'Foundation':0,'SR Legacy':1,'Survey (FNDDS)':2,'Branded':3};
 function parseFDCFood(f){
-  var per100={},energy={};
+  var per100={},energy={},micro100={};
   (f.foodNutrients||[]).forEach(function(n){
+    var mk=FDC_MICROS[n.nutrientId];
+    if(mk&&micro100[mk]===undefined)micro100[mk]=num(n.value);
     var key=FDC_NUTRIENTS[n.nutrientId];
     if(key){if(per100[key]===undefined)per100[key]=num(n.value);return;}
     // energy also comes through in kJ on some records; only take the kcal rows
@@ -1506,6 +1692,8 @@ function parseFDCFood(f){
   info.brand=f.brandName||f.brandOwner||'';
   // householdServingFullText is the human phrasing off the label ("1 slice")
   if(f.householdServingFullText)info.brand=(info.brand?info.brand+' · ':'')+f.householdServingFullText;
+  info.micros={};
+  for(var mk in micro100)info.micros[mk]=micro100[mk]*scale;
   info.source='usda';
   return info;
 }
@@ -1928,6 +2116,42 @@ function periodsHtml(){
   }).join('');
   return '<div class="ph"><h3>Past periods</h3></div><div class="pdlist">'+rows+'</div>';
 }
+// ── deletions all route through one confirm step ──
+// Nothing in the app removes saved data on a single tap any more. The click
+// handler intercepts these before their work runs, stashes the dataset, and only
+// carries it out once you've said yes.
+var confirmAsk=null;
+var DESTRUCTIVE={
+  logdel:{title:'Remove this entry?',body:'It comes off this day’s log.'},
+  logdelgroup:{title:'Remove this meal from the log?',body:'Every food logged under it comes off this day.'},
+  fooddel:{title:'Delete this food?',body:'It leaves your foods list. Anything already logged from it stays on those days.'},
+  dmeal:{title:'Delete this meal?',body:'The meal goes, but the foods in it stay in your list.'},
+  midel:{title:'Remove this food from the meal?',body:'The food itself stays in your list.'},
+  hdel:{title:'Delete this day?',body:'Its weight, calories and protein are removed from your history.'},
+  delperiod:{title:'Delete this period?',body:'The saved averages for that stretch are removed.'}
+};
+function confirmHtml(){
+  if(!confirmAsk)return '';
+  var d=DESTRUCTIVE[confirmAsk.a]||{title:'Are you sure?',body:''};
+  return '<div class="settingsoverlay"><div class="settingscard">'
+    +'<div class="settingshead"><h3>'+esc(d.title)+'</h3>'
+    +'<button class="settingsclose" data-a="confirmno">×</button></div>'
+    +'<div class="settingsnote">'+esc(d.body)+'</div>'
+    +'<div class="confirmrow">'
+    +'<button type="button" class="cbtn" data-a="confirmno">Cancel</button>'
+    +'<button type="button" class="cbtn danger" data-a="confirmyes">Delete</button>'
+    +'</div></div></div>';
+}
+function runDestructive(a,ds){
+  if(a==='logdel'){state.health.log=(state.health.log||[]).filter(function(x){return x.id!==ds.id;});syncMacros(viewDate);}
+  else if(a==='logdelgroup'){state.health.log=(state.health.log||[]).filter(function(x){return x.gid!==ds.gid;});syncMacros(viewDate);}
+  else if(a==='fooddel'){state.health.foods=(state.health.foods||[]).filter(function(x){return x.id!==ds.id;});pickDetail=null;}
+  else if(a==='dmeal'){state.health.meals=(state.health.meals||[]).filter(function(x){return x.id!==ds.id;});}
+  else if(a==='midel'){var m=fMeal(ds.mid);if(m)m.items=(m.items||[]).filter(function(x){return x.id!==ds.iid;});}
+  else if(a==='hdel'){state.health.entries=(state.health.entries||[]).filter(function(x){return x.id!==ds.id;});}
+  else if(a==='delperiod'){state.health.periods=(state.health.periods||[]).filter(function(x){return x.id!==ds.id;});}
+  save();render();
+}
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
 
 // events
@@ -1972,8 +2196,15 @@ function playPop(){
 }
 app.addEventListener('click',function(e){
   if(e.target.closest('button'))playPop();
-  if(e.target.classList.contains('settingsoverlay')){settingsOpen=false;foodAddOpen=false;mealAddOpen=false;resetFoodDb();render();return;}
+  if(e.target.classList.contains('settingsoverlay')){settingsOpen=false;foodAddOpen=false;mealAddOpen=false;confirmAsk=null;resetFoodDb();render();return;}
   var t=e.target.closest('[data-a]');if(!t)return;var a=t.dataset.a;
+  if(a==='confirmno'){confirmAsk=null;render();return;}
+  if(a==='confirmyes'){var c=confirmAsk;confirmAsk=null;if(c)runDestructive(c.a,c.ds);return;}
+  // every destructive action detours through the confirm card first
+  if(DESTRUCTIVE[a]){
+    var ds={};for(var k in t.dataset)ds[k]=t.dataset[k];
+    confirmAsk={a:a,ds:ds};render();return;
+  }
   if(a==='undo'){undoLast();return;}
   if(a==='exportdata'){exportData();return;}
   if(a==='importdata'){importData();return;}
@@ -2051,7 +2282,6 @@ app.addEventListener('click',function(e){
   if(a==='togglesettings'){settingsOpen=!settingsOpen;render();}
   else if(a==='closesettings'){settingsOpen=false;render();}
   else if(a==='setswtch'){var sk=t.dataset.k;state.settings[sk]=!state.settings[sk];save();render();}
-  else if(a==='hdel'){state.health.entries=(state.health.entries||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='openfoodadd'){openFoodForm(null);}
   else if(a==='closefoodadd'){foodAddOpen=false;pendingFood=null;resetFoodDb();render();}
   else if(a==='foodadd'){addFood();}
@@ -2062,13 +2292,7 @@ app.addEventListener('click',function(e){
     // (grams needed vs. grams on hand) — clear it rather than carry over a stale value
     if(fmd&&fmd.mode!==t.dataset.mode){fmd.mode=t.dataset.mode;fmd.tamt='';save();render();}
   }
-  else if(a==='fooddel'){
-    state.health.foods=(state.health.foods||[]).filter(function(x){return x.id!==t.dataset.id;});
-    pickDetail=null;save();render();
-  }
   else if(a==='foodlog'){addFoodLog(t.dataset.id);}
-  else if(a==='logdel'){state.health.log=(state.health.log||[]).filter(function(x){return x.id!==t.dataset.id;});syncMacros(viewDate);save();render();}
-  else if(a==='logdelgroup'){state.health.log=(state.health.log||[]).filter(function(x){return x.gid!==t.dataset.gid;});syncMacros(viewDate);save();render();}
   else if(a==='endday'){
     syncMacros(todayStr());
     var todayK=todayStr();
@@ -2085,15 +2309,12 @@ app.addEventListener('click',function(e){
       save();render();
     }
   }
-  else if(a==='delperiod'){state.health.periods=(state.health.periods||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='openmealadd'){mealAddOpen=true;render();}
   else if(a==='closemealadd'){mealAddOpen=false;render();}
   else if(a==='addmeal'){addMeal();}
   else if(a==='togglemeal'){openItem=isOpenItem('meal',t.dataset.id)?null:{type:'meal',id:t.dataset.id};render();}
-  else if(a==='dmeal'){state.health.meals=(state.health.meals||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='emln'){state.editing='ml:'+t.dataset.id;render();}
   else if(a==='logmeal'){logMeal(t.dataset.id);}
-  else if(a==='midel'){var dm=fMeal(t.dataset.mid);if(dm){dm.items=(dm.items||[]).filter(function(x){return x.id!==t.dataset.iid;});save();render();}}
   else if(a==='mitemmode'){
     var mmm=fMeal(t.dataset.mid);
     var mit2=mmm&&(mmm.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];
@@ -2171,6 +2392,23 @@ app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.
     if(isCountableUnit(t.value)){
       var servingInput=app.querySelector('[data-a="fnew"][data-f="serving"]');
       if(servingInput)servingInput.value='1';
+    }
+    return;
+  }
+  if(a==='funit'){
+    var fu=fFood(t.dataset.id);
+    if(fu&&displayUnit(fu)!==t.value){
+      // Only "I have" holds an amount of food. Under "I want", tamt is grams of
+      // a macro — it has nothing to do with how you're measuring, and converting
+      // it turns "40g of protein" into "1.41oz of protein".
+      var holdsAmount=isCountableUnit(fu.unit)||fu.mode==='have';
+      var conv=holdsAmount?convertUnit(num(fu.tamt),displayUnit(fu),t.value):null;
+      fu.dunit=t.value;
+      // carry the amount across rather than clearing it — switching g to oz
+      // should restate what you already typed, not make you measure again
+      if(holdsAmount&&fu.tamt!==''&&fu.tamt!==undefined&&fu.tamt!==null&&conv!==null)
+        fu.tamt=Math.round(conv*100)/100;
+      save();render();
     }
     return;
   }
