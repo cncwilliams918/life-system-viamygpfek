@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T15:35:51Z';
+  var PAGE_VERSION='2026-08-24T15:55:17Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -521,6 +521,9 @@ var page='log';
 // redirect where the Add page files things.
 var viewDate=todayStr();
 var addTarget=todayStr();
+// true while the Log page is showing the food picker for viewDate rather than
+// that day's sheet — it's an overlay on the day, not a trip to the Add tab
+var dayAddOpen=false;
 var PAGES=[
   {key:'log',label:'Log'},
   {key:'add',label:'Add'},
@@ -970,7 +973,8 @@ function addMeal(){
   var nm={id:uid(),name:v,mult:1,items:[]};
   state.health.meals.push(nm);
   mealAddOpen=false;              // the dialog stayed open after creating before
-  page='add';logTab='meals';
+  if(!dayAddOpen)page='add';      // stay put if we're inside the day-add overlay
+  logTab='meals';
   openItem={type:'meal',id:nm.id};
   save();render();
 }
@@ -984,13 +988,23 @@ function logMeal(id){
     f.lastUsed=Date.now();
     any=true;
   });
-  if(any){syncMacros(addTarget);save();render();}
+  if(any){
+    syncMacros(addTarget);
+    if(dayAddOpen)closeDayAdd();
+    save();render();
+  }
 }
 function logFor(dateStr){return (state.health.log||[]).filter(function(r){return r.date===dateStr;});}
 function logTotals(rows){
   var t={calories:0,protein:0,carbs:0,fat:0};
   rows.forEach(function(r){t.calories+=num(r.calories);t.protein+=num(r.protein);t.carbs+=num(r.carbs);t.fat+=num(r.fat);});
   return t;
+}
+// leaving the day-add overlay: back to the day's own sheet, and new entries go
+// back to landing on today
+function closeDayAdd(){
+  dayAddOpen=false;addTarget=todayStr();openItem=null;
+  foodAddOpen=false;mealAddOpen=false;pendingFood=null;resetFoodDb();
 }
 function syncMacros(dateStr){
   // the food log is the source of truth for a day's calories/protein once anything is logged
@@ -1006,7 +1020,9 @@ function addFoodLog(id){
   state.health.log=state.health.log||[];
   state.health.log.push({id:uid(),date:addTarget,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
   f.lastUsed=Date.now();  // drives the Recent tab's ordering
-  syncMacros(addTarget);save();render();
+  syncMacros(addTarget);
+  if(dayAddOpen)closeDayAdd();   // one food logged, back to the day you came from
+  save();render();
 }
 function fsRow(r,isChild){
   return '<div class="fsrow'+(isChild?' fschild':'')+'"><span class="fsname">'+esc(r.name)+'<span class="fsg">'+esc(fmtQty(num(r.qty),r.unit))+'</span></span>'
@@ -1100,9 +1116,13 @@ function foodDbResultsHtml(){
 // so the values are baked into the HTML rather than poked into the DOM after
 // render — a re-render would otherwise wipe them.
 var pendingFood=null;
-// the form only renders inside buildAdd, so make sure we're actually there —
-// a barcode scan can fire from anywhere the scanner was opened
-function openFoodForm(info){pendingFood=info||null;foodAddOpen=true;page='add';render();}
+// the form renders on either add surface — go to the Add page only if we aren't
+// already sitting in the Log page's day-add overlay
+function openFoodForm(info){
+  pendingFood=info||null;foodAddOpen=true;
+  if(!dayAddOpen)page='add';
+  render();
+}
 function foodAddHtml(){
   var p=pendingFood||{};
   var v=function(k){var x=p[k];return (x===undefined||x===null||x==='')?'':esc(trimNum(num(x)));};
@@ -1125,22 +1145,24 @@ function foodAddHtml(){
 // ── the Add page: four tabs over one job, putting something in the log ──
 var logTab='recent';
 var LOG_TABS=[['recent','Recent'],['search','Search'],['meals','Meals'],['all','All foods']];
-function buildAdd(){
+function addTabsHtml(){
   var body=logTab==='search'?logSearchTab():logTab==='meals'?logMealsTab():logTab==='all'?logAllTab():logRecentTab();
-  // Filing into a day that isn't today is easy to forget you're doing, so it
-  // gets a banner and its own way out rather than looking like the normal page.
-  var offToday=addTarget!==todayStr();
-  var head=offToday
-    ?'<div class="addbanner"><button type="button" class="addback" data-a="addcancel" aria-label="Back to the log">✕</button>'
-      +'<span>Adding to <b>'+esc(fmtLong(addTarget))+'</b></span></div>'
-    :'<div class="hrow"><h1>Add to log</h1></div>';
-  return head
-    +'<div class="tabs">'+LOG_TABS.map(function(t){
+  return '<div class="tabs">'+LOG_TABS.map(function(t){
       return '<button type="button" class="tab'+(logTab===t[0]?' on':'')+'" data-a="logtab" data-tab="'+t[0]+'">'+t[1]+'</button>';
     }).join('')+'</div>'
     +body
     +(foodAddOpen?foodAddHtml():'')
     +(mealAddOpen?mealAddHtml():'');
+}
+function buildAdd(){
+  return '<div class="hrow"><h1>Add to log</h1></div>'+addTabsHtml();
+}
+// Same picker, but it stays on the Log page: you're adding to the day you were
+// looking at, and logging one thing drops you straight back to that day's sheet.
+function dayAddHtml(){
+  return '<div class="addbanner"><button type="button" class="addback" data-a="dayaddclose" aria-label="Cancel">✕</button>'
+    +'<span>Adding to <b>'+esc(fmtLong(viewDate))+'</b></span></div>'
+    +addTabsHtml();
 }
 // Recency, not the alphabet: what you ate yesterday is overwhelmingly what
 // you're about to eat again, and alphabetical order buries it.
@@ -1192,7 +1214,8 @@ function addFood(){
   // land on the new food, opened and ready to dial in — that's the next thing
   // you want after saving one, whether it came from search or from typing
   foodAddOpen=false;pendingFood=null;resetFoodDb();
-  page='add';logTab='recent';
+  if(!dayAddOpen)page='add';      // stay put if we're inside the day-add overlay
+  logTab='recent';
   openItem={type:'food',id:nf.id};
   save();render();
 }
@@ -1421,6 +1444,7 @@ function dateNavHtml(){
     +'</div>';
 }
 function buildDay(){
+  if(dayAddOpen)return dayAddHtml();
   var te=healthEntry(viewDate)||{weight:'',calories:'',protein:'',note:''};
   var fromLog=logFor(viewDate).length>0;
   var lockNote=fromLog?'<div class="hint">from food log</div>':'';
@@ -1778,9 +1802,9 @@ app.addEventListener('click',function(e){
       // reappear the next time you come back
       page=t.dataset.page;openItem=null;
       foodAddOpen=false;mealAddOpen=false;pendingFood=null;
-      // reaching Add from the nav always means today; only the day view's own
-      // add button targets another date
-      if(page==='add')addTarget=todayStr();
+      // the day-add overlay belongs to the day you left; logging goes back to
+      // landing on today
+      dayAddOpen=false;addTarget=todayStr();
       window.scrollTo(0,0);render();
     }
     return;
@@ -1788,14 +1812,11 @@ app.addEventListener('click',function(e){
   if(a==='dayshift'){viewDate=shiftDate(viewDate,parseInt(t.dataset.d,10));openItem=null;render();return;}
   if(a==='daytoday'){viewDate=todayStr();render();return;}
   if(a==='addtoday'){
-    addTarget=t.dataset.date;page='add';logTab='recent';openItem=null;
+    viewDate=t.dataset.date;addTarget=viewDate;
+    dayAddOpen=true;logTab='recent';openItem=null;
     window.scrollTo(0,0);render();return;
   }
-  if(a==='addcancel'){
-    addTarget=todayStr();page='log';openItem=null;
-    foodAddOpen=false;mealAddOpen=false;pendingFood=null;
-    window.scrollTo(0,0);render();return;
-  }
+  if(a==='dayaddclose'){closeDayAdd();window.scrollTo(0,0);render();return;}
   if(a==='logtab'){logTab=t.dataset.tab;openItem=null;render();return;}
   if(a==='calcpreset'){
     var p=t.dataset.p;
