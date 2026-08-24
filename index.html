@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T19:05:48Z';
+  var PAGE_VERSION='2026-08-24T19:08:05Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1496,7 +1496,7 @@ function addFood(){
   var serving=num(get('serving'));if(serving<=0)return;
   state.health.foods=state.health.foods||[];
   var src=(pendingFood&&pendingFood.source)||'manual';
-  var nf={id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),source:src,brand:(pendingFood&&pendingFood.brand)||'',tmac:'protein',tamt:''};
+  var nf={id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),source:src,brand:(pendingFood&&pendingFood.brand)||'',micros:(pendingFood&&pendingFood.micros)||{},tmac:'protein',tamt:''};
   state.health.foods.push(nf);
   // land on the new food's page, ready to dial in — that's the next thing you
   // want after saving one, whether it came from a scan or from typing
@@ -2256,7 +2256,7 @@ app.addEventListener('click',function(e){
       // clone it so dialling in an amount doesn't mutate the search results
       draftFood={id:uid(),name:hit.name,brand:hit.brand||'',source:hit.source||'usda',
         serving:hit.serving,unit:hit.unit,protein:hit.protein,carbs:hit.carbs,
-        fat:hit.fat,calories:hit.calories,tmac:'protein',tamt:''};
+        fat:hit.fat,calories:hit.calories,micros:hit.micros||{},tmac:'protein',tamt:''};
       pickDetail={kind:'db'};
     }else{
       pickDetail={kind:'saved',id:t.dataset.id};
