@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T19:08:05Z';
+  var PAGE_VERSION='2026-08-24T19:31:31Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -43,10 +43,10 @@
    ============================================================ */
 :root{
   /* ground: the page background, and text/borders that sit directly on it (no card).
-     The ground is LIGHT and blocks are DARK, so on-ground text is the darkest green. */
+     The ground is LIGHT and blocks are DARK, so on-ground text is the darkest green.
+     One ground colour only — sage is an accent now, never a background. */
   --ground:#daf1de;              /* mint */
-  --ground-alt:#8eb69b;          /* sage — alternates with --ground band to band */
-  --on-ground:#051f20;           /* darkest green — text on either ground color */
+  --on-ground:#051f20;           /* darkest green — text on the ground */
   --on-ground-outline:rgba(5,31,32,.35);
   --on-ground-wash:rgba(5,31,32,.08);
   --on-ground-negative:#8f2f22;  /* --negative is too light to read on the pale ground; darker stand-in */
@@ -82,11 +82,10 @@
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 html,body{background:var(--ground);margin:0;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
-/* Sections alternate cognac <-> amber; the color change IS the divider, so no rules.
-   Negative margins pull each band out to the viewport edges while the matching
-   padding puts its content back on the centered column. */
-.band{margin:0 calc(50% - 50vw);padding:16px calc(50vw - 50%)}
-.band.alt{background:var(--ground-alt)}
+/* The ground is one flat mint. Sections used to alternate mint/sage with the
+   color change acting as the divider; that banding is gone, so spacing and the
+   section headers do the separating instead. */
+.band{margin:0 calc(50% - 50vw);padding:10px calc(50vw - 50%)}
 /* bottom padding clears the fixed .bottomnav so the last card is never trapped under it */
 #app{color:var(--on-surface);font-family:var(--sans);line-height:1.5;max-width:920px;margin:0 auto;padding:8px 16px 108px}
 #app *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -111,10 +110,6 @@ textarea{resize:vertical;min-height:52px}
 }
 .settingsbtn{flex:none;width:40px;height:40px;border-radius:12px;background:none;color:var(--on-ground);display:flex;align-items:center;justify-content:center}
 .settingsbtn:hover{background:var(--on-ground-wash)}
-.quickadd{display:flex;gap:10px;flex-wrap:wrap}
-.quickadd button{flex:1;min-width:140px;font-family:var(--sans);font-weight:600;font-size:15px;background:var(--accent);color:var(--on-accent);border-radius:16px;padding:14px 16px;display:flex;align-items:center;justify-content:center;gap:8px}
-.quickadd button:hover{opacity:.92}
-.quickadd .plusicon{width:1.2em;height:1.2em}
 .settingsbtn svg{width:22px;height:22px;fill:currentColor}
 /* Settings is a popover, not a page — it blurs and dims whatever's behind it. */
 .settingsoverlay{position:fixed;inset:0;background:rgba(5,31,32,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
@@ -418,10 +413,10 @@ textarea{resize:vertical;min-height:52px}
 .dayweigh b{color:var(--on-ground)}
 /* ── adding into a day that isn't today — deliberately doesn't look like the
    normal page, and carries its own way out ── */
-.addbanner{display:flex;align-items:center;gap:12px;background:var(--accent);color:var(--on-accent);border-radius:16px;padding:11px 14px;margin:12px 0 14px;font-size:14px}
-.addbanner b{font-weight:700}
-.addback{width:30px;height:30px;border-radius:10px;flex:none;font-size:15px;line-height:1;color:var(--on-accent);background:rgba(5,31,32,.14);display:flex;align-items:center;justify-content:center;padding:0}
-.addback:hover{background:rgba(5,31,32,.28)}
+.addbanner{display:flex;align-items:center;gap:12px;background:var(--surface);color:var(--on-surface);border-radius:16px;padding:11px 14px;margin:12px 0 14px;font-size:14px}
+.addbanner b{font-weight:700;color:var(--accent)}
+.addback{width:30px;height:30px;border-radius:10px;flex:none;font-size:15px;line-height:1;color:var(--on-surface-dim);background:var(--surface-3);display:flex;align-items:center;justify-content:center;padding:0}
+.addback:hover{color:var(--on-surface);background:var(--surface-2)}
 /* ── calc ── */
 .calcpresets{flex-wrap:wrap}
 .calcrow{display:grid;grid-template-columns:30px 1fr 78px 44px auto 18px;gap:8px;align-items:center;padding:8px 10px;border-radius:14px;background:var(--surface-2);margin-bottom:6px}
@@ -658,19 +653,18 @@ function bottomNav(){
   }).join('')+'</div>';
 }
 
-// Wrap each page section in a band so the ground alternates cognac/amber.
-// A new band starts at every .ph section header; the color change replaces divider rules.
+// Group each page's sections into bands, starting a new one at every .ph header.
+// These used to alternate mint/sage, with the colour change acting as the
+// divider; the ground is a single mint now, so all they contribute is the
+// breathing room between sections.
 var BANDSKIP=['topbar','settingsoverlay','goalbars','bottomnav','tabs','datenav','addbanner'];
 function applyBands(){
-  var kids=[].slice.call(app.children),alt=false,started=false,cur=null;
+  var kids=[].slice.call(app.children),cur=null;
   kids.forEach(function(el){
     if(BANDSKIP.some(function(c){return el.classList.contains(c);})){cur=null;return;}
-    var head=el.classList.contains('ph');
-    if(head||!cur){
-      if(head&&started)alt=!alt;
-      started=true;
+    if(el.classList.contains('ph')||!cur){
       cur=document.createElement('div');
-      cur.className='band'+(alt?' alt':'');
+      cur.className='band';
       app.insertBefore(cur,el);
     }
     cur.appendChild(el);
