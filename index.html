@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T16:20:41Z';
+  var PAGE_VERSION='2026-08-24T16:38:15Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1204,12 +1204,12 @@ function addTabsHtml(){
     +(foodAddOpen?foodAddHtml():'')
     +(mealAddOpen?mealAddHtml():'');
 }
-// Add is a chooser, not a page of its own — each tile hands off to the surface
-// that actually does the job.
+// Add and History are choosers, not pages of their own — each tile hands off to
+// the surface that actually does the job.
 var ICON_FOOD='<path d="M4 11h16"/><path d="M5.2 11a6.8 6.8 0 0 0 13.6 0"/><path d="M9.5 7.4c0-1.1.8-1.7 1.2-2.6"/><path d="M13.3 7.4c0-1.1.8-1.7 1.2-2.6"/>';
 var ICON_SCALE='<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><path d="M8.2 14.4a3.8 3.8 0 0 1 7.6 0"/><path d="M12 14.4l2.4-2.9"/>';
 var addView='menu';   // 'menu' | 'weight'
-function addTile(action,icon,label,sub){
+function menuTile(action,icon,label,sub){
   return '<button type="button" class="addtile" data-a="'+action+'">'
     +'<span class="addtileicon"><svg viewBox="0 0 24 24">'+icon+'</svg></span>'
     +'<span class="addtilelab">'+label+'</span>'
@@ -1219,8 +1219,8 @@ function buildAdd(){
   if(addView==='weight')return buildWeighIn();
   return '<div class="hrow"><h1>Add</h1></div>'
     +'<div class="addmenu">'
-    +addTile('addfood',ICON_FOOD,'Food','Search, scan, or pick from your saved foods')
-    +addTile('addweight',ICON_SCALE,'Weight','Today’s weigh-in')
+    +menuTile('addfood',ICON_FOOD,'Food','Search, scan, or pick from your saved foods')
+    +menuTile('addweight',ICON_SCALE,'Weight','Today’s weigh-in')
     +'</div>';
 }
 function buildWeighIn(){
@@ -1797,13 +1797,25 @@ function calcSaveAsMeal(){
   page='add';logTab='meals';openItem={type:'meal',id:nm.id};
   render();
 }
+// Like Add, History is a chooser — Macros is the only thing behind it today,
+// but everything worth looking back at will hang off this list.
+var historyView='menu';   // 'menu' | 'macros'
+var ICON_CHART='<path d="M4 18.5h16"/><path d="M6 15l4-5 3.5 3L19 7"/>';
 function buildHistory(){
+  if(historyView==='macros')return buildMacroHistory();
+  return '<div class="hrow"><h1>History</h1></div>'
+    +'<div class="addmenu">'
+    +menuTile('histmacros',ICON_CHART,'Macros','Weight, calories and protein over time')
+    +'</div>';
+}
+function buildMacroHistory(){
   var today=todayStr();
   var all=(state.health.entries||[]).slice();
   var entries=all.slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var rows=entries.filter(function(e){return e.date!==today;}).slice(0,30).map(healthRow).join('');
   var endBtn=all.length?'<button type="button" class="blockaddbtn spaced" data-a="endperiod">End period — log average of '+all.length+' day'+(all.length===1?'':'s')+'</button>':'';
-  return '<div class="hrow"><h1>History</h1></div>'
+  return '<div class="addbanner"><button type="button" class="addback" data-a="histmenu" aria-label="Back">✕</button>'
+    +'<span>Macros over time</span></div>'
     +'<div id="health-summary">'+healthSummaryHtml()+'</div>'
     +'<div class="ph"><h3>Past days</h3></div>'
     +(rows||'<div class="tempty">No earlier entries yet.</div>')+endBtn+periodsHtml();
@@ -1894,8 +1906,8 @@ app.addEventListener('click',function(e){
       page=t.dataset.page;openItem=null;
       foodAddOpen=false;mealAddOpen=false;pendingFood=null;
       // the day-add overlay belongs to the day you left; logging goes back to
-      // landing on today, and Add always reopens on its menu
-      dayAddOpen=false;addTarget=todayStr();addView='menu';
+      // landing on today, and both choosers reopen on their menu
+      dayAddOpen=false;addTarget=todayStr();addView='menu';historyView='menu';
       window.scrollTo(0,0);render();
     }
     return;
@@ -1917,6 +1929,8 @@ app.addEventListener('click',function(e){
   }
   if(a==='addweight'){addView='weight';window.scrollTo(0,0);render();return;}
   if(a==='addmenu'){addView='menu';window.scrollTo(0,0);render();return;}
+  if(a==='histmacros'){historyView='macros';window.scrollTo(0,0);render();return;}
+  if(a==='histmenu'){historyView='menu';window.scrollTo(0,0);render();return;}
   if(a==='logtab'){logTab=t.dataset.tab;openItem=null;render();return;}
   if(a==='calcpreset'){
     var p=t.dataset.p;
