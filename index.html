@@ -17,7 +17,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T15:05:26Z';
+  var PAGE_VERSION='2026-08-24T15:35:51Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -342,6 +342,19 @@ textarea{resize:vertical;min-height:52px}
 .gcheck b{color:var(--on-surface)}
 .gcheck.off{color:var(--negative)}
 .keylink{color:var(--accent);text-decoration:underline}
+/* ── day navigator: "‹  DATE  ›" ── */
+.datenav{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px;padding:14px 2px 10px}
+.datearrow{width:44px;height:44px;border-radius:14px;font-size:26px;line-height:1;color:var(--on-ground);background:var(--on-ground-wash);display:flex;align-items:center;justify-content:center;padding:0}
+.datearrow:hover{background:var(--accent-wash)}
+.datelabel{text-align:center;min-width:0}
+.datemain{display:block;font-size:22px;font-weight:600;letter-spacing:-.01em;color:var(--on-ground)}
+.datesub{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-ground-outline);margin-top:1px}
+/* ── adding into a day that isn't today — deliberately doesn't look like the
+   normal page, and carries its own way out ── */
+.addbanner{display:flex;align-items:center;gap:12px;background:var(--accent);color:var(--on-accent);border-radius:16px;padding:11px 14px;margin:12px 0 14px;font-size:14px}
+.addbanner b{font-weight:700}
+.addback{width:30px;height:30px;border-radius:10px;flex:none;font-size:15px;line-height:1;color:var(--on-accent);background:rgba(5,31,32,.14);display:flex;align-items:center;justify-content:center;padding:0}
+.addback:hover{background:rgba(5,31,32,.28)}
 /* ── calc ── */
 .calcpresets{flex-wrap:wrap}
 .calcrow{display:grid;grid-template-columns:30px 1fr 78px 44px auto 18px;gap:8px;align-items:center;padding:8px 10px;border-radius:14px;background:var(--surface-2);margin-bottom:6px}
@@ -485,31 +498,56 @@ function handleImportFile(file){
 function dateOnly(x){var d=new Date(x+'T00:00:00');return isNaN(d)?null:d;}
 function todayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function fmtShort(dateStr){var d=new Date(dateStr+'T00:00:00');if(isNaN(d))return dateStr;return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});}
+function fmtFull(dateStr){var d=new Date(dateStr+'T00:00:00');if(isNaN(d))return dateStr;return d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});}
 
+function shiftDate(dateStr,days){
+  var d=new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+days);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function fmtLong(dateStr){
+  var d=new Date(dateStr+'T00:00:00');if(isNaN(d))return dateStr;
+  if(dateStr===todayStr())return 'Today';
+  if(dateStr===shiftDate(todayStr(),-1))return 'Yesterday';
+  if(dateStr===shiftDate(todayStr(),1))return 'Tomorrow';
+  return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+}
 // Five pages behind a fixed bottom nav. Page lives in a module var rather than
-// in state — reopening the app should always land on Today, not wherever you
-// happened to leave off.
-var page='today';
+// in state — reopening the app should always land on the Log, showing today,
+// not wherever you happened to leave off.
+var page='log';
+// which day the Log page is showing, and which day new entries are written to.
+// They're separate on purpose: browsing back through last week shouldn't quietly
+// redirect where the Add page files things.
+var viewDate=todayStr();
+var addTarget=todayStr();
 var PAGES=[
-  {key:'today',label:'Today'},
   {key:'log',label:'Log'},
+  {key:'add',label:'Add'},
   {key:'calc',label:'Calc'},
   {key:'goals',label:'Goals'},
   {key:'history',label:'History'}
 ];
 var NAV_ICONS={
-  today:'<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 8 8" stroke-width="3.6"/>',
-  log:'<circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v7.6M8.2 12h7.6"/>',
+  log:'<rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M8 8.5h8M8 12.5h8M8 16.5h5"/>',
+  add:'<circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v7.6M8.2 12h7.6"/>',
   calc:'<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.6 7.6h6.8"/><path d="M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01" stroke-width="2.6"/>',
   goals:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 12h.01" stroke-width="2.8"/>',
   history:'<path d="M4 18.5h16"/><path d="M6 15l4-5 3.5 3L19 7"/>'
 };
+// which day the page you're looking at is actually about — so the goal bars
+// report the same day the rest of the screen does
+function contextDate(){
+  if(page==='log')return viewDate;
+  if(page==='add')return addTarget;
+  return todayStr();
+}
 function pageBody(){
-  if(page==='log')return buildLog();
+  if(page==='add')return buildAdd();
   if(page==='calc')return buildCalc();
   if(page==='goals')return buildGoals();
   if(page==='history')return buildHistory();
-  return buildToday();
+  return buildDay();
 }
 function render(){
   app.innerHTML=topbar()+goalBars()+pageBody()+bottomNav();
@@ -517,13 +555,14 @@ function render(){
   if(foodSearchQuery)applyFoodSearch();
   var ed=app.querySelector('[data-e="1"]');if(ed){ed.focus();if(ed.select)ed.select();}
 }
-// The running "how much room is left today" read-out. It rides above every page
-// you'd log or calculate from; Goals and History are about other days, so it's
-// omitted there rather than showing a number that doesn't apply.
+// The running "how much room is left" read-out for whichever day is on screen.
+// It rides above every page you'd log or calculate from; Goals and History are
+// about other days, so it's omitted there rather than showing a number that
+// doesn't apply.
 function goalBars(){
   if(page==='goals'||page==='history')return '';
   var g=state.health.goals||{};
-  var t=logTotals(logFor(todayStr()));
+  var t=logTotals(logFor(contextDate()));
   var defs=[{k:'calories',lab:'Cal',v:t.calories,u:'',dp:0},
             {k:'protein',lab:'Protein',v:t.protein,u:'g',dp:1},
             {k:'carbs',lab:'Carbs',v:t.carbs,u:'g',dp:1},
@@ -550,7 +589,7 @@ function bottomNav(){
 
 // Wrap each page section in a band so the ground alternates cognac/amber.
 // A new band starts at every .ph section header; the color change replaces divider rules.
-var BANDSKIP=['topbar','settingsoverlay','goalbars','bottomnav','tabs'];
+var BANDSKIP=['topbar','settingsoverlay','goalbars','bottomnav','tabs','datenav','addbanner'];
 function applyBands(){
   var kids=[].slice.call(app.children),alt=false,started=false,cur=null;
   kids.forEach(function(el){
@@ -641,7 +680,7 @@ function healthSummaryHtml(){
     var past=withW.filter(function(e){return dateOnly(e.date)<=cutoff;})[0]||withW[withW.length-1];
     if(past&&past.id!==latest.id)delta30=curW-parseFloat(past.weight);
   }
-  // today is still in progress — syncTodayMacros keeps updating it as you log
+  // today is still in progress — syncMacros keeps updating it as you log
   // more, so folding it into the average understates every day until bedtime
   var today=todayStr();
   var week=entries.filter(function(e){return e.date!==today;}).slice(0,7);
@@ -931,7 +970,7 @@ function addMeal(){
   var nm={id:uid(),name:v,mult:1,items:[]};
   state.health.meals.push(nm);
   mealAddOpen=false;              // the dialog stayed open after creating before
-  page='log';logTab='meals';
+  page='add';logTab='meals';
   openItem={type:'meal',id:nm.id};
   save();render();
 }
@@ -941,11 +980,11 @@ function logMeal(id){
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);if(!f)return;
     var r=resolveMealItem(f,mi,mult);if(!r)return;
-    state.health.log.push({id:uid(),date:todayStr(),gid:gid,meal:m.name,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
+    state.health.log.push({id:uid(),date:addTarget,gid:gid,meal:m.name,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
     f.lastUsed=Date.now();
     any=true;
   });
-  if(any){syncTodayMacros();save();render();}
+  if(any){syncMacros(addTarget);save();render();}
 }
 function logFor(dateStr){return (state.health.log||[]).filter(function(r){return r.date===dateStr;});}
 function logTotals(rows){
@@ -953,29 +992,29 @@ function logTotals(rows){
   rows.forEach(function(r){t.calories+=num(r.calories);t.protein+=num(r.protein);t.carbs+=num(r.carbs);t.fat+=num(r.fat);});
   return t;
 }
-function syncTodayMacros(){
-  // the food log is the source of truth for today's calories/protein once anything is logged
-  var today=todayStr(),rows=logFor(today);
+function syncMacros(dateStr){
+  // the food log is the source of truth for a day's calories/protein once anything is logged
+  var rows=logFor(dateStr);
   if(!rows.length)return;
   var t=logTotals(rows);
-  upsertHealth(today,'calories',Math.round(t.calories));
-  upsertHealth(today,'protein',Math.round(t.protein*10)/10);
+  upsertHealth(dateStr,'calories',Math.round(t.calories));
+  upsertHealth(dateStr,'protein',Math.round(t.protein*10)/10);
 }
 function addFoodLog(id){
   var f=fFood(id);if(!f)return;
   var r=foodResolved(f);if(!r)return;
   state.health.log=state.health.log||[];
-  state.health.log.push({id:uid(),date:todayStr(),name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
+  state.health.log.push({id:uid(),date:addTarget,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
   f.lastUsed=Date.now();  // drives the Recent tab's ordering
-  syncTodayMacros();save();render();
+  syncMacros(addTarget);save();render();
 }
 function fsRow(r,isChild){
   return '<div class="fsrow'+(isChild?' fschild':'')+'"><span class="fsname">'+esc(r.name)+'<span class="fsg">'+esc(fmtQty(num(r.qty),r.unit))+'</span></span>'
     +'<span>'+num(r.calories)+'</span><span>'+num(r.protein)+'</span><span>'+num(r.carbs)+'</span><span>'+num(r.fat)+'</span>'
     +'<span class="fsdel" data-a="logdel" data-id="'+r.id+'">×</span></div>';
 }
-function macroPieHtml(){
-  var t=logTotals(logFor(todayStr()));
+function macroPieHtml(dateStr){
+  var t=logTotals(logFor(dateStr));
   var pk=t.protein*4,ck=t.carbs*4,fk=t.fat*9,mk=pk+ck+fk;
   if(mk<=0)return '';
   var segs=[{lab:'Protein',v:'--accent',g:t.protein,kcal:pk},{lab:'Carbs',v:'--accent-2',g:t.carbs,kcal:ck},{lab:'Fat',v:'--accent-3',g:t.fat,kcal:fk}];
@@ -1000,15 +1039,15 @@ function macroPieHtml(){
   var drift=logged>0?Math.abs(mk-logged)/logged:0;
   var cap='Share of calories by macro (4/4/9).'+(drift>0.05?' Macros account for '+Math.round(mk)+' of '+logged+' cal logged — the gap is normal for fiber-heavy or processed foods.':'');
   return '<div class="piewrap">'
-    +'<div class="pie"><svg viewBox="0 0 120 120" role="img" aria-label="Macro split of today\'s calories">'
+    +'<div class="pie"><svg viewBox="0 0 120 120" role="img" aria-label="Macro split of the day\'s calories">'
     +'<g transform="rotate(-90 60 60)">'+arcs+'</g>'
     +'<text class="pietot" x="60" y="59" text-anchor="middle">'+logged+'</text>'
     +'<text class="pietotl" x="60" y="72" text-anchor="middle">cal</text>'
     +'</svg></div>'
     +'<div class="pielegend">'+legend+'<div class="piecap">'+cap+'</div></div></div>';
 }
-function buildFoodSheet(){
-  var today=todayStr(),rows=logFor(today);
+function buildFoodSheet(dateStr){
+  var rows=logFor(dateStr),isToday=dateStr===todayStr();
   var head='<div class="fsrow fshead"><span>Food</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>';
   var blocks=[],seen={};
   rows.forEach(function(r){
@@ -1027,10 +1066,14 @@ function buildFoodSheet(){
   }).join('');
   var t=logTotals(rows);
   var tot='<div class="fsrow fstot"><span>Total</span><span>'+Math.round(t.calories)+'</span><span>'+(Math.round(t.protein*10)/10)+'</span><span>'+(Math.round(t.carbs*10)/10)+'</span><span>'+(Math.round(t.fat*10)/10)+'</span><span></span></div>';
-  var endBtn='<button type="button" class="blockaddbtn spaced" data-a="endday">End day — save '+Math.round(t.calories)+' cal / '+(Math.round(t.protein*10)/10)+'g protein</button>';
-  return '<div class="fincard"><h3>Today’s food — '+fmtShort(today)+'</h3>'
-    +(rows.length?'<div class="fsheet">'+head+body+tot+'</div>'+macroPieHtml():'<div class="tempty">Nothing logged today. Dial in a food below and hit + Log.</div>')
-    +endBtn
+  // End day only makes sense for the day actually in progress
+  var endBtn=isToday
+    ?'<button type="button" class="blockaddbtn spaced" data-a="endday">End day — save '+Math.round(t.calories)+' cal / '+(Math.round(t.protein*10)/10)+'g protein</button>'
+    :'';
+  var addBtn='<button type="button" class="blockaddbtn spaced" data-a="addtoday" data-date="'+dateStr+'">'+PLUS_ICON+' Add food to '+(isToday?'today':fmtShort(dateStr))+'</button>';
+  return '<div class="fincard"><h3>Food — '+fmtShort(dateStr)+'</h3>'
+    +(rows.length?'<div class="fsheet">'+head+body+tot+'</div>'+macroPieHtml(dateStr):'<div class="tempty">Nothing logged '+(isToday?'today':'that day')+' yet.</div>')
+    +addBtn+endBtn
     +'</div>';
 }
 var foodAddOpen=false;
@@ -1057,9 +1100,9 @@ function foodDbResultsHtml(){
 // so the values are baked into the HTML rather than poked into the DOM after
 // render — a re-render would otherwise wipe them.
 var pendingFood=null;
-// the form only renders inside buildLog, so make sure we're actually there —
+// the form only renders inside buildAdd, so make sure we're actually there —
 // a barcode scan can fire from anywhere the scanner was opened
-function openFoodForm(info){pendingFood=info||null;foodAddOpen=true;page='log';render();}
+function openFoodForm(info){pendingFood=info||null;foodAddOpen=true;page='add';render();}
 function foodAddHtml(){
   var p=pendingFood||{};
   var v=function(k){var x=p[k];return (x===undefined||x===null||x==='')?'':esc(trimNum(num(x)));};
@@ -1079,12 +1122,19 @@ function foodAddHtml(){
     +'</div><button data-a="foodadd">'+PLUS_ICON+' Save food</button></div>'
     +'</div></div>';
 }
-// ── the Log page: four tabs over one job, adding something to today ──
+// ── the Add page: four tabs over one job, putting something in the log ──
 var logTab='recent';
 var LOG_TABS=[['recent','Recent'],['search','Search'],['meals','Meals'],['all','All foods']];
-function buildLog(){
+function buildAdd(){
   var body=logTab==='search'?logSearchTab():logTab==='meals'?logMealsTab():logTab==='all'?logAllTab():logRecentTab();
-  return '<div class="hrow"><h1>Add to log</h1></div>'
+  // Filing into a day that isn't today is easy to forget you're doing, so it
+  // gets a banner and its own way out rather than looking like the normal page.
+  var offToday=addTarget!==todayStr();
+  var head=offToday
+    ?'<div class="addbanner"><button type="button" class="addback" data-a="addcancel" aria-label="Back to the log">✕</button>'
+      +'<span>Adding to <b>'+esc(fmtLong(addTarget))+'</b></span></div>'
+    :'<div class="hrow"><h1>Add to log</h1></div>';
+  return head
     +'<div class="tabs">'+LOG_TABS.map(function(t){
       return '<button type="button" class="tab'+(logTab===t[0]?' on':'')+'" data-a="logtab" data-tab="'+t[0]+'">'+t[1]+'</button>';
     }).join('')+'</div>'
@@ -1142,7 +1192,7 @@ function addFood(){
   // land on the new food, opened and ready to dial in — that's the next thing
   // you want after saving one, whether it came from search or from typing
   foodAddOpen=false;pendingFood=null;resetFoodDb();
-  page='log';logTab='recent';
+  page='add';logTab='recent';
   openItem={type:'food',id:nf.id};
   save();render();
 }
@@ -1362,19 +1412,28 @@ async function onBarcodeScanned(code){
     alert('Barcode lookup failed — check your connection and try again, or add it manually.');
   }
 }
-function buildToday(){
-  var today=todayStr();
-  var te=healthEntry(today)||{weight:'',calories:'',protein:'',note:''};
-  var fromLog=logFor(today).length>0;
+function dateNavHtml(){
+  return '<div class="datenav">'
+    +'<button type="button" class="datearrow" data-a="dayshift" data-d="-1" aria-label="Previous day">‹</button>'
+    +'<div class="datelabel"><span class="datemain">'+esc(fmtLong(viewDate))+'</span>'
+    +'<span class="datesub">'+esc(fmtFull(viewDate))+'</span></div>'
+    +'<button type="button" class="datearrow" data-a="dayshift" data-d="1" aria-label="Next day">›</button>'
+    +'</div>';
+}
+function buildDay(){
+  var te=healthEntry(viewDate)||{weight:'',calories:'',protein:'',note:''};
+  var fromLog=logFor(viewDate).length>0;
   var lockNote=fromLog?'<div class="hint">from food log</div>':'';
   var ro=fromLog?' readonly class="derived"':'';
-  var todayForm='<div class="fincard"><h3>Log today — '+fmtShort(today)+'</h3><div class="fgrid">'
+  var dayForm='<div class="fincard"><h3>Weight &amp; notes — '+fmtShort(viewDate)+'</h3><div class="fgrid">'
     +'<div class="fld"><label>Weight (lb)</label><input type="number" step="0.1" data-a="hfield" data-field="weight" value="'+esc(te.weight)+'"></div>'
     +'<div class="fld"><label>Calories</label><input type="number" data-a="hfield" data-field="calories" value="'+esc(te.calories)+'"'+ro+'>'+lockNote+'</div>'
     +'<div class="fld"><label>Protein (g)</label><input type="number" data-a="hfield" data-field="protein" value="'+esc(te.protein)+'"'+ro+'>'+lockNote+'</div>'
     +'<div class="fld"><label>Note</label><input data-a="hfield" data-field="note" value="'+esc(te.note)+'"></div>'
     +'</div></div>';
-  return '<div class="hrow"><h1>Today</h1></div>'+buildFoodSheet()+todayForm;
+  var backToToday=viewDate!==todayStr()
+    ?'<button type="button" class="blockaddbtn spaced" data-a="daytoday">Jump back to today</button>':'';
+  return dateNavHtml()+buildFoodSheet(viewDate)+dayForm+backToToday;
 }
 // Goals are the spine of the whole app now — the bars up top, Calc's targets,
 // and "remaining today" all read from here.
@@ -1602,8 +1661,8 @@ function calcLogAll(){
   });
   if(!any)return;
   calcRows=[];
-  syncTodayMacros();save();
-  page='today';render();
+  syncMacros(todayStr());save();
+  page='log';viewDate=todayStr();render();
 }
 function calcSaveAsMeal(){
   var name=prompt('Name this meal:');
@@ -1620,7 +1679,7 @@ function calcSaveAsMeal(){
   var nm={id:uid(),name:name.trim(),mult:1,items:items};
   state.health.meals.push(nm);
   save();
-  page='log';logTab='meals';openItem={type:'meal',id:nm.id};
+  page='add';logTab='meals';openItem={type:'meal',id:nm.id};
   render();
 }
 function buildHistory(){
@@ -1719,9 +1778,23 @@ app.addEventListener('click',function(e){
       // reappear the next time you come back
       page=t.dataset.page;openItem=null;
       foodAddOpen=false;mealAddOpen=false;pendingFood=null;
+      // reaching Add from the nav always means today; only the day view's own
+      // add button targets another date
+      if(page==='add')addTarget=todayStr();
       window.scrollTo(0,0);render();
     }
     return;
+  }
+  if(a==='dayshift'){viewDate=shiftDate(viewDate,parseInt(t.dataset.d,10));openItem=null;render();return;}
+  if(a==='daytoday'){viewDate=todayStr();render();return;}
+  if(a==='addtoday'){
+    addTarget=t.dataset.date;page='add';logTab='recent';openItem=null;
+    window.scrollTo(0,0);render();return;
+  }
+  if(a==='addcancel'){
+    addTarget=todayStr();page='log';openItem=null;
+    foodAddOpen=false;mealAddOpen=false;pendingFood=null;
+    window.scrollTo(0,0);render();return;
   }
   if(a==='logtab'){logTab=t.dataset.tab;openItem=null;render();return;}
   if(a==='calcpreset'){
@@ -1767,10 +1840,10 @@ app.addEventListener('click',function(e){
   }
   else if(a==='fooddel'){state.health.foods=(state.health.foods||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
   else if(a==='foodlog'){addFoodLog(t.dataset.id);}
-  else if(a==='logdel'){state.health.log=(state.health.log||[]).filter(function(x){return x.id!==t.dataset.id;});syncTodayMacros();save();render();}
-  else if(a==='logdelgroup'){state.health.log=(state.health.log||[]).filter(function(x){return x.gid!==t.dataset.gid;});syncTodayMacros();save();render();}
+  else if(a==='logdel'){state.health.log=(state.health.log||[]).filter(function(x){return x.id!==t.dataset.id;});syncMacros(viewDate);save();render();}
+  else if(a==='logdelgroup'){state.health.log=(state.health.log||[]).filter(function(x){return x.gid!==t.dataset.gid;});syncMacros(viewDate);save();render();}
   else if(a==='endday'){
-    syncTodayMacros();
+    syncMacros(todayStr());
     var todayK=todayStr();
     state.health.log=(state.health.log||[]).filter(function(x){return x.date!==todayK;});
     save();render();
@@ -1813,7 +1886,7 @@ app.addEventListener('keydown',function(e){var t=e.target,a=t.dataset&&t.dataset
 });
 app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a;
   if(a==='setrange'){state.settings[t.dataset.k]=parseInt(t.value,10);save();return;}
-  if(a==='hfield'){var v=t.value;var fv=t.type==='number'?(v===''?'':parseFloat(v)):v;upsertHealth(todayStr(),t.dataset.field,fv);save();refreshHealth();return;}
+  if(a==='hfield'){var v=t.value;var fv=t.type==='number'?(v===''?'':parseFloat(v)):v;upsertHealth(viewDate,t.dataset.field,fv);save();refreshHealth();return;}
   if(a==='hedit'){var he=(state.health.entries||[]).filter(function(x){return x.id===t.dataset.id;})[0];if(he){var v2=t.value;he[t.dataset.field]=t.type==='number'?(v2===''?'':parseFloat(v2)):v2;save();refreshHealth();}return;}
   if(a==='foodamt'){var fd=fFood(t.dataset.id);if(fd){fd.tamt=t.value;save();refreshFoodCard(fd.id);}return;}
   if(a==='mealmult'){var mm=fMeal(t.dataset.id);if(mm){mm.mult=t.value===''?'':parseFloat(t.value);save();refreshMeal(mm.id);}return;}
