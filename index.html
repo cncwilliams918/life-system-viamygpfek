@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-25T21:14:10Z';
+  var PAGE_VERSION='2026-08-25T21:33:13Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -897,10 +897,12 @@ var COUNTABLE_UNITS=['serving','scoop','slice','bar','packet'];
 function isCountableUnit(u){return COUNTABLE_UNITS.indexOf(u)>-1;}
 // units that read as abbreviations: no space before, never pluralized
 var UNIT_ABBR=['g','kg','mg','oz','ml','l','lb','fl oz'];
-// A label gives one measurement in one system. Anything in the same system can
-// be derived from it — but mass and volume can't cross without a density, which
-// no label carries. That's why a carton of milk offers ml and fl oz but never
-// grams: we genuinely don't know what it weighs.
+// Anything in the same system can be derived from one measurement — but mass
+// and volume can't cross without a density. Plenty of labels do give one, in
+// the form "1 tbsp (14 g)": that phrasing states what a known volume weighs,
+// which is exactly the missing number. When we have it, both systems open up;
+// when we don't (a carton of milk that only says ml), grams stay unavailable
+// rather than guessed.
 var MASS_UNITS={mg:0.001,g:1,kg:1000,oz:28.349523,lb:453.59237};
 var VOL_UNITS={ml:1,l:1000,tsp:4.928922,tbsp:14.786765,'fl oz':29.573530,cup:236.588237};
 function unitDim(u){
@@ -909,21 +911,55 @@ function unitDim(u){
   if(VOL_UNITS[u]!==undefined)return 'vol';
   return 'count';
 }
-function convertUnit(n,from,to){
+function convertUnit(n,from,to,gPerMl){
   from=(from||'g').trim();to=(to||'g').trim();
   if(from===to)return n;
-  var d=unitDim(from);
-  if(d!==unitDim(to)||d==='count')return null;
-  var tbl=d==='mass'?MASS_UNITS:VOL_UNITS;
-  return n*tbl[from]/tbl[to];
+  var df=unitDim(from),dt=unitDim(to);
+  if(df==='count'||dt==='count')return null;
+  if(df===dt){
+    var tbl=df==='mass'?MASS_UNITS:VOL_UNITS;
+    return n*tbl[from]/tbl[to];
+  }
+  var d=num(gPerMl);
+  if(!(d>0))return null;                                  // no density, no crossing
+  if(df==='mass')return (n*MASS_UNITS[from]/d)/VOL_UNITS[to];   // grams → ml → target volume
+  return (n*VOL_UNITS[from]*d)/MASS_UNITS[to];                  // ml → grams → target mass
+}
+// A vulgar fraction is how a label writes half a cup, and "1/2" is how a
+// database transcribes it — both have to parse or the density is lost.
+var VULGAR={'½':0.5,'⅓':1/3,'⅔':2/3,'¼':0.25,'¾':0.75,'⅛':0.125,'⅜':0.375,'⅝':0.625,'⅞':0.875};
+var VOL_ALIAS={tsp:'tsp',teaspoon:'tsp',teaspoons:'tsp',tbsp:'tbsp',tbs:'tbsp',tablespoon:'tbsp',
+  tablespoons:'tbsp',cup:'cup',cups:'cup',ml:'ml',millilitre:'ml',milliliter:'ml',
+  millilitres:'ml',milliliters:'ml',l:'l',litre:'l',liter:'l',litres:'l',liters:'l'};
+function parseHouseholdMl(text){
+  if(!text)return 0;
+  var s=String(text).toLowerCase().replace(/fl\.?\s*oz|fluid ounces?/g,'floz');
+  var m=s.match(/(\d+\s*\/\s*\d+|\d+(?:[.,]\d+)?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*(floz|tsp|teaspoons?|tbsp|tbs|tablespoons?|cups?|ml|millilit(?:re|er)s?|l|lit(?:re|er)s?)\b/);
+  if(!m)return 0;
+  var q=m[1],qty;
+  if(VULGAR[q]!==undefined)qty=VULGAR[q];
+  else if(q.indexOf('/')>-1){var p=q.split('/');qty=num(p[0])/num(p[1]);}
+  else qty=num(q.replace(',','.'));
+  if(!(qty>0))return 0;
+  var u=m[2]==='floz'?'fl oz':VOL_ALIAS[m[2]];
+  if(!u||VOL_UNITS[u]===undefined)return 0;
+  return qty*VOL_UNITS[u];
+}
+// grams per millilitre, from a label that stated a serving both ways
+function densityFrom(grams,householdText){
+  var ml=parseHouseholdMl(householdText);
+  return (num(grams)>0&&ml>0)?num(grams)/ml:0;
 }
 // what this food can legitimately be measured in, given what its label told us
 var MASS_CHOICES=['g','oz','lb'],VOL_CHOICES=['ml','fl oz','cup','tbsp','tsp'];
 function unitChoices(f){
   var d=unitDim(f.unit);
+  if(d==='count')return [f.unit];   // countable: a slice is a slice
+  // a density bridges the two systems, so the label's own "1 tbsp (14 g)"
+  // becomes both a tablespoon and fourteen grams instead of forcing a choice
+  if(num(f.gPerMl)>0)return MASS_CHOICES.concat(VOL_CHOICES).concat(['serving']);
   if(d==='mass')return MASS_CHOICES.concat(['serving']);
-  if(d==='vol')return VOL_CHOICES.concat(['serving']);
-  return [f.unit];   // countable: a slice is a slice
+  return VOL_CHOICES.concat(['serving']);
 }
 // the unit the amount box is currently in
 function displayUnit(f){
@@ -935,15 +971,25 @@ function displayUnit(f){
 function servingsFromDisplay(f,amount){
   var du=displayUnit(f),base=num(f.serving)||1;
   if(du==='serving'&&unitDim(f.unit)!=='count')return num(amount);
-  var conv=convertUnit(num(amount),du,f.unit);
+  var conv=convertUnit(num(amount),du,f.unit,f.gPerMl);
   return (conv===null?num(amount):conv)/base;
 }
 function displayFromServings(f,servings){
   var du=displayUnit(f),base=num(f.serving)||1;
   if(du==='serving'&&unitDim(f.unit)!=='count')return servings;
   var inBase=servings*base;
-  var conv=convertUnit(inBase,f.unit,du);
+  var conv=convertUnit(inBase,f.unit,du,f.gPerMl);
   return conv===null?inBase:conv;
+}
+// Two decimals is plenty for grams and destroys a cup: a tablespoon of butter
+// is 0.0625 of one, which rounds to 0.06 and comes back 4% light. Significant
+// figures hold the same relative precision at either magnitude.
+function roundSig(x,sig){
+  var v=num(x);
+  if(!v)return v;
+  var p=Math.max(0,(sig-1)-Math.floor(Math.log(Math.abs(v))/Math.LN10));
+  var f=Math.pow(10,p);
+  return Math.round(v*f)/f;
 }
 function trimNum(n){
   if(Math.abs(n)>=20)return String(Math.round(n));
@@ -1602,13 +1648,22 @@ function nutritionHtml(f){
   return '<div class="ph"><h3>Nutrition</h3><span class="nutper">per '+esc(fmtQty(num(f.serving),f.unit))+'</span></div>'
     +'<div class="nutlist">'+body+'</div>'+note;
 }
+// Every path from a search hit into your library goes through here. Listing
+// these fields by hand has silently dropped one twice already — micros, then
+// density — because each caller had its own copy of the list.
+function foodFromHit(h){
+  return {id:uid(),name:h.name,brand:h.brand||'',source:h.source||'usda',
+    serving:h.serving,unit:h.unit,gPerMl:num(h.gPerMl)||0,
+    protein:h.protein,carbs:h.carbs,fat:h.fat,calories:h.calories,
+    micros:h.micros||{},tmac:'protein',tamt:''};
+}
 function addFood(){
   var get=function(f){var el=app.querySelector('[data-a="fnew"][data-f="'+f+'"]');return el?el.value:'';};
   var name=get('name').trim();if(!name)return;
   var serving=num(get('serving'));if(serving<=0)return;
   state.health.foods=state.health.foods||[];
   var src=(pendingFood&&pendingFood.source)||'manual';
-  var nf={id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),source:src,brand:(pendingFood&&pendingFood.brand)||'',micros:(pendingFood&&pendingFood.micros)||{},tmac:'protein',tamt:''};
+  var nf={id:uid(),name:name,serving:serving,unit:(get('unit').trim()||'g'),protein:num(get('protein')),carbs:num(get('carbs')),fat:num(get('fat')),calories:num(get('calories')),source:src,brand:(pendingFood&&pendingFood.brand)||'',micros:(pendingFood&&pendingFood.micros)||{},gPerMl:(pendingFood&&num(pendingFood.gPerMl))||0,tmac:'protein',tamt:''};
   state.health.foods.push(nf);
   foodAddOpen=false;pendingFood=null;resetFoodDb();
   draftFood=null;
@@ -1638,6 +1693,9 @@ function parseOFFProduct(p,fallbackName){
   var n=p.nutriments||{};
   var name=p.product_name||p.generic_name||fallbackName;
   var servingG=parseFloat(p.serving_quantity);
+  // "1 tbsp (14 g)" — the household half of serving_size states what that gram
+  // weight occupies, which is the density we'd otherwise have no way to know
+  var gPerMl=densityFrom(servingG,p.serving_size);
   // serving_quantity isn't always grams — drinks report it in ml (e.g. Monster: 500 "ml"), and
   // treating that as grams produced nonsense like "473.176g". Only trust it when explicitly grams.
   var servingUnitIsGrams=(p.serving_quantity_unit||'').toLowerCase()==='g';
@@ -1670,13 +1728,13 @@ function parseOFFProduct(p,fallbackName){
   }
   if(hasServingG&&hasServingNutrients){
     // real label serving size (e.g. "40g" for oats) with matching per-serving nutrients — use as printed
-    return {name:name,serving:servingG,unit:'g',micros:microsAt('_serving',1),
+    return {name:name,serving:servingG,unit:'g',gPerMl:gPerMl,micros:microsAt('_serving',1),
       calories:Math.round(num(n['energy-kcal_serving'])),protein:num(n.proteins_serving),carbs:num(n.carbohydrates_serving),fat:num(n.fat_serving)};
   }
   if(hasServingG&&has100g){
     // known serving weight but no precomputed per-serving figures — scale the 100g numbers ourselves
     var f=servingG/100;
-    return {name:name,serving:servingG,unit:'g',micros:microsAt('_100g',f),
+    return {name:name,serving:servingG,unit:'g',gPerMl:gPerMl,micros:microsAt('_100g',f),
       calories:Math.round(num(n['energy-kcal_100g'])*f),protein:num(n.proteins_100g)*f,carbs:num(n.carbohydrates_100g)*f,fat:num(n.fat_100g)*f};
   }
   if(hasServingNutrients){
@@ -1727,7 +1785,7 @@ async function searchOFF(query){
   // the v2 API's search_terms param doesn't actually filter (confirmed: it returns
   // near-identical "results" for any query, matching or not) — only this legacy
   // endpoint does real full-text search.
-  var url='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(query)+'&search_simple=1&action=process&json=1&page_size=15&fields=product_name,generic_name,brands,nutriments,serving_quantity,serving_quantity_unit';
+  var url='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(query)+'&search_simple=1&action=process&json=1&page_size=15&fields=product_name,generic_name,brands,nutriments,serving_quantity,serving_quantity_unit,serving_size';
   var data=await fetchJSON(url);
   var out=[];
   (data.products||[]).forEach(function(p){
@@ -1815,8 +1873,13 @@ function parseFDCFood(f){
     protein:num(per100.protein)*scale,carbs:num(per100.carbs)*scale,
     fat:num(per100.fat)*scale,calories:Math.round(num(per100.calories)*scale)};
   info.brand=f.brandName||f.brandOwner||'';
-  // householdServingFullText is the human phrasing off the label ("1 slice")
-  if(f.householdServingFullText)info.brand=(info.brand?info.brand+' · ':'')+f.householdServingFullText;
+  // householdServingFullText is the human phrasing off the label ("1 slice",
+  // "1 tbsp"). Paired with a gram serving it's also a density, which is what
+  // lets a stick of butter be measured in tablespoons as well as grams.
+  if(f.householdServingFullText){
+    info.brand=(info.brand?info.brand+' · ':'')+f.householdServingFullText;
+    if(servUnit==='g')info.gPerMl=densityFrom(serving,f.householdServingFullText);
+  }
   info.micros={};
   for(var mk in micro100)info.micros[mk]=micro100[mk]*scale;
   info.source='usda';
@@ -1867,7 +1930,31 @@ async function runFoodDbSearch(){
   }
   foodDbBusy=false;refreshPicker();
 }
-function fillFoodForm(info){openFoodForm(info);}
+// A scan is a decision, not a browse: you held a physical thing up to the
+// camera. So it lands on that food's page ready to use, the same place tapping
+// a search result lands, rather than on a form asking you to confirm what the
+// barcode already said.
+function fillFoodForm(info){
+  if(pickerFor==='calc'||pickerFor==='meal'){
+    // Calc rows and meal items reference a food by id, so a scan headed for one
+    // of those joins the library now rather than waiting to be logged
+    var nf=foodFromHit(info);
+    state.health.foods=state.health.foods||[];
+    state.health.foods.push(nf);
+    if(pickerFor==='calc'){addCalcRow(nf.id);calcPickOpen=false;}
+    else{
+      var hm=fMeal(mealPickId);
+      if(hm){addMealItem(hm,nf);openItem={type:'meal',id:hm.id};mealItemEdit={mid:hm.id,iid:hm.items[hm.items.length-1].id};}
+      mealPickId=null;
+    }
+    draftFood=null;pickDetail={kind:'saved',id:nf.id};
+    backScrollY=0;save();window.scrollTo(0,0);render();return;
+  }
+  draftFood=foodFromHit(info);
+  pickDetail={kind:'db'};
+  foodAddOpen=false;pendingFood=null;
+  window.scrollTo(0,0);render();
+}
 // the qrcode library is a real download (barcode decoding engine) that almost
 // nobody needs every session — load it on first scan instead of on every page
 // load, and only once even if the scanner gets opened/closed/reopened.
@@ -1923,7 +2010,7 @@ async function onBarcodeScanned(code){
   try{
     var info=await lookupBarcode(code);
     closeScanner();
-    if(!info){alert('No usable nutrition info found for that barcode. You can still add it manually below.');return;}
+    if(!info){alert('No usable nutrition info found for that barcode. Use “Enter one by hand” to add it yourself.');return;}
     fillFoodForm(info);
   }catch(e){
     closeScanner();
@@ -2677,9 +2764,7 @@ app.addEventListener('click',function(e){
       var hit=foodDbResults&&foodDbResults[parseInt(t.dataset.idx,10)];
       if(!hit)return;
       // clone it so dialling in an amount doesn't mutate the search results
-      draftFood={id:uid(),name:hit.name,brand:hit.brand||'',source:hit.source||'usda',
-        serving:hit.serving,unit:hit.unit,protein:hit.protein,carbs:hit.carbs,
-        fat:hit.fat,calories:hit.calories,micros:hit.micros||{},tmac:'protein',tamt:''};
+      draftFood=foodFromHit(hit);
       pickDetail={kind:'db'};
     }else{
       pickDetail={kind:'saved',id:t.dataset.id};
@@ -2778,9 +2863,7 @@ app.addEventListener('click',function(e){
       if(!mh)return;
       // a meal item points at a food by id, so a database hit joins the library
       // here rather than staying a draft
-      mf={id:uid(),name:mh.name,brand:mh.brand||'',source:mh.source||'usda',
-        serving:mh.serving,unit:mh.unit,protein:mh.protein,carbs:mh.carbs,
-        fat:mh.fat,calories:mh.calories,micros:mh.micros||{},tmac:'protein',tamt:''};
+      mf=foodFromHit(mh);
       state.health.foods=state.health.foods||[];
       state.health.foods.push(mf);
     }else{
@@ -2808,9 +2891,7 @@ app.addEventListener('click',function(e){
       if(!dbh)return;
       // a Calc row points at a food by id, so a database hit has to join the
       // library here rather than staying a draft the way logging allows
-      pf={id:uid(),name:dbh.name,brand:dbh.brand||'',source:dbh.source||'usda',
-        serving:dbh.serving,unit:dbh.unit,protein:dbh.protein,carbs:dbh.carbs,
-        fat:dbh.fat,calories:dbh.calories,micros:dbh.micros||{},tmac:'protein',tamt:''};
+      pf=foodFromHit(dbh);
       state.health.foods=state.health.foods||[];
       state.health.foods.push(pf);
       save();
@@ -2945,12 +3026,12 @@ app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.
       // a macro — it has nothing to do with how you're measuring, and converting
       // it turns "40g of protein" into "1.41oz of protein".
       var holdsAmount=isCountableUnit(fu.unit)||fu.mode==='have';
-      var conv=holdsAmount?convertUnit(num(fu.tamt),displayUnit(fu),t.value):null;
+      var conv=holdsAmount?convertUnit(num(fu.tamt),displayUnit(fu),t.value,fu.gPerMl):null;
       fu.dunit=t.value;
       // carry the amount across rather than clearing it — switching g to oz
       // should restate what you already typed, not make you measure again
       if(holdsAmount&&fu.tamt!==''&&fu.tamt!==undefined&&fu.tamt!==null&&conv!==null)
-        fu.tamt=Math.round(conv*100)/100;
+        fu.tamt=roundSig(conv,4);
       save();render();
     }
     return;
