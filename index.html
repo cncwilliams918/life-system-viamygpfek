@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-25T16:49:42Z';
+  var PAGE_VERSION='2026-08-25T20:45:18Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -294,7 +294,8 @@ textarea{resize:vertical;min-height:52px}
 .mihead{background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .mitot{background:var(--surface-2);color:var(--accent-2)}
 .mitot>span:first-child{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
-.miname{font-family:var(--sans);font-size:13px;color:var(--on-surface);display:flex;align-items:baseline;gap:7px;min-width:0}
+.miname{font-family:var(--sans);font-size:13px;color:var(--on-surface);display:flex;align-items:baseline;gap:7px;min-width:0;text-align:left;padding:0}
+.miname:hover,.miname:hover .calcchev{color:var(--accent-2)}
 .miqty{font-family:var(--label);font-size:10.5px;color:var(--accent-2);flex:none}
 .mitarget{display:flex;align-items:center;gap:4px;min-width:0}
 .mimode{font-family:var(--label);font-size:9px;text-transform:uppercase;letter-spacing:.02em;background:var(--surface-3);border-radius:6px;padding:3px 5px;color:var(--on-surface-dim);flex:none}
@@ -655,6 +656,8 @@ var dayAddFrom='log';
 // set after logging so the goal bars pop once — a full render() rebuilds them,
 // so the class can only go on after the new element exists
 var bumpBars=false;
+// where to put the page back after a detour into a food's own page
+var restoreScroll=null,backScrollY=0;
 // Add sits in the middle as a raised gold button — it's the thing you open most,
 // and the board's layout puts the primary action dead centre.
 var PAGES=[
@@ -688,6 +691,12 @@ function pageBody(){
 function render(){
   app.innerHTML=topbar()+goalBars()+pageBody()+bottomNav()+confirmHtml();
   applyBands();
+  // stepping into a food's page and back out is a detour, not a new place — you
+  // should land where you left, not at the top of a list you'd scrolled through
+  if(restoreScroll!==null){
+    var ry=restoreScroll;restoreScroll=null;
+    requestAnimationFrame(function(){window.scrollTo(0,ry);});
+  }
   // the same spring a button runs on :active — grow, then let it settle back.
   // rAF because the class has to land on a frame after the element is painted,
   // or there's no transition to animate from.
@@ -976,6 +985,13 @@ function resolveFoodQty(f,qty,mult){
 // The food page's own resolve. "I have" is typed in whatever unit the page is
 // set to, so it converts to the base first — meals keep passing base units
 // straight into resolveFoodQty, so a food's display unit never leaks into them.
+// The same slot means "put this on today's log" or "hand this number back to
+// whatever sent me here" — and Save says which, because it isn't logging.
+function detailActionBtn(f){
+  return detailFeeds()
+    ?'<button class="flogbtn" data-a="foodsaveback" data-id="'+f.id+'">Save</button>'
+    :'<button class="flogbtn" data-a="foodlog" data-id="'+f.id+'">'+PLUS_ICON+' Log</button>';
+}
 function foodResolved(f){
   if(!f)return null;
   if(isCountableUnit(f.unit)||f.mode==='have'){
@@ -1001,7 +1017,7 @@ function foodOutHtml(f){
     +'<span'+(tk==='carbs'?' class="on"':'')+'>C '+r.carbs.toFixed(1)+'g</span>'
     +'<span'+(tk==='fat'?' class="on"':'')+'>F '+r.fat.toFixed(1)+'g</span>'
     +'<span'+(tk==='calories'?' class="on"':'')+'>'+r.calories.toFixed(0)+' cal</span>'
-    +'<button class="flogbtn" data-a="foodlog" data-id="'+f.id+'">'+PLUS_ICON+' Log</button>'
+    +detailActionBtn(f)
     +'</div></div>';
 }
 function foodOutQtyHtml(f){
@@ -1012,7 +1028,7 @@ function foodOutQtyHtml(f){
     +'<span>C '+r.carbs.toFixed(1)+'g</span>'
     +'<span>F '+r.fat.toFixed(1)+'g</span>'
     +'<span>'+r.calories.toFixed(0)+' cal</span>'
-    +'<button class="flogbtn" data-a="foodlog" data-id="'+f.id+'">'+PLUS_ICON+' Log</button>'
+    +detailActionBtn(f)
     +'</div></div>';
 }
 function refreshFoodCard(id){
@@ -1026,7 +1042,6 @@ var openItem=null; // {type:'meal', id} of the single expanded meal card, or nul
 function isOpenItem(type,id){return !!openItem&&openItem.type===type&&openItem.id===id;}
 // meals — a bus: each item keeps its own target, the multiplier scales every output
 function fMeal(id){return (state.health.meals||[]).filter(function(m){return m.id===id;})[0];}
-function sortedFoods(){return (state.health.foods||[]).slice().sort(function(a,b){return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});});}
 function defaultTarget(f){
   // countable units start at a quantity of 1 (one scoop/slice/serving), not a macro amount
   if(isCountableUnit(f.unit))return {tmac:'protein',tamt:1};
@@ -1065,8 +1080,9 @@ function refreshMeal(id){
     var f=fFood(mi.foodId);
     var r=resolveMealItem(f,mi,mult);
     var qtyMode=f&&(isCountableUnit(f.unit)||mi.mode==='have');
-    setTxt('miq-'+mi.id,r?fmtQty(r.grams,f.unit):'—');
-    setTxt('miu-'+mi.id,qtyMode?unitLabel(num(mi.tamt)||1,f.unit):((mi.tmac||'protein')==='calories'?'cal':'g'));
+    var dq=f?toDisplayAmt(f,mi.tamt):'';
+    setTxt('miq-'+mi.id,r?fmtQty(num(toDisplayAmt(f,r.grams)),displayUnit(f)):'—');
+    setTxt('miu-'+mi.id,qtyMode?unitLabel(num(dq)||1,displayUnit(f)):((mi.tmac||'protein')==='calories'?'cal':'g'));
     setTxt('mio-'+mi.id+'-cal',r?String(Math.round(r.calories)):'—');
     setTxt('mio-'+mi.id+'-p',r?String(Math.round(r.protein*10)/10):'—');
     setTxt('mio-'+mi.id+'-c',r?String(Math.round(r.carbs*10)/10):'—');
@@ -1093,8 +1109,11 @@ function mealItemRow(m,mi){
   var modeBtn=countable?'':'<button type="button" class="mimode'+(mode==='have'?' have':'')+'" data-a="mitemmode" data-mid="'+m.id+'" data-iid="'+mi.id+'" title="Switch between a macro target and a known amount">'+mode+'</button>';
   var target;
   if(qtyMode){
-    target='<span class="mitarget">'+modeBtn+'<input type="number" step="any" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(mi.tamt===undefined?'':mi.tamt)+'" placeholder="1">'
-      +'<span class="miu" id="miu-'+mi.id+'">'+esc(unitLabel(num(mi.tamt)||1,f.unit))+'</span></span>';
+    // a quantity is stored in the food's own unit but shown in the one you
+    // chose to measure it in — the same split Calc rows go through
+    var dAmt=toDisplayAmt(f,mi.tamt);
+    target='<span class="mitarget">'+modeBtn+'<input type="number" step="any" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(dAmt===''?'':trimNum(num(dAmt)))+'" placeholder="1">'
+      +'<span class="miu" id="miu-'+mi.id+'">'+esc(unitLabel(num(dAmt)||1,displayUnit(f)))+'</span></span>';
   }else{
     var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
     target='<span class="mitarget">'+modeBtn+'<input type="number" step="0.1" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(mi.tamt===undefined?'':mi.tamt)+'" placeholder="0">'
@@ -1102,7 +1121,9 @@ function mealItemRow(m,mi){
       +'<select data-a="mitemmac" data-mid="'+m.id+'" data-iid="'+mi.id+'">'+opts+'</select></span>';
   }
   return '<div class="mitem">'
-    +'<span class="miname">'+esc(f.name)+'<span class="miqty" id="miq-'+mi.id+'">'+(r?esc(fmtQty(r.grams,f.unit)):'—')+'</span></span>'
+    +'<button type="button" class="miname" data-a="mitemopen" data-mid="'+m.id+'" data-iid="'+mi.id+'">'
+      +esc(f.name)+'<span class="calcchev">›</span>'
+      +'<span class="miqty" id="miq-'+mi.id+'">'+(r?esc(fmtQty(num(toDisplayAmt(f,r.grams)),displayUnit(f))):'—')+'</span></button>'
     +target
     +'<span id="mio-'+mi.id+'-cal">'+(r?Math.round(r.calories):'—')+'</span>'
     +'<span id="mio-'+mi.id+'-p">'+(r?Math.round(r.protein*10)/10:'—')+'</span>'
@@ -1128,10 +1149,7 @@ function mealCard(m){
   var body='';
   if(open){
     var items=(m.items||[]).map(function(mi){return mealItemRow(m,mi);}).join('');
-    var foodOpts=sortedFoods().map(function(f){return '<option value="'+f.id+'">'+esc(f.name)+'</option>';}).join('');
-    var adder=foodOpts
-      ?'<select class="miadd" data-a="mealadditem" data-id="'+m.id+'"><option value="">+ add food…</option>'+foodOpts+'</select>'
-      :'<span class="minofoods">Add a food below first.</span>';
+    var adder='<button type="button" class="blockaddbtn" style="width:auto;padding:6px 15px" data-a="mealpickopen" data-id="'+m.id+'">'+PLUS_ICON+' Add a food</button>';
     var wantMac=m.wantMac||'calories';
     var wantOpts=TARGETS.map(function(tg){return '<option value="'+tg.key+'"'+(tg.key===wantMac?' selected':'')+'>'+tg.label+'</option>';}).join('');
     var wantRow='<div class="fcrow"><span class="fclbl">I want</span>'
@@ -1378,7 +1396,17 @@ function buildAdd(){
     +menuTile('addweight',ICON_SCALE,'Weight','Today’s weigh-in')
     +'</div>';
 }
+var mealPickId=null;      // the meal the picker is adding to
+var mealItemEdit=null;    // {mid,iid} — the meal item whose food page is open
 function buildMeals(){
+  // the Log page's own two surfaces again, borrowed the same way Calc borrows
+  // them — a meal is a list of foods, so it wants the same way of picking one
+  if(pickerFor==='meal'&&pickDetail)return foodDetailHtml();
+  if(mealPickId){
+    var pm=fMeal(mealPickId);
+    return backRow('mealpickclose','Adding to <b>'+esc(pm?pm.name:'meal')+'</b>')
+      +foodPickerHtml()+(foodAddOpen?foodAddHtml():'');
+  }
   var cards=(state.health.meals||[]).map(mealCard).join('');
   return backRow('addmenu','Meals')
     +'<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Create a meal</button>'
@@ -1463,8 +1491,15 @@ function foodRow(f,attrs){
 // The picker is one surface with two owners. Opened from a day it opens the
 // food you tapped; opened from Calc it drops that food straight into the solve,
 // because there you're assembling a list, not logging one thing.
-var pickerFor='log';   // 'log' | 'calc'
-function pickAction(){return pickerFor==='calc'?'calcpick':'opendetail';}
+var pickerFor='log';   // 'log' | 'calc' | 'meal'
+function pickAction(){
+  if(pickerFor==='calc')return 'calcpick';
+  if(pickerFor==='meal')return 'mealpick';
+  return 'opendetail';
+}
+// Opened to feed a Calc row or a meal item, the food page isn't logging
+// anything — it's dialling in a number that belongs to something else.
+function detailFeeds(){return pickerFor==='calc'||pickerFor==='meal';}
 function localFoodsHtml(){
   var q=foodQuery.trim().toLowerCase();
   var foods=recentFoods().filter(function(f){return !q||f.name.toLowerCase().indexOf(q)>-1;});
@@ -1546,9 +1581,10 @@ function foodDetailHtml(){
       +choices.map(function(u){return '<option value="'+esc(u)+'"'+(u===du?' selected':'')+'>'+esc(u==='serving'?'servings ('+fmtQty(num(f.serving),f.unit)+' each)':u)+'</option>';}).join('')
       +'</select></div>'
     :'';
-  // opened from a Calc row you're here to change the food itself, not to log it
-  var note=pickerFor==='calc'
-    ?'Editing <b>'+esc(f.name)+'</b> — the amount stays on Calc'
+  // opened from a Calc row or a meal item you're here to set a number that
+  // belongs to that list, not to log anything
+  var note=detailFeeds()
+    ?'Editing <b>'+esc(f.name)+'</b> — Save returns to '+(pickerFor==='calc'?'Calc':'the meal')
     :'Logging to <b>'+esc(where)+'</b>';
   return backRow('detailback',note)
     +'<div class="fdhead">'+sourceBadge(f)
@@ -1602,11 +1638,17 @@ function addFood(){
   state.health.foods.push(nf);
   foodAddOpen=false;pendingFood=null;resetFoodDb();
   draftFood=null;
-  // entered from Calc, a new food is one you're about to solve with — so it
-  // goes straight into the list rather than opening its own page
+  // entered from Calc or a meal, a new food is one you're about to use there —
+  // so it goes straight into that list rather than opening its own page
   if(pickerFor==='calc'){
     addCalcRow(nf.id);
     calcPickOpen=false;pickerFor='log';
+    save();window.scrollTo(0,0);render();return;
+  }
+  if(pickerFor==='meal'){
+    var hm=fMeal(mealPickId);
+    if(hm){addMealItem(hm,nf);openItem={type:'meal',id:hm.id};}
+    mealPickId=null;pickerFor='log';
     save();window.scrollTo(0,0);render();return;
   }
   // land on the new food's page, ready to dial in — that's the next thing you
@@ -2403,6 +2445,39 @@ function calcLogAll(){
   syncMacros(todayStr());save();
   page='log';viewDate=todayStr();render();
 }
+function addMealItem(m,f){
+  var d=defaultTarget(f);
+  m.items=m.items||[];
+  m.items.push({id:uid(),foodId:f.id,tmac:d.tmac,tamt:d.tamt,mode:f.mode==='have'?'have':'want'});
+}
+// Save hands the number back to whatever opened this page. A Calc row holds a
+// settled amount, so the target gets resolved into one; a meal item holds the
+// target itself, so it's copied across and stays live against the multiplier.
+function saveDetailBack(id){
+  var f=fFood(id);if(!f)return;
+  if(pickerFor==='calc'){
+    var row=calcRows.filter(function(x){return x.foodId===id;})[0];
+    var r=foodResolved(f);
+    if(row&&r){
+      if(row.mode==='have')row.have=r2(r.grams);
+      else{row.amount=r2(r.grams);row.mode='fix';}
+    }
+    calcPickOpen=false;
+  }else if(pickerFor==='meal'&&mealItemEdit){
+    var m=fMeal(mealItemEdit.mid);
+    var mi=m&&(m.items||[]).filter(function(x){return x.id===mealItemEdit.iid;})[0];
+    if(mi){
+      mi.mode=f.mode==='have'?'have':'want';
+      mi.tmac=f.tmac||'protein';
+      mi.tamt=(isCountableUnit(f.unit)||mi.mode==='have')?fromDisplayAmt(f,f.tamt):f.tamt;
+    }
+    if(m)openItem={type:'meal',id:m.id};
+    mealPickId=null;mealItemEdit=null;
+  }
+  pickDetail=null;draftFood=null;pickerFor='log';resetFoodDb();
+  restoreScroll=backScrollY;
+  save();render();
+}
 function calcSaveAsMeal(){
   var name=prompt('Name this meal:');
   if(!name||!name.trim())return;
@@ -2500,8 +2575,16 @@ function runDestructive(a,ds){
     // a Calc row pointing at a food that no longer exists renders as nothing and
     // still occupies the solve, so it goes with it
     calcRows=calcRows.filter(function(x){return x.foodId!==ds.id;});
+    // a meal item pointing at a deleted food renders as "food deleted" and
+    // still counts nothing — it goes with it
+    (state.health.meals||[]).forEach(function(mm){
+      mm.items=(mm.items||[]).filter(function(x){return x.foodId!==ds.id;});
+    });
     pickDetail=null;
-    if(pickerFor==='calc'){calcPickOpen=false;pickerFor='log';}
+    if(detailFeeds()){
+      calcPickOpen=false;mealPickId=null;mealItemEdit=null;pickerFor='log';
+      restoreScroll=backScrollY;
+    }
   }
   else if(a==='dmeal'){state.health.meals=(state.health.meals||[]).filter(function(x){return x.id!==ds.id;});}
   else if(a==='midel'){var m=fMeal(ds.mid);if(m)m.items=(m.items||[]).filter(function(x){return x.id!==ds.iid;});}
@@ -2577,7 +2660,7 @@ app.addEventListener('click',function(e){
     // tapping the tab you're already on returns it to its root: the picker, an
     // open food and the two chooser sub-menus are states of a tab, not tabs, so
     // without this the current tab reads as dead while one of them is up
-    if(page!==t.dataset.page||dayAddOpen||pickDetail||calcPickOpen||addView!=='menu'||historyView!=='menu'){
+    if(page!==t.dataset.page||dayAddOpen||pickDetail||calcPickOpen||mealPickId||addView!=='menu'||historyView!=='menu'){
       // leaving the page drops any half-finished dialog rather than having it
       // reappear the next time you come back
       page=t.dataset.page;openItem=null;
@@ -2585,7 +2668,7 @@ app.addEventListener('click',function(e){
       // the day-add overlay belongs to the day you left; logging goes back to
       // landing on today, and both choosers reopen on their menu
       dayAddOpen=false;addTarget=todayStr();addView='menu';historyView='menu';
-      calcPickOpen=false;pickerFor='log';
+      calcPickOpen=false;mealPickId=null;mealItemEdit=null;pickerFor='log';
       pickDetail=null;draftFood=null;resetFoodDb();
       window.scrollTo(0,0);render();
     }
@@ -2631,11 +2714,17 @@ app.addEventListener('click',function(e){
   }
   if(a==='detailback'){
     pickDetail=null;draftFood=null;
-    // opened from a Calc row, so back is Calc itself — not the picker you'd
-    // land on coming from a day
-    if(pickerFor==='calc'){calcPickOpen=false;pickerFor='log';resetFoodDb();}
-    window.scrollTo(0,0);render();return;
+    // opened from a Calc row or a meal item, so back is that list — not the
+    // picker you'd land on coming from a day — and at the offset you left it
+    if(detailFeeds()){
+      calcPickOpen=false;mealPickId=null;mealItemEdit=null;pickerFor='log';
+      resetFoodDb();restoreScroll=backScrollY;
+    }else{
+      window.scrollTo(0,0);
+    }
+    render();return;
   }
+  if(a==='foodsaveback'){saveDetailBack(t.dataset.id);return;}
   if(a==='addmeals'){addView='meals';window.scrollTo(0,0);render();return;}
   if(a==='calcpreset'){
     var p=t.dataset.p;
@@ -2658,13 +2747,10 @@ app.addEventListener('click',function(e){
   if(a==='calcscope'){
     var sr=calcRows.filter(function(x){return x.id===t.dataset.id;})[0];
     if(sr){
-      if(sr.mode==='have'){
-        // your stock spread over the batch is what one meal was always getting
-        sr.amount=r2(rowPerMeal(sr,calcMeals));sr.mode='fix';
-      }else{
-        sr.mode='have';
-        if(!(num(sr.have)>0))sr.have=r2(num(sr.amount)*Math.max(1,calcMeals));
-      }
+      // the number you typed stays the number you typed — the chip changes what
+      // it counts, not what it is. Scaling it here just made you retype it.
+      if(sr.mode==='have'){sr.amount=sr.have;sr.mode='fix';}
+      else{sr.have=sr.amount;sr.mode='have';}
       render();
     }
     return;
@@ -2673,8 +2759,64 @@ app.addEventListener('click',function(e){
   // it just knows to come back here
   if(a==='calcopen'){
     var or=calcRows.filter(function(x){return x.id===t.dataset.id;})[0];
-    if(or&&calcFood(or)){pickerFor='calc';pickDetail={kind:'saved',id:or.foodId};window.scrollTo(0,0);render();}
+    var of=or&&calcFood(or);
+    if(of){
+      // open it showing the amount the row already has, so Save is an edit of
+      // that number rather than a fresh unrelated one
+      var cur=toDisplayAmt(of,or.mode==='have'?or.have:or.amount);
+      if(cur!==''&&num(cur)>0){of.mode='have';of.tamt=cur;}
+      pickerFor='calc';pickDetail={kind:'saved',id:or.foodId};
+      backScrollY=window.pageYOffset;window.scrollTo(0,0);render();
+    }
     return;
+  }
+  if(a==='mitemopen'){
+    var om=fMeal(t.dataset.mid);
+    var oi=om&&(om.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];
+    var oif=oi&&fFood(oi.foodId);
+    if(oif){
+      // the item's own target is what the page should open on, not whatever the
+      // food was last set to somewhere else
+      oif.mode=oi.mode==='have'?'have':'want';
+      oif.tmac=oi.tmac||'protein';
+      // the item keeps a quantity in the food's own unit; the page speaks the
+      // one you measure in. A macro target is neither, so it passes straight
+      oif.tamt=(isCountableUnit(oif.unit)||oi.mode==='have')?toDisplayAmt(oif,oi.tamt):oi.tamt;
+      pickerFor='meal';mealItemEdit={mid:om.id,iid:oi.id};pickDetail={kind:'saved',id:oif.id};
+      backScrollY=window.pageYOffset;window.scrollTo(0,0);render();
+    }
+    return;
+  }
+  if(a==='mealpickopen'){
+    pickerFor='meal';mealPickId=t.dataset.id;pickDetail=null;draftFood=null;resetFoodDb();
+    window.scrollTo(0,0);render();return;
+  }
+  if(a==='mealpickclose'){
+    mealPickId=null;pickerFor='log';pickDetail=null;draftFood=null;
+    foodAddOpen=false;pendingFood=null;resetFoodDb();
+    window.scrollTo(0,0);render();return;
+  }
+  if(a==='mealpick'){
+    var tm=fMeal(mealPickId);if(!tm)return;
+    var mf;
+    if(t.dataset.kind==='db'){
+      var mh=foodDbResults&&foodDbResults[parseInt(t.dataset.idx,10)];
+      if(!mh)return;
+      // a meal item points at a food by id, so a database hit joins the library
+      // here rather than staying a draft
+      mf={id:uid(),name:mh.name,brand:mh.brand||'',source:mh.source||'usda',
+        serving:mh.serving,unit:mh.unit,protein:mh.protein,carbs:mh.carbs,
+        fat:mh.fat,calories:mh.calories,micros:mh.micros||{},tmac:'protein',tamt:''};
+      state.health.foods=state.health.foods||[];
+      state.health.foods.push(mf);
+    }else{
+      mf=fFood(t.dataset.id);
+    }
+    if(!mf)return;
+    addMealItem(tm,mf);
+    mealPickId=null;pickerFor='log';resetFoodDb();
+    openItem={type:'meal',id:tm.id};
+    save();window.scrollTo(0,0);render();return;
   }
   if(a==='calcpickopen'){
     pickerFor='calc';calcPickOpen=true;pickDetail=null;draftFood=null;resetFoodDb();
@@ -2783,7 +2925,17 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
   if(a==='mealwant'){var mw=fMeal(t.dataset.id);if(mw){mw.wantAmt=t.value;applyMealWant(mw);save();refreshMeal(mw.id);}return;}
   if(a==='mitemamt'){
     var im=fMeal(t.dataset.mid);
-    if(im){var it=(im.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];if(it){it.tamt=t.value;save();refreshMeal(im.id);}}
+    if(im){
+      var it=(im.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];
+      var itf=it&&fFood(it.foodId);
+      if(it){
+        // a quantity comes in as whatever you measure this food in; a macro
+        // target is already unit-free, so it goes through untouched
+        var qm=itf&&(isCountableUnit(itf.unit)||it.mode==='have');
+        it.tamt=qm?fromDisplayAmt(itf,t.value===''?'':parseFloat(t.value)):t.value;
+        save();refreshMeal(im.id);
+      }
+    }
     return;
   }
   if(a==='fdckey'){state.settings.fdcKey=t.value.trim();save();return;}
@@ -2856,12 +3008,6 @@ app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.
   if(a==='mitemmac'){
     var mmc=fMeal(t.dataset.mid);
     if(mmc){var mit=(mmc.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];if(mit){mit.tmac=t.value;save();refreshMeal(mmc.id);}}
-    return;
-  }
-  if(a==='mealadditem'){
-    var am=fMeal(t.dataset.id),af=fFood(t.value);
-    if(am&&af){var d=defaultTarget(af);am.items=am.items||[];am.items.push({id:uid(),foodId:af.id,tmac:d.tmac,tamt:d.tamt,mode:af.mode==='have'?'have':'want'});save();render();}
-    else t.value='';
     return;
   }
 });
