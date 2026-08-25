@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-25T20:45:18Z';
+  var PAGE_VERSION='2026-08-25T21:14:10Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -289,20 +289,14 @@ textarea{resize:vertical;min-height:52px}
 .mldel{color:var(--on-surface-faint);font-size:15px;cursor:pointer;line-height:1}
 .mldel:hover{color:var(--negative)}
 .mitems{margin-top:12px;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;gap:1px;background:var(--divider)}
-.mitem{display:grid;grid-template-columns:1fr 158px 50px 44px 44px 44px 18px;gap:6px;align-items:center;padding:7px 10px;font-family:var(--label);font-size:12px;background:var(--surface)}
-.mitem>span:not(.miname):not(.mitarget):not(.midel){text-align:right;font-variant-numeric:tabular-nums}
+.mitem{display:grid;grid-template-columns:1fr 84px 50px 44px 44px 44px 18px;gap:6px;align-items:center;padding:7px 10px;font-family:var(--label);font-size:12px;background:var(--surface)}
+.mitem>span:not(.miname):not(.midel){text-align:right;font-variant-numeric:tabular-nums}
 .mihead{background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .mitot{background:var(--surface-2);color:var(--accent-2)}
 .mitot>span:first-child{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
 .miname{font-family:var(--sans);font-size:13px;color:var(--on-surface);display:flex;align-items:baseline;gap:7px;min-width:0;text-align:left;padding:0}
 .miname:hover,.miname:hover .calcchev{color:var(--accent-2)}
-.miqty{font-family:var(--label);font-size:10.5px;color:var(--accent-2);flex:none}
-.mitarget{display:flex;align-items:center;gap:4px;min-width:0}
-.mimode{font-family:var(--label);font-size:9px;text-transform:uppercase;letter-spacing:.02em;background:var(--surface-3);border-radius:6px;padding:3px 5px;color:var(--on-surface-dim);flex:none}
-.mimode.have{background:var(--accent);color:var(--on-accent)}
-.mitarget input{width:52px;flex:none;font-family:var(--label);font-size:11.5px;padding:3px 5px;text-align:right}
-.mitarget select{width:auto;flex:1;min-width:0;font-family:var(--label);font-size:11px;padding:3px 4px}
-.miu{font-family:var(--label);font-size:10px;color:var(--on-surface-faint);flex:none}
+.miqty{font-family:var(--label);font-size:11px;color:var(--accent-2)}
 .midel{color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
 .midel:hover{color:var(--negative)}
 .mitem.gone .miname{color:var(--negative);font-style:italic}
@@ -312,11 +306,12 @@ textarea{resize:vertical;min-height:52px}
 .mllog{font-family:var(--label);font-size:12px;background:var(--accent);border-radius:999px;padding:6px 15px;color:var(--on-accent);font-weight:600;white-space:nowrap;margin-left:auto}
 .mllog:hover{background:var(--accent-wash)}
 @media(max-width:680px){
-  /* mihead/mitem/mitot all share the same 7-span shape (name/total, target,
+  /* mihead/mitem/mitot all share the same 7-cell shape (name/total, needed,
      cal, p, c, f, delete) — every row must place them identically or the
-     header and totals drift out of alignment with the actual item rows. */
+     header and totals drift out of alignment with the actual item rows. The
+     name is a button and the rest are spans, so this can't select by tag. */
   .mitem{grid-template-columns:1fr 36px 34px 34px 34px 18px;gap:5px}
-  .mitem>span:first-child{grid-column:1/-1}
+  .mitem>:first-child{grid-column:1/-1}
 }
 /* macro donut */
 .piewrap{display:flex;align-items:center;gap:22px;margin-top:16px;padding-top:15px;flex-wrap:wrap}
@@ -1079,10 +1074,7 @@ function refreshMeal(id){
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);
     var r=resolveMealItem(f,mi,mult);
-    var qtyMode=f&&(isCountableUnit(f.unit)||mi.mode==='have');
-    var dq=f?toDisplayAmt(f,mi.tamt):'';
     setTxt('miq-'+mi.id,r?fmtQty(num(toDisplayAmt(f,r.grams)),displayUnit(f)):'—');
-    setTxt('miu-'+mi.id,qtyMode?unitLabel(num(dq)||1,displayUnit(f)):((mi.tmac||'protein')==='calories'?'cal':'g'));
     setTxt('mio-'+mi.id+'-cal',r?String(Math.round(r.calories)):'—');
     setTxt('mio-'+mi.id+'-p',r?String(Math.round(r.protein*10)/10):'—');
     setTxt('mio-'+mi.id+'-c',r?String(Math.round(r.carbs*10)/10):'—');
@@ -1099,32 +1091,14 @@ function refreshMeal(id){
 function mealItemRow(m,mi){
   var f=fFood(mi.foodId);
   if(!f)return '<div class="mitem gone"><span class="miname">food deleted</span><span></span><span></span><span></span><span></span><span></span><span class="midel" data-a="midel" data-mid="'+m.id+'" data-iid="'+mi.id+'">×</span></div>';
-  var countable=isCountableUnit(f.unit);
-  var mode=mi.mode==='have'?'have':'want';
-  var qtyMode=countable||mode==='have';
-  var tk=mi.tmac||'protein';
   var r=resolveMealItem(f,mi,num(m.mult)||1);
-  // same "I want a target" vs "I have an amount" split as the standalone food card,
-  // just as a single tap-to-flip pill instead of two buttons — this row is too tight for both
-  var modeBtn=countable?'':'<button type="button" class="mimode'+(mode==='have'?' have':'')+'" data-a="mitemmode" data-mid="'+m.id+'" data-iid="'+mi.id+'" title="Switch between a macro target and a known amount">'+mode+'</button>';
-  var target;
-  if(qtyMode){
-    // a quantity is stored in the food's own unit but shown in the one you
-    // chose to measure it in — the same split Calc rows go through
-    var dAmt=toDisplayAmt(f,mi.tamt);
-    target='<span class="mitarget">'+modeBtn+'<input type="number" step="any" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(dAmt===''?'':trimNum(num(dAmt)))+'" placeholder="1">'
-      +'<span class="miu" id="miu-'+mi.id+'">'+esc(unitLabel(num(dAmt)||1,displayUnit(f)))+'</span></span>';
-  }else{
-    var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
-    target='<span class="mitarget">'+modeBtn+'<input type="number" step="0.1" data-a="mitemamt" data-mid="'+m.id+'" data-iid="'+mi.id+'" value="'+esc(mi.tamt===undefined?'':mi.tamt)+'" placeholder="0">'
-      +'<span class="miu" id="miu-'+mi.id+'">'+(tk==='calories'?'cal':'g')+'</span>'
-      +'<select data-a="mitemmac" data-mid="'+m.id+'" data-iid="'+mi.id+'">'+opts+'</select></span>';
-  }
+  // A meal is a recipe: it says what to put in, not how the amount was arrived
+  // at. The target that produced it lives on the food's own page, one tap away
+  // through the name, which is the only place an amount is editable now.
   return '<div class="mitem">'
     +'<button type="button" class="miname" data-a="mitemopen" data-mid="'+m.id+'" data-iid="'+mi.id+'">'
-      +esc(f.name)+'<span class="calcchev">›</span>'
-      +'<span class="miqty" id="miq-'+mi.id+'">'+(r?esc(fmtQty(num(toDisplayAmt(f,r.grams)),displayUnit(f))):'—')+'</span></button>'
-    +target
+      +esc(f.name)+'<span class="calcchev">›</span></button>'
+    +'<span class="miqty" id="miq-'+mi.id+'">'+(r?esc(fmtQty(num(toDisplayAmt(f,r.grams)),displayUnit(f))):'—')+'</span>'
     +'<span id="mio-'+mi.id+'-cal">'+(r?Math.round(r.calories):'—')+'</span>'
     +'<span id="mio-'+mi.id+'-p">'+(r?Math.round(r.protein*10)/10:'—')+'</span>'
     +'<span id="mio-'+mi.id+'-c">'+(r?Math.round(r.carbs*10)/10:'—')+'</span>'
@@ -1158,7 +1132,7 @@ function mealCard(m){
       +'<select data-a="mealwantmac" data-id="'+m.id+'">'+wantOpts+'</select>'
       +'<span class="fclbl">from this meal</span></div>';
     body='<div class="mitems">'
-      +'<div class="mitem mihead"><span>Food</span><span>Target</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
+      +'<div class="mitem mihead"><span>Food</span><span>Needed</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
       +(items||'<div class="tempty">No foods in this meal yet.</div>')
       +'<div class="mitem mitot"><span>Total</span><span></span>'
         +'<span id="mtot-'+m.id+'-cal">'+Math.round(t.calories)+'</span>'
@@ -2892,13 +2866,6 @@ app.addEventListener('click',function(e){
   else if(a==='togglemeal'){openItem=isOpenItem('meal',t.dataset.id)?null:{type:'meal',id:t.dataset.id};render();}
   else if(a==='emln'){state.editing='ml:'+t.dataset.id;render();}
   else if(a==='logmeal'){logMeal(t.dataset.id);}
-  else if(a==='mitemmode'){
-    var mmm=fMeal(t.dataset.mid);
-    var mit2=mmm&&(mmm.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];
-    // same reset rationale as the standalone food toggle — the old number meant
-    // something different under the old mode, so don't carry it over
-    if(mit2){mit2.mode=mit2.mode==='have'?'want':'have';mit2.tamt='';save();render();}
-  }
 });
 
 app.addEventListener('keydown',function(e){var t=e.target,a=t.dataset&&t.dataset.a;
@@ -2923,21 +2890,6 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
   if(a==='foodamt'){var fd=fFood(t.dataset.id);if(fd){fd.tamt=t.value;save();refreshFoodCard(fd.id);}return;}
   if(a==='mealmult'){var mm=fMeal(t.dataset.id);if(mm){mm.mult=t.value===''?'':parseFloat(t.value);save();refreshMeal(mm.id);}return;}
   if(a==='mealwant'){var mw=fMeal(t.dataset.id);if(mw){mw.wantAmt=t.value;applyMealWant(mw);save();refreshMeal(mw.id);}return;}
-  if(a==='mitemamt'){
-    var im=fMeal(t.dataset.mid);
-    if(im){
-      var it=(im.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];
-      var itf=it&&fFood(it.foodId);
-      if(it){
-        // a quantity comes in as whatever you measure this food in; a macro
-        // target is already unit-free, so it goes through untouched
-        var qm=itf&&(isCountableUnit(itf.unit)||it.mode==='have');
-        it.tamt=qm?fromDisplayAmt(itf,t.value===''?'':parseFloat(t.value)):t.value;
-        save();refreshMeal(im.id);
-      }
-    }
-    return;
-  }
   if(a==='fdckey'){state.settings.fdcKey=t.value.trim();save();return;}
   if(a==='calctarget'){
     calcTargets[t.dataset.k]=t.value===''?'':parseFloat(t.value);
@@ -3005,11 +2957,6 @@ app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.
   }
   if(a==='foodmac'){var fd=fFood(t.dataset.id);if(fd){fd.tmac=t.value;save();refreshFoodCard(fd.id);}}
   if(a==='mealwantmac'){var mwm=fMeal(t.dataset.id);if(mwm){mwm.wantMac=t.value;applyMealWant(mwm);save();render();}}
-  if(a==='mitemmac'){
-    var mmc=fMeal(t.dataset.mid);
-    if(mmc){var mit=(mmc.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];if(mit){mit.tmac=t.value;save();refreshMeal(mmc.id);}}
-    return;
-  }
 });
 app.addEventListener('blur',function(e){var t=e.target,a=t.dataset&&t.dataset.a;if(!a)return;
   if(a==='cmln'){var ml=fMeal(t.dataset.id);var mv=t.value.trim();if(ml&&mv)ml.name=mv;state.editing=null;save();render();}
