@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-24T22:57:48Z';
+  var PAGE_VERSION='2026-08-25T13:39:13Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -351,7 +351,10 @@ textarea{resize:vertical;min-height:52px}
 .navfab.on{box-shadow:0 0 0 4px var(--accent-wash),0 6px 18px rgba(201,164,92,.45)}
 .navfab svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
 /* ── today's goal bars — the "how much room is left" HUD ── */
-.goalbars{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:var(--surface);border-radius:18px;padding:12px 14px;margin-bottom:2px}
+.goalbars{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:var(--surface);border-radius:18px;padding:12px 14px;margin-bottom:2px;transition:transform .12s cubic-bezier(.34,1.56,.64,1)}
+/* smaller than a button's 1.08 on purpose — the same spring reads as a much
+   bigger jump across a full-width block, and 1.08 would clip at phone widths */
+.goalbars.bump{transform:scale(1.04)}
 .goalbars.empty{display:block;text-align:center;font-family:var(--label);font-size:11.5px;color:var(--on-surface-faint);cursor:pointer;padding:15px}
 .goalbars.empty:hover{color:var(--accent-2)}
 .gb{display:flex;flex-direction:column;gap:5px;min-width:0}
@@ -443,12 +446,13 @@ textarea{resize:vertical;min-height:52px}
 .wrrow{display:flex;justify-content:space-between;font-family:var(--label);font-size:12px;color:var(--on-surface-dim);background:var(--surface-2);border-radius:12px;padding:8px 12px}
 .dayweigh{font-family:var(--label);font-size:12px;color:var(--on-ground);padding:12px 2px 2px}
 .dayweigh b{color:var(--on-ground)}
-/* ── adding into a day that isn't today — deliberately doesn't look like the
-   normal page, and carries its own way out ── */
-.addbanner{display:flex;align-items:center;gap:12px;background:var(--ink);color:var(--on-ink);border-radius:16px;padding:11px 14px;margin:12px 0 14px;font-size:14px}
-.addbanner b{font-weight:600;color:var(--accent)}
-.addback{width:30px;height:30px;border-radius:10px;flex:none;font-size:15px;line-height:1;color:var(--on-ink-dim);background:rgba(218,241,222,.12);display:flex;align-items:center;justify-content:center;padding:0}
-.addback:hover{color:var(--on-ink);background:rgba(218,241,222,.22)}
+/* back is its own block; the note sits on the ground beside it, saying what the
+   page is doing rather than labelling the button */
+.backrow{display:flex;align-items:center;gap:13px;margin:12px 0 16px}
+.backblock{width:42px;height:42px;border-radius:15px;flex:none;font-size:21px;line-height:1;background:var(--surface);color:var(--on-surface);box-shadow:var(--cardshadow);display:flex;align-items:center;justify-content:center;padding:0}
+.backblock:hover{background:var(--accent);color:var(--on-accent)}
+.backnote{font-size:14px;color:var(--on-ground);min-width:0}
+.backnote b{font-weight:600;color:var(--accent-2)}
 /* ── calc ── */
 .calcpresets{flex-wrap:wrap}
 .calcrow{display:grid;grid-template-columns:30px 1fr 84px 52px 18px;gap:4px 8px;align-items:center;padding:8px 10px;border-radius:14px;background:var(--surface-2);margin-bottom:6px}
@@ -639,6 +643,12 @@ var addTarget=todayStr();
 // true while the Log page is showing the food picker for viewDate rather than
 // that day's sheet — it's an overlay on the day, not a trip to the Add tab
 var dayAddOpen=false;
+// The same picker is reachable two ways, and back has to mean the place you
+// actually came from: 'log' returns to the day's sheet, 'add' to the Add menu.
+var dayAddFrom='log';
+// set after logging so the goal bars pop once — a full render() rebuilds them,
+// so the class can only go on after the new element exists
+var bumpBars=false;
 // Add sits in the middle as a raised gold button — it's the thing you open most,
 // and the board's layout puts the primary action dead centre.
 var PAGES=[
@@ -672,6 +682,17 @@ function pageBody(){
 function render(){
   app.innerHTML=topbar()+goalBars()+pageBody()+bottomNav()+confirmHtml();
   applyBands();
+  // the same spring a button runs on :active — grow, then let it settle back.
+  // rAF because the class has to land on a frame after the element is painted,
+  // or there's no transition to animate from.
+  if(bumpBars){
+    bumpBars=false;
+    var bars=app.querySelector('.goalbars');
+    if(bars)requestAnimationFrame(function(){
+      bars.classList.add('bump');
+      setTimeout(function(){bars.classList.remove('bump');},130);
+    });
+  }
   if(foodQuery&&document.getElementById('localfoods'))refreshPicker();
   var ed=app.querySelector('[data-e="1"]');if(ed){ed.focus();if(ed.select)ed.select();}
 }
@@ -714,7 +735,7 @@ function bottomNav(){
 // These used to alternate mint/sage, with the colour change acting as the
 // divider; the ground is a single mint now, so all they contribute is the
 // breathing room between sections.
-var BANDSKIP=['topbar','settingsoverlay','goalbars','bottomnav','tabs','datenav','addbanner'];
+var BANDSKIP=['topbar','settingsoverlay','goalbars','bottomnav','tabs','datenav','backrow'];
 function applyBands(){
   var kids=[].slice.call(app.children),cur=null;
   kids.forEach(function(el){
@@ -1197,7 +1218,14 @@ function addFoodLog(id){
   state.health.log.push({id:uid(),date:addTarget,name:f.name,qty:Math.round(outAmount(f,r)*100)/100,unit:displayUnit(f),calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
   f.lastUsed=Date.now();  // drives the recents ordering
   syncMacros(addTarget);
-  if(dayAddOpen)closeDayAdd();   // one food logged, back to the day you came from
+  // Logging to today is usually one of several in a row, so it falls back to the
+  // picker rather than the day's sheet, and the bars up top pop to confirm it
+  // landed. A past or future day is a one-off correction, so that still closes
+  // out to the day you were fixing.
+  if(dayAddOpen){
+    if(addTarget===todayStr()){pickDetail=null;draftFood=null;bumpBars=true;}
+    else closeDayAdd();
+  }
   save();render();
 }
 function fsRow(r,isChild){
@@ -1344,8 +1372,7 @@ function buildAdd(){
 }
 function buildMeals(){
   var cards=(state.health.meals||[]).map(mealCard).join('');
-  return '<div class="addbanner"><button type="button" class="addback" data-a="addmenu" aria-label="Back">✕</button>'
-    +'<span>Meals</span></div>'
+  return backRow('addmenu','Meals')
     +'<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Create a meal</button>'
     +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
     +(cards||'<div class="tempty">No meals yet.</div>')
@@ -1362,8 +1389,7 @@ function buildWeighIn(){
         return '<div class="wrrow"><span>'+esc(fmtShort(e.date))+'</span><span>'+esc(e.weight)+' lb</span></div>';
       }).join('')+'</div>'
     :'';
-  return '<div class="addbanner"><button type="button" class="addback" data-a="addmenu" aria-label="Back">✕</button>'
-    +'<span>Weigh-in for <b>today</b></span></div>'
+  return backRow('addmenu','Weigh-in for <b>today</b>')
     +'<div class="fincard"><h3>Weight — '+fmtShort(today)+'</h3>'
     +'<div class="wbig"><input type="number" step="0.1" inputmode="decimal" placeholder="—" data-a="hfield" data-field="weight" value="'+esc(te.weight)+'"><span class="wunit">lb</span></div>'
     +'<div id="wnote">'+weighNoteHtml()+'</div>'
@@ -1381,12 +1407,19 @@ function weighNoteHtml(){
   if(Math.abs(d)<0.05)return '<div class="gcheck">Right on your <b>'+trimNum(gw)+' lb</b> goal.</div>';
   return '<div class="gcheck"><b>'+Math.abs(d).toFixed(1)+' lb</b> to '+(d>0?'lose':'gain')+' to reach '+trimNum(gw)+' lb.</div>';
 }
+// Back is a block of its own, and the line beside it is only information —
+// they sit on the ground together rather than being welded into one banner, so
+// the wording is free to say something the button doesn't.
+function backRow(action,note){
+  return '<div class="backrow">'
+    +'<button type="button" class="backblock" data-a="'+action+'" aria-label="Back">‹</button>'
+    +'<span class="backnote">'+note+'</span></div>';
+}
 // Same picker, but it stays on the Log page: you're adding to the day you were
-// looking at, and logging one thing drops you straight back to that day's sheet.
+// looking at.
 function dayAddHtml(){
   if(pickDetail)return foodDetailHtml();
-  return '<div class="addbanner"><button type="button" class="addback" data-a="dayaddclose" aria-label="Cancel">✕</button>'
-    +'<span>Adding to <b>'+esc(fmtLong(viewDate))+'</b></span></div>'
+  return backRow('dayaddclose','Adding to <b>'+esc(fmtLong(viewDate))+'</b>')
     +foodPickerHtml()
     +(foodAddOpen?foodAddHtml():'');
 }
@@ -1500,8 +1533,7 @@ function foodDetailHtml(){
       +choices.map(function(u){return '<option value="'+esc(u)+'"'+(u===du?' selected':'')+'>'+esc(u==='serving'?'servings ('+fmtQty(num(f.serving),f.unit)+' each)':u)+'</option>';}).join('')
       +'</select></div>'
     :'';
-  return '<div class="addbanner"><button type="button" class="addback" data-a="detailback" aria-label="Back">‹</button>'
-    +'<span>Logging to <b>'+esc(where)+'</b></span></div>'
+  return backRow('detailback','Logging to <b>'+esc(where)+'</b>')
     +'<div class="fdhead">'+sourceBadge(f)
     +'<h1>'+esc(f.name)+'</h1>'
     +(f.brand?'<div class="fdbrand">'+esc(f.brand)+'</div>':'')
@@ -2352,8 +2384,7 @@ function buildMacroHistory(){
   var entries=all.slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var rows=entries.filter(function(e){return e.date!==today;}).slice(0,30).map(healthRow).join('');
   var endBtn=all.length?'<button type="button" class="blockaddbtn spaced" data-a="endperiod">End period — log average of '+all.length+' day'+(all.length===1?'':'s')+'</button>':'';
-  return '<div class="addbanner"><button type="button" class="addback" data-a="histmenu" aria-label="Back">✕</button>'
-    +'<span>Macros over time</span></div>'
+  return backRow('histmenu','Macros over time')
     +'<div id="health-summary">'+healthSummaryHtml()+'</div>'
     +'<div class="ph"><h3>Past days</h3></div>'
     +(rows||'<div class="tempty">No earlier entries yet.</div>')+endBtn+periodsHtml();
@@ -2481,7 +2512,10 @@ app.addEventListener('click',function(e){
     return;
   }
   if(a==='nav'){
-    if(page!==t.dataset.page){
+    // tapping the tab you're already on returns it to its root: the picker, an
+    // open food and the two chooser sub-menus are states of a tab, not tabs, so
+    // without this the current tab reads as dead while one of them is up
+    if(page!==t.dataset.page||dayAddOpen||pickDetail||addView!=='menu'||historyView!=='menu'){
       // leaving the page drops any half-finished dialog rather than having it
       // reappear the next time you come back
       page=t.dataset.page;openItem=null;
@@ -2498,15 +2532,20 @@ app.addEventListener('click',function(e){
   if(a==='daytoday'){viewDate=todayStr();render();return;}
   if(a==='addtoday'){
     viewDate=t.dataset.date;addTarget=viewDate;
-    dayAddOpen=true;openItem=null;
+    dayAddOpen=true;dayAddFrom='log';openItem=null;
     window.scrollTo(0,0);render();return;
   }
-  if(a==='dayaddclose'){closeDayAdd();window.scrollTo(0,0);render();return;}
+  if(a==='dayaddclose'){
+    var toAdd=dayAddFrom==='add';
+    closeDayAdd();
+    if(toAdd){page='add';addView='menu';}   // you came from the button menu, so go back to it
+    window.scrollTo(0,0);render();return;
+  }
   // Food hands straight off to the day picker for today — literally the same
   // surface the Log page's own add button opens
   if(a==='addfood'){
     viewDate=todayStr();addTarget=todayStr();
-    dayAddOpen=true;openItem=null;page='log';
+    dayAddOpen=true;dayAddFrom='add';openItem=null;page='log';
     window.scrollTo(0,0);render();return;
   }
   if(a==='addweight'){addView='weight';window.scrollTo(0,0);render();return;}
