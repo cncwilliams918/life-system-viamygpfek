@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-26T15:06:42Z';
+  var PAGE_VERSION='2026-08-26T15:52:22Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1696,14 +1696,19 @@ function addFood(){
 function parseOFFProduct(p,fallbackName){
   var n=p.nutriments||{};
   var name=p.product_name||p.generic_name||fallbackName;
-  var servingG=parseFloat(p.serving_quantity);
-  // "1 tbsp (14 g)" — the household half of serving_size states what that gram
-  // weight occupies, which is the density we'd otherwise have no way to know
-  var gPerMl=densityFrom(servingG,p.serving_size);
   // serving_quantity isn't always grams — drinks report it in ml (e.g. Monster: 500 "ml"), and
   // treating that as grams produced nonsense like "473.176g". Only trust it when explicitly grams.
-  var servingUnitIsGrams=(p.serving_quantity_unit||'').toLowerCase()==='g';
-  var hasServingG=servingUnitIsGrams&&!isNaN(servingG)&&servingG>0;
+  var servingQty=parseFloat(p.serving_quantity);
+  var sqUnit=(p.serving_quantity_unit||'').toLowerCase();
+  var servingG=(sqUnit==='g'&&servingQty>0)?servingQty:0;
+  // A liquid states its serving as a volume — "1 cup (240 ml)" — and that's a
+  // real measurement, not an opaque "1 serving". Take it from the structured
+  // field when it's ml, otherwise read it out of the household phrasing.
+  var servingMl=(sqUnit==='ml'&&servingQty>0)?servingQty:parseHouseholdMl(p.serving_size);
+  // "1 tbsp (14 g)" — the household half of serving_size states what that gram
+  // weight occupies, which is the density we'd otherwise have no way to know
+  var gPerMl=servingG>0?densityFrom(servingG,p.serving_size):0;
+  var hasServingG=servingG>0;
   var has100g=n['energy-kcal_100g']!==undefined||n.proteins_100g!==undefined||n.carbohydrates_100g!==undefined||n.fat_100g!==undefined;
   var hasServingNutrients=n['energy-kcal_serving']!==undefined||n.proteins_serving!==undefined||n.carbohydrates_serving!==undefined||n.fat_serving!==undefined;
   if(!has100g&&!hasServingNutrients)return null;
@@ -1740,6 +1745,12 @@ function parseOFFProduct(p,fallbackName){
     var f=servingG/100;
     return {name:name,serving:servingG,unit:'g',gPerMl:gPerMl,micros:microsAt('_100g',f),
       calories:Math.round(num(n['energy-kcal_100g'])*f),protein:num(n.proteins_100g)*f,carbs:num(n.carbohydrates_100g)*f,fat:num(n.fat_100g)*f};
+  }
+  if(servingMl>0&&hasServingNutrients){
+    // a volume serving with matching per-serving nutrients: store it in ml, which
+    // opens up cups, tablespoons and fl oz instead of locking the food to "1 serving"
+    return {name:name,serving:servingMl,unit:'ml',micros:microsAt('_serving',1),
+      calories:Math.round(num(n['energy-kcal_serving'])),protein:num(n.proteins_serving),carbs:num(n.carbohydrates_serving),fat:num(n.fat_serving)};
   }
   if(hasServingNutrients){
     // per-serving nutrients exist but no gram weight given — don't invent a weight, call it 1 serving
