@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-26T16:37:33Z';
+  var PAGE_VERSION='2026-08-27T13:43:18Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -196,6 +196,8 @@ textarea{resize:vertical;min-height:52px}
 .wxaxis{position:relative;height:13px;margin-top:6px}
 .wxaxis span{position:absolute;top:0;font-family:var(--label);font-size:10px;color:var(--on-surface-faint);white-space:nowrap}
 .wcfoot{font-family:var(--label);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-faint);text-align:right;margin-top:6px;opacity:.75}
+/* the dashed line's read-out — it earns full opacity, the day count doesn't */
+.wcavg{margin-left:9px;color:var(--on-surface);font-variant-numeric:tabular-nums}
 .harow{display:grid;grid-template-columns:64px 1fr 1fr 1fr 20px;gap:8px;align-items:center;border-radius:14px;padding:7px 9px;background:var(--surface);margin-bottom:6px}
 .harow input{font-size:12px;padding:5px 7px;font-family:var(--label)}
 .hdate{font-family:var(--label);font-size:11px;color:var(--on-surface-faint)}
@@ -548,6 +550,23 @@ function fixState(d){
     // rows used to assume grams; keep the number, name the unit
     if(r.qty===undefined){r.qty=r.grams===undefined?0:r.grams;r.unit=r.unit||'g';delete r.grams;}
   });
+  // Days logged before carbs and fat were kept on the entry still have their
+  // food rows, and those rows carry both. Recompute rather than leave the new
+  // charts blank for every day already recorded — and only where the food log
+  // can actually answer, so a hand-typed day stays untouched.
+  (function(){
+    var byDate={};
+    (d.health.log||[]).forEach(function(r){
+      var t=byDate[r.date]||(byDate[r.date]={carbs:0,fat:0});
+      t.carbs+=num(r.carbs);t.fat+=num(r.fat);
+    });
+    (d.health.entries||[]).forEach(function(e){
+      ['carbs','fat'].forEach(function(k){
+        if(e[k]!==undefined&&e[k]!=='')return;
+        e[k]=byDate[e.date]?Math.round(byDate[e.date][k]*10)/10:'';
+      });
+    });
+  })();
   if(d.health.targetWeight===undefined)d.health.targetWeight=200;
   // daily targets — everything in the app now measures against these
   if(!d.health.goals)d.health.goals={};
@@ -807,7 +826,7 @@ function healthEntry(dateStr){return (state.health.entries||[]).filter(function(
 function upsertHealth(dateStr,field,val){
   state.health.entries=state.health.entries||[];
   var e=healthEntry(dateStr);
-  if(!e){e={id:uid(),date:dateStr,weight:'',calories:'',protein:'',note:''};state.health.entries.push(e);}
+  if(!e){e={id:uid(),date:dateStr,weight:'',calories:'',protein:'',carbs:'',fat:'',note:''};state.health.entries.push(e);}
   e[field]=val;
 }
 function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel,title){
@@ -818,6 +837,8 @@ function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel,title){
   var last=pts.slice(-90);
   var W=640,H=160,pad=30;
   var vs=last.map(function(e){return parseFloat(e[field]);});
+  var sum=0;vs.forEach(function(v){sum+=v;});
+  var mean=sum/vs.length;
   var min=Math.min.apply(null,vs),max=Math.max.apply(null,vs);
   if(min===max){min-=1;max+=1;}
   function xs(i){return pad+(i/(last.length-1))*(W-pad-10);}
@@ -842,14 +863,21 @@ function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel,title){
   var axis='<div class="wxaxis">'+tick(0,'start')
     +(last.length>=5?tick(Math.floor((last.length-1)/2),'mid'):'')
     +tick(last.length-1,'end')+'</div>';
+  // The mean across the same window, drawn dashed so it never competes with the
+  // series itself. Its value goes in the footer rather than beside the line —
+  // preserveAspectRatio="none" stretches the viewBox, and text inside it smears.
+  var avgLine='<line x1="'+pad+'" x2="'+(W-4)+'" y1="'+ys(mean).toFixed(1)+'" y2="'+ys(mean).toFixed(1)
+    +'" stroke="'+color+'" stroke-width="1.5" stroke-dasharray="5 4" opacity=".5"/>';
+  var meanTxt=mean.toFixed(Math.abs(mean)<1000?1:0).replace(/\.0$/,'');
   return '<div class="wchart">'+head
-    +'<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:160px">'+gridY
+    +'<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:160px">'+gridY+avgLine
     +'<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'+dots+'</svg>'
     +axis
-    +'<div class="wcfoot">'+last.length+' day'+(last.length===1?'':'s')+' logged</div>'
+    +'<div class="wcfoot">'+last.length+' day'+(last.length===1?'':'s')+' logged'
+    +'<span class="wcavg">avg '+meanTxt+unitSuffix+'</span></div>'
     +'</div>';
 }
-function weightChart(entriesDesc){return metricChart(entriesDesc,'weight','var(--accent-2)',' lb','weight','Weight');}
+function weightChart(entriesDesc){return metricChart(entriesDesc,'weight','var(--ink-2)',' lb','weight','Weight');}
 function healthSummaryHtml(){
   var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var latest=entries.filter(function(e){return e.weight!=='';})[0];
@@ -876,8 +904,15 @@ function healthSummaryHtml(){
     +'<div class="stat neu"><div class="sl">Avg calories / day (7d)</div><div class="sv">'+(avgCal===null?'—':avgCal)+'</div></div>'
     +'<div class="stat neu"><div class="sl">Avg protein / day (7d)</div><div class="sv">'+(avgPro===null?'—':avgPro+'g')+'</div></div>'
     +'</div>'+weightChart(entries)
-    +metricChart(entries,'calories','var(--accent)',' cal','calories','Calories / day')
-    +metricChart(entries,'protein','var(--accent-3)','g','protein','Protein / day');
+    // The macro pie already assigns each macro a colour — green protein, gold
+    // carbs, terracotta fat. These charts now agree with it, so a macro looks
+    // the same wherever you meet it. Weight and calories aren't macros; they're
+    // totals, and take the near-black chrome ink to say so — deliberately darker
+    // than the pie's green, so protein still owns the only green line here.
+    +metricChart(entries,'calories','var(--ink-2)',' cal','calories','Calories / day')
+    +metricChart(entries,'protein','var(--accent-2)','g','protein','Protein / day')
+    +metricChart(entries,'carbs','var(--accent)','g','carbs','Carbs / day')
+    +metricChart(entries,'fat','var(--accent-3)','g','fat','Fat / day');
   return stats;
 }
 function healthRow(e){
@@ -1251,6 +1286,8 @@ function syncMacros(dateStr){
   var t=logTotals(rows);
   upsertHealth(dateStr,'calories',Math.round(t.calories));
   upsertHealth(dateStr,'protein',Math.round(t.protein*10)/10);
+  upsertHealth(dateStr,'carbs',Math.round(t.carbs*10)/10);
+  upsertHealth(dateStr,'fat',Math.round(t.fat*10)/10);
 }
 function addFoodLog(id){
   var f=fFood(id);if(!f)return;
@@ -2582,7 +2619,7 @@ function buildHistory(){
   if(historyView==='macros')return buildMacroHistory();
   return '<div class="hrow"><h1>History</h1></div>'
     +'<div class="addmenu">'
-    +menuTile('histmacros',ICON_CHART,'Macros','Weight, calories and protein over time')
+    +menuTile('histmacros',ICON_CHART,'Macros','Weight, calories and every macro over time')
     +'</div>';
 }
 function buildMacroHistory(){
