@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-27T13:44:39Z';
+  var PAGE_VERSION='2026-08-27T13:46:45Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -889,7 +889,8 @@ function healthSummaryHtml(){
   // today is still in progress — syncMacros keeps updating it as you log
   // more, so folding it into the average understates every day until bedtime
   var today=todayStr();
-  var week=entries.filter(function(e){return e.date!==today;}).slice(0,7);
+  var done=entries.filter(function(e){return e.date!==today;});
+  var week=done.slice(0,7);
   function avg(field){var v=week.filter(function(e){return e[field]!=='';});if(!v.length)return null;var s=0;v.forEach(function(e){s+=parseFloat(e[field])||0;});return Math.round(s/v.length);}
   var avgCal=avg('calories'),avgPro=avg('protein');
   var stats='<div class="statrow">'
@@ -899,16 +900,21 @@ function healthSummaryHtml(){
     +'</div><div class="statrow">'
     +'<div class="stat neu"><div class="sl">Avg calories / day (7d)</div><div class="sv">'+(avgCal===null?'—':avgCal)+'</div></div>'
     +'<div class="stat neu"><div class="sl">Avg protein / day (7d)</div><div class="sv">'+(avgPro===null?'—':avgPro+'g')+'</div></div>'
-    +'</div>'+weightChart(entries)
+    // Every chart runs on `done`, not `entries`: today is still being logged,
+    // so plotting it draws a day that always dips at breakfast and climbs until
+    // bedtime — a trailing crash that isn't real, dragging the mean with it.
+    // The stats above still read today for current weight, which is a
+    // measurement rather than a running total.
+    +'</div>'+weightChart(done)
     // The macro pie already assigns each macro a colour — green protein, gold
     // carbs, terracotta fat. These charts now agree with it, so a macro looks
     // the same wherever you meet it. Weight and calories aren't macros; they're
     // totals, and take the near-black chrome ink to say so — deliberately darker
     // than the pie's green, so protein still owns the only green line here.
-    +metricChart(entries,'calories','var(--ink-2)',' cal','calories','Calories / day')
-    +metricChart(entries,'protein','var(--accent-2)','g','protein','Protein / day')
-    +metricChart(entries,'carbs','var(--accent)','g','carbs','Carbs / day')
-    +metricChart(entries,'fat','var(--accent-3)','g','fat','Fat / day');
+    +metricChart(done,'calories','var(--ink-2)',' cal','calories','Calories / day')
+    +metricChart(done,'protein','var(--accent-2)','g','protein','Protein / day')
+    +metricChart(done,'carbs','var(--accent)','g','carbs','Carbs / day')
+    +metricChart(done,'fat','var(--accent-3)','g','fat','Fat / day');
   return stats;
 }
 // foods — reverse macro calculator
