@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-27T13:50:48Z';
+  var PAGE_VERSION='2026-08-27T20:32:14Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -386,8 +386,9 @@ textarea{resize:vertical;min-height:52px}
 /* ── food picker: one search box, a scan button, then rows ── */
 .searchrow{display:flex;gap:8px;margin-bottom:12px}
 .searchrow input{flex:1;font-size:14px;padding:11px 14px;border-radius:14px}
-.scanbtn2{flex:none;width:52px;border-radius:14px;background:var(--surface);font-size:19px;display:flex;align-items:center;justify-content:center;padding:0}
+.scanbtn2{flex:none;width:52px;border-radius:14px;background:var(--surface);color:var(--accent-2);display:flex;align-items:center;justify-content:center;padding:0}
 .scanbtn2:hover{background:var(--surface-2)}
+.scanbtn2 svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 /* two up, like the stat tiles on the brand board */
 .ftiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
 .frow{display:flex;flex-direction:column;align-items:flex-start;gap:7px;width:100%;text-align:left;
@@ -457,8 +458,11 @@ textarea{resize:vertical;min-height:52px}
 .calcrow{display:grid;grid-template-columns:30px 1fr 84px 52px 18px;gap:4px 8px;align-items:center;padding:8px 10px;border-radius:14px;background:var(--surface-2);margin-bottom:6px}
 .calcrow.pinned{box-shadow:inset 2px 0 0 var(--accent)}
 .calcrow.stocked{box-shadow:inset 2px 0 0 var(--accent-2)}
-.lockbtn{width:26px;height:26px;border-radius:999px;font-size:12px;line-height:1;background:var(--surface-3);flex:none;padding:0}
-.lockbtn.on{background:var(--accent-wash)}
+.lockbtn{width:26px;height:26px;border-radius:999px;line-height:0;background:var(--surface-3);flex:none;padding:0;
+  color:var(--on-surface-faint);display:flex;align-items:center;justify-content:center}
+/* locked is the state that changes the answer, so it's the one that takes colour */
+.lockbtn.on{background:var(--accent-wash);color:var(--accent-2)}
+.lockico{width:13.5px;height:13.5px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 /* the name is the doorway to the food's own page, so it has to read as tappable
    without turning the row into a button — the chevron carries that on its own */
 .calcname{font-size:13px;color:var(--on-surface);min-width:0;overflow-wrap:anywhere;text-align:left;padding:0;display:flex;align-items:baseline;gap:4px}
@@ -1454,6 +1458,18 @@ function foodAddHtml(){
 var ICON_FOOD='<path d="M4 11h16"/><path d="M5.2 11a6.8 6.8 0 0 0 13.6 0"/><path d="M9.5 7.4c0-1.1.8-1.7 1.2-2.6"/><path d="M13.3 7.4c0-1.1.8-1.7 1.2-2.6"/>';
 var ICON_SCALE='<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><path d="M8.2 14.4a3.8 3.8 0 0 1 7.6 0"/><path d="M12 14.4l2.4-2.9"/>';
 var ICON_MEAL='<path d="M6 3v8a2.5 2.5 0 0 0 5 0V3"/><path d="M8.5 11v10"/><path d="M17.5 3c-1.4 0-2.5 2.2-2.5 5s1.1 4 2.5 4"/><path d="M17.5 12v9"/>';
+// Lock and unlock share their body and their left-hand shackle leg, so toggling
+// reads as the right side lifting off rather than two unrelated pictures.
+var ICON_LOCK='<rect x="4.8" y="10.3" width="14.4" height="9.4" rx="2.6"/><path d="M8.5 10.3V7.4a3.5 3.5 0 0 1 7 0v2.9"/>';
+var ICON_UNLOCK='<rect x="4.8" y="10.3" width="14.4" height="9.4" rx="2.6"/><path d="M8.5 10.3V7.4a3.5 3.5 0 0 1 6.6-1.5"/>';
+// A viewfinder with a barcode inside it: the camera says what the button opens,
+// the bars say what it's looking for.
+var ICON_SCAN='<path d="M4 9V6.6A2.6 2.6 0 0 1 6.6 4H9"/><path d="M15 4h2.4A2.6 2.6 0 0 1 20 6.6V9"/>'
+  +'<path d="M20 15v2.4a2.6 2.6 0 0 1-2.6 2.6H15"/><path d="M9 20H6.6A2.6 2.6 0 0 1 4 17.4V15"/>'
+  +'<path d="M9.2 9.3v5.4"/><path d="M12 9.3v5.4"/><path d="M14.8 9.3v5.4"/>';
+function lockGlyph(locked){
+  return '<svg class="lockico" viewBox="0 0 24 24">'+(locked?ICON_LOCK:ICON_UNLOCK)+'</svg>';
+}
 var addView='menu';   // 'menu' | 'meals' | 'weight'
 function menuTile(action,icon,label,sub){
   return '<button type="button" class="addtile" data-a="'+action+'">'
@@ -1599,7 +1615,7 @@ function foodPickerHtml(){
     +'<a class="keylink" href="https://fdc.nal.usda.gov/api-key-signup/" target="_blank" rel="noopener">free USDA key</a> in Settings.</div>';
   return '<div class="searchrow">'
     +'<input data-a="foodq" placeholder="Search foods…" value="'+esc(foodQuery)+'">'
-    +'<button type="button" class="scanbtn2" data-a="scanbarcode" aria-label="Scan a barcode">📷</button></div>'
+    +'<button type="button" class="scanbtn2" data-a="scanbarcode" aria-label="Scan a barcode"><svg viewBox="0 0 24 24">'+ICON_SCAN+'</svg></button></div>'
     +note
     +'<div id="localfoods">'+localFoodsHtml()+'</div>'
     +'<div id="dbresults">'+dbResultsHtml()+'</div>'
@@ -2446,7 +2462,7 @@ function calcRowHtml(r){
   return '<div class="calcrow'+(r.mode==='fix'?' pinned':'')+(stock?' stocked':'')+'">'
     +'<button type="button" class="lockbtn'+(locked?' on':'')+'" data-a="calclock" data-id="'+r.id+'" '
       +'title="'+(locked?'Locked at your amount — tap to let the solver set it':'The solver sets this — tap to lock your own amount')+'">'
-      +(locked?'🔒':'🔓')+'</button>'
+      +lockGlyph(locked)+'</button>'
     +'<button type="button" class="calcname" data-a="calcopen" data-id="'+r.id+'">'+esc(f.name)+'<span class="calcchev">›</span></button>'
     +'<input type="number" step="any" data-a="calcamt" data-id="'+r.id+'" value="'+esc(raw===''?'':trimNum(num(raw)))+'">'
     +'<span class="calcunit" id="calcunit-'+r.id+'">'+esc(unitLabel(num(raw)||1,du))+'</span>'
@@ -2459,7 +2475,7 @@ function calcFoodsCard(){
   return '<div class="fincard"><h3>With these foods</h3>'
     +(rows||'<div class="tempty">Add a food and this works out how much of it you need.</div>')
     +'<div class="mlfoot"><button type="button" class="blockaddbtn" data-a="calcpickopen">'+PLUS_ICON+' Add a food</button></div>'
-    +(calcRows.length?'<div class="gcheck"><b>🔓</b> lets the solver set the amount; <b>🔒</b> holds the number you typed. A locked row can be <b>a meal</b>’s worth or your <b>whole batch</b> — tap the chip to switch. Tap a food’s name to open it.</div>':'')
+    +(calcRows.length?'<div class="gcheck">'+lockGlyph(false)+' lets the solver set the amount; '+lockGlyph(true)+' holds the number you typed. A locked row can be <b>a meal</b>’s worth or your <b>whole batch</b> — tap the chip to switch. Tap a food’s name to open it.</div>':'')
     +'</div>';
 }
 function prepListHtml(){
@@ -2535,7 +2551,7 @@ function refreshCalc(){
     if(lb){
       var locked=r.mode!=='solve';
       lb.className='lockbtn'+(locked?' on':'');
-      lb.textContent=locked?'🔒':'🔓';
+      lb.innerHTML=lockGlyph(locked);
       lb.title=locked?'Locked at your amount — tap to let the solver set it':'The solver sets this — tap to lock your own amount';
       if(lb.parentNode)lb.parentNode.className='calcrow'+(r.mode==='fix'?' pinned':'')+(r.mode==='have'?' stocked':'');
     }
