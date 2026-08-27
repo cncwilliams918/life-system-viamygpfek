@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-27T13:46:45Z';
+  var PAGE_VERSION='2026-08-27T13:50:48Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -905,7 +905,7 @@ function healthSummaryHtml(){
     // bedtime — a trailing crash that isn't real, dragging the mean with it.
     // The stats above still read today for current weight, which is a
     // measurement rather than a running total.
-    +'</div>'+weightChart(done)
+    +'</div>'+macroPieAvgHtml(done)+weightChart(done)
     // The macro pie already assigns each macro a colour — green protein, gold
     // carbs, terracotta fat. These charts now agree with it, so a macro looks
     // the same wherever you meet it. Weight and calories aren't macros; they're
@@ -1315,7 +1315,25 @@ function fsRow(r,isChild){
     +'<span class="fsdel" data-a="logdel" data-id="'+r.id+'">×</span></div>';
 }
 function macroPieHtml(dateStr){
-  var t=logTotals(logFor(dateStr));
+  return macroPie(logTotals(logFor(dateStr)),'Macro split of the day\'s calories',
+    'Share of calories by macro (4/4/9).');
+}
+// The same ring for a stretch of days: totals are the per-day averages, so the
+// slices read as "how you eat" rather than "what you ate on Tuesday".
+function macroPieAvgHtml(entries){
+  // a weight-only day is not a day you ate nothing — it's a day with no macro
+  // record, and counting it would quietly halve every slice
+  var withMacros=entries.filter(function(e){
+    return ['protein','carbs','fat'].some(function(k){return e[k]!==''&&e[k]!=null&&!isNaN(parseFloat(e[k]));});
+  });
+  if(!withMacros.length)return '';
+  var t={},n=withMacros.length;
+  ['protein','carbs','fat','calories'].forEach(function(k){t[k]=avgField(withMacros,k)||0;});
+  return macroPie(t,'Average macro split across '+n+' logged days',
+    'Average share of calories by macro across '+n+' logged day'+(n===1?'':'s')+' (4/4/9).');
+}
+// t is {protein,carbs,fat,calories} — a day's totals or an average of them
+function macroPie(t,aria,capLead){
   var pk=t.protein*4,ck=t.carbs*4,fk=t.fat*9,mk=pk+ck+fk;
   if(mk<=0)return '';
   // deep green / gold / terracotta — three of the board's tones, each readable
@@ -1340,9 +1358,9 @@ function macroPieHtml(dateStr){
   var logged=Math.round(t.calories);
   // label calories can differ from 4/4/9 math (fiber, sugar alcohols, rounding)
   var drift=logged>0?Math.abs(mk-logged)/logged:0;
-  var cap='Share of calories by macro (4/4/9).'+(drift>0.05?' Macros account for '+Math.round(mk)+' of '+logged+' cal logged — the gap is normal for fiber-heavy or processed foods.':'');
+  var cap=capLead+(drift>0.05?' Macros account for '+Math.round(mk)+' of '+logged+' cal logged — the gap is normal for fiber-heavy or processed foods.':'');
   return '<div class="piewrap">'
-    +'<div class="pie"><svg viewBox="0 0 120 120" role="img" aria-label="Macro split of the day\'s calories">'
+    +'<div class="pie"><svg viewBox="0 0 120 120" role="img" aria-label="'+esc(aria)+'">'
     +'<g transform="rotate(-90 60 60)">'+arcs+'</g>'
     +'<text class="pietot" x="60" y="59" text-anchor="middle">'+logged+'</text>'
     +'<text class="pietotl" x="60" y="72" text-anchor="middle">cal</text>'
