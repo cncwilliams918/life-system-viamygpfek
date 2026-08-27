@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-27T13:43:18Z';
+  var PAGE_VERSION='2026-08-27T13:44:39Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -198,12 +198,8 @@ textarea{resize:vertical;min-height:52px}
 .wcfoot{font-family:var(--label);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-faint);text-align:right;margin-top:6px;opacity:.75}
 /* the dashed line's read-out — it earns full opacity, the day count doesn't */
 .wcavg{margin-left:9px;color:var(--on-surface);font-variant-numeric:tabular-nums}
-.harow{display:grid;grid-template-columns:64px 1fr 1fr 1fr 20px;gap:8px;align-items:center;border-radius:14px;padding:7px 9px;background:var(--surface);margin-bottom:6px}
-.harow input{font-size:12px;padding:5px 7px;font-family:var(--label)}
-.hdate{font-family:var(--label);font-size:11px;color:var(--on-surface-faint)}
 .hdel{color:var(--on-surface-faint);font-size:15px;cursor:pointer;text-align:center}
 .hdel:hover{color:var(--negative)}
-@media(max-width:680px){.harow{grid-template-columns:1fr 1fr 20px}.harow .hdate{grid-column:1/3}}
 .pdlist{display:flex;flex-direction:column;gap:5px}
 .pdrow{display:flex;gap:12px;align-items:baseline;font-family:var(--label);font-size:11.5px;color:var(--on-surface-dim);padding:7px 10px;border-radius:12px;background:var(--surface-2);flex-wrap:wrap}
 .pddate{color:var(--on-surface);min-width:100px}
@@ -914,13 +910,6 @@ function healthSummaryHtml(){
     +metricChart(entries,'carbs','var(--accent)','g','carbs','Carbs / day')
     +metricChart(entries,'fat','var(--accent-3)','g','fat','Fat / day');
   return stats;
-}
-function healthRow(e){
-  return '<div class="harow"><span class="hdate">'+fmtShort(e.date)+'</span>'
-    +'<input type="number" step="0.1" data-a="hedit" data-id="'+e.id+'" data-field="weight" value="'+esc(e.weight)+'" placeholder="lb">'
-    +'<input type="number" data-a="hedit" data-id="'+e.id+'" data-field="calories" value="'+esc(e.calories)+'" placeholder="cal">'
-    +'<input type="number" data-a="hedit" data-id="'+e.id+'" data-field="protein" value="'+esc(e.protein)+'" placeholder="g">'
-    +'<span class="hdel" data-a="hdel" data-id="'+e.id+'">×</span></div>';
 }
 // foods — reverse macro calculator
 var TARGETS=[{key:'protein',label:'Protein'},{key:'carbs',label:'Carbs'},{key:'fat',label:'Fat'},{key:'calories',label:'Calories'}];
@@ -2623,15 +2612,15 @@ function buildHistory(){
     +'</div>';
 }
 function buildMacroHistory(){
-  var today=todayStr();
   var all=(state.health.entries||[]).slice();
-  var entries=all.slice().sort(function(a,b){return a.date<b.date?1:-1;});
-  var rows=entries.filter(function(e){return e.date!==today;}).slice(0,30).map(healthRow).join('');
+  // The row-per-day editor used to live here, back when history was the only
+  // place a past day could be corrected. The Log page navigates to any date and
+  // edits it in the food rows themselves, which is the truer surface — so this
+  // page is now purely the read-out.
   var endBtn=all.length?'<button type="button" class="blockaddbtn spaced" data-a="endperiod">End period — log average of '+all.length+' day'+(all.length===1?'':'s')+'</button>':'';
   return backRow('histmenu','Macros over time')
     +'<div id="health-summary">'+healthSummaryHtml()+'</div>'
-    +'<div class="ph"><h3>Past days</h3></div>'
-    +(rows||'<div class="tempty">No earlier entries yet.</div>')+endBtn+periodsHtml();
+    +endBtn+periodsHtml();
 }
 // a period is the daily log condensed to one record when a goal changes —
 // same "commit a running total, then start clean" idea as End Day, one
@@ -2666,7 +2655,6 @@ var DESTRUCTIVE={
   fooddel:{title:'Delete this food?',body:'It leaves your foods list. Anything already logged from it stays on those days.'},
   dmeal:{title:'Delete this meal?',body:'The meal goes, but the foods in it stay in your list.'},
   midel:{title:'Remove this food from the meal?',body:'The food itself stays in your list.'},
-  hdel:{title:'Delete this day?',body:'Its weight, calories and protein are removed from your history.'},
   delperiod:{title:'Delete this period?',body:'The saved averages for that stretch are removed.'}
 };
 function confirmHtml(){
@@ -2702,7 +2690,6 @@ function runDestructive(a,ds){
   }
   else if(a==='dmeal'){state.health.meals=(state.health.meals||[]).filter(function(x){return x.id!==ds.id;});}
   else if(a==='midel'){var m=fMeal(ds.mid);if(m)m.items=(m.items||[]).filter(function(x){return x.id!==ds.iid;});}
-  else if(a==='hdel'){state.health.entries=(state.health.entries||[]).filter(function(x){return x.id!==ds.id;});}
   else if(a==='delperiod'){state.health.periods=(state.health.periods||[]).filter(function(x){return x.id!==ds.id;});}
   save();render();
 }
@@ -3020,7 +3007,6 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
     var wn=document.getElementById('wnote');if(wn)wn.innerHTML=weighNoteHtml();
     return;
   }
-  if(a==='hedit'){var he=(state.health.entries||[]).filter(function(x){return x.id===t.dataset.id;})[0];if(he){var v2=t.value;he[t.dataset.field]=t.type==='number'?(v2===''?'':parseFloat(v2)):v2;save();refreshHealth();}return;}
   if(a==='foodamt'){var fd=fFood(t.dataset.id);if(fd){fd.tamt=t.value;save();refreshFoodCard(fd.id);}return;}
   if(a==='mealmult'){var mm=fMeal(t.dataset.id);if(mm){mm.mult=t.value===''?'':parseFloat(t.value);save();refreshMeal(mm.id);}return;}
   if(a==='mealwant'){var mw=fMeal(t.dataset.id);if(mw){mw.wantAmt=t.value;applyMealWant(mw);save();refreshMeal(mw.id);}return;}
