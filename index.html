@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T16:52:04Z';
+  var PAGE_VERSION='2026-08-28T16:57:24Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -214,6 +214,8 @@ textarea{resize:vertical;min-height:52px}
   background:var(--surface);border:2px solid currentColor;box-sizing:border-box}
 /* the newest reading is the one you came to read — it gets filled in */
 .wcdot.last{width:9px;height:9px;margin:-4.5px 0 0 -4.5px;background:currentColor}
+/* flecks off the brush — no border, no pointer target, purely texture */
+.wcfleck{position:absolute;border-radius:50%;pointer-events:none;margin:-1px 0 0 -1px}
 .wxaxis{position:relative;height:13px;margin-top:7px}
 .wxaxis span{position:absolute;top:0;font-family:var(--label);font-size:10px;color:var(--on-surface-faint);white-space:nowrap}
 /* the read-out strip under the plot — average, and the two ends of the range */
@@ -942,6 +944,14 @@ function smoothPath(pts){
   return d;
 }
 var ICON_TREND='<path d="M3 14.5c2.4 0 2.4-5 4.8-5s2.4 5 4.8 5 2.4-5 4.8-5 2.4 5 4.8 5"/>';
+// A chart's brushwork has to be the same on every render — the page repaints on
+// every keystroke, and anything genuinely random would crawl. Seeded off a
+// string, so each chart gets its own hand but keeps it.
+function seededRandom(seedStr){
+  var s=2166136261;
+  for(var i=0;i<seedStr.length;i++){s^=seedStr.charCodeAt(i);s=Math.imul(s,16777619);}
+  return function(){s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
+}
 function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel,title){
   var head='<div class="wchead"><h3>'+title+'</h3>';
   var pts=entriesDesc.filter(function(e){return e[field]!==''&&e[field]!=null&&!isNaN(parseFloat(e[field]));}).slice().reverse();
@@ -964,11 +974,50 @@ function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel,title){
   }).join('');
   var curve=smoothPath(last.map(function(e,i){return {x:xs(i),y:ys(vs[i])};}));
   var avgY=ys(mean).toFixed(2);
+  // Seeded off the field name, so a chart's brushwork is the same every render.
+  // Real randomness would make the line crawl on every keystroke that repaints.
+  var rand=seededRandom(field);
+  // A painted line is one stroke laid down unevenly, not several lines. Every
+  // pass follows the identical path; what differs is width and where it lifts.
+  // The base is the thinnest the brush ever gets, then two wider passes ride
+  // over it in long irregular runs, each slightly transparent so its edge stays
+  // soft and the overlaps pool a little darker. Widths are in screen units
+  // (non-scaling-stroke) or the horizontal stretch would flatten the brush; dash
+  // runs are in pathLength units for the same reason.
+  function pass(w,op,dash){
+    return '<path d="'+curve+'" fill="none" stroke="'+color+'" stroke-width="'+w+'"'
+      +' stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"'
+      +(dash?' pathLength="1000" stroke-dasharray="'+dash+'" stroke-dashoffset="'+(rand()*400).toFixed(0)+'"':'')
+      +(op<1?' stroke-opacity="'+op+'"':'')+'/>';
+  }
+  // irregular runs of ink — long enough to read as pressure, never as a dashed line
+  function runs(lo,hi,count){
+    var d=[];
+    for(var i=0;i<count;i++)d.push(Math.round(lo+rand()*(hi-lo)));
+    return d.join(' ');
+  }
   var body='<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'+grid
     +'<line x1="0" x2="100" y1="'+avgY+'" y2="'+avgY+'" stroke="'+color+'" stroke-width="1.5"'
     +' stroke-dasharray="5 4" opacity=".45" vector-effect="non-scaling-stroke"/>'
-    +'<path d="'+curve+'" fill="none" stroke="'+color+'" stroke-width="2.2"'
-    +' stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>';
+    +pass(1.5,1)
+    +pass(2.9,.66,runs(26,105,8))
+    +pass(4.0,.34,runs(16,140,6))
+    +'</svg>';
+  // Spatter: flecks thrown off the brush, sitting near the line rather than on
+  // it. HTML again, and offset in px rather than percent — a percentage offset
+  // would stretch with the box and the flecks would drift as the screen widens.
+  var flecks=Math.min(20,Math.round(n*1.3));
+  for(var fi=0;fi<flecks;fi++){
+    var t=rand()*(n-1),i0=Math.floor(t),f=t-i0;
+    var fx=xs(i0)+(xs(Math.min(i0+1,n-1))-xs(i0))*f;
+    var fy=ys(vs[i0])+(ys(vs[Math.min(i0+1,n-1)])-ys(vs[i0]))*f;
+    var sz=(1.2+rand()*2.1).toFixed(1);
+    body+='<i class="wcfleck" style="background:'+color
+      +';width:'+sz+'px;height:'+sz+'px'
+      +';left:'+fx.toFixed(2)+'%;top:'+fy.toFixed(2)+'%'
+      +';opacity:'+(0.3+rand()*0.34).toFixed(2)
+      +';transform:translate('+(rand()*16-8).toFixed(1)+'px,'+(rand()*16-8).toFixed(1)+'px)"></i>';
+  }
   // Dots are HTML, not SVG circles: the viewBox is stretched horizontally, which
   // would squash a circle into an ellipse and vary its width with the screen.
   body+=last.map(function(e,i){
