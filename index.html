@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T18:20:12Z';
+  var PAGE_VERSION='2026-08-28T18:24:02Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -473,8 +473,7 @@ textarea{resize:vertical;min-height:52px}
 .rangepair{display:flex;align-items:center;gap:7px}
 .rangepair span{font-family:var(--label);font-size:11px;color:var(--on-surface-faint);flex:none}
 /* the macro range picker — two dates reading as one control */
-.mrange{padding:12px 14px}
-.mrrow{display:flex;gap:10px}
+.mrrow{display:flex;gap:10px;margin-bottom:4px}
 .mrrow label{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;
   font-family:var(--label);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--on-surface-faint)}
 .fld label .kindbtn{margin-left:7px;vertical-align:-1px}
@@ -581,6 +580,12 @@ textarea{resize:vertical;min-height:52px}
 .backblock:hover{background:var(--accent);color:var(--on-accent)}
 .backnote{font-size:14px;color:var(--on-ground);min-width:0}
 .backnote b{font-weight:600;color:var(--accent-2)}
+/* anything after the note is an action for this page, and it sits at the far
+   right rather than crowding the wording */
+.backrow>:last-child:not(.backnote):not(.backblock){margin-left:auto;flex:none}
+.rangebtn{font-family:var(--label);font-size:11.5px;font-weight:500;white-space:nowrap;
+  background:var(--surface);color:var(--on-surface);border-radius:12px;padding:8px 13px}
+.rangebtn.on{background:var(--accent-wash);color:var(--accent-2);font-weight:600}
 /* ── calc ── */
 .calcpresets{flex-wrap:wrap}
 .calcrow{display:grid;grid-template-columns:30px 1fr 84px 52px 18px;gap:4px 8px;align-items:center;padding:8px 10px;border-radius:14px;background:var(--surface-2);margin-bottom:6px}
@@ -1985,10 +1990,10 @@ function weighNoteHtml(){
 // Back is a block of its own, and the line beside it is only information —
 // they sit on the ground together rather than being welded into one banner, so
 // the wording is free to say something the button doesn't.
-function backRow(action,note){
+function backRow(action,note,extra){
   return '<div class="backrow">'
     +'<button type="button" class="backblock" data-a="'+action+'" aria-label="Back">‹</button>'
-    +'<span class="backnote">'+note+'</span></div>';
+    +'<span class="backnote">'+note+'</span>'+(extra||'')+'</div>';
 }
 // Same picker, but it stays on the Log page: you're adding to the day you were
 // looking at.
@@ -3150,14 +3155,29 @@ function macroEntries(){
   if(!macroFrom&&!macroTo)return (state.health.entries||[]).slice();
   return entriesInRange(macroFrom,macroTo);
 }
-function macroRangeHtml(){
-  var on=!!(macroFrom||macroTo);
-  return '<div class="fincard mrange"><div class="mrrow">'
+var macroRangeOpen=false;
+function macroRangeActive(){return !!(macroFrom||macroTo);}
+// The button carries the range when one is set, so the page says what it's
+// showing without a second line of copy explaining it.
+function macroRangeBtnHtml(){
+  var on=macroRangeActive();
+  return '<button type="button" class="rangebtn'+(on?' on':'')+'" data-a="macrorangeopen">'
+    +(on?esc((macroFrom?fmtShort(macroFrom):'start')+' – '+(macroTo?fmtShort(macroTo):'now'))
+        :'Date range')+'</button>';
+}
+function macroRangeOverlayHtml(){
+  if(!macroRangeOpen)return '';
+  return '<div class="settingsoverlay"><div class="settingscard">'
+    +'<div class="settingshead"><h3>Date range</h3>'
+    +'<button class="settingsclose" data-a="macrorangeclose">×</button></div>'
+    +'<div class="mrrow">'
     +'<label>From<input type="date" data-a="macrofrom" value="'+esc(macroFrom)+'"></label>'
     +'<label>To<input type="date" data-a="macroto" value="'+esc(macroTo)+'"></label>'
     +'</div>'
-    +(on?'<button type="button" class="blockaddbtn spaced" data-a="macrorangeclear">Back to this period</button>':'')
-    +'</div>';
+    +'<div class="confirmrow">'
+    +'<button type="button" class="cbtn" data-a="macrorangeclear">This period</button>'
+    +'<button type="button" class="cbtn" data-a="macrorangeclose">Done</button>'
+    +'</div></div></div>';
 }
 function buildMacroHistory(){
   var all=(state.health.entries||[]).slice();
@@ -3168,10 +3188,9 @@ function buildMacroHistory(){
   // End period always acts on the period, never on whatever range you're
   // looking through, so its count comes from the entries rather than the view.
   var endBtn=all.length?'<button type="button" class="blockaddbtn spaced" data-a="endperiod">End period — log average of '+all.length+' day'+(all.length===1?'':'s')+'</button>':'';
-  return backRow('histmenu','Macros over time')
-    +macroRangeHtml()
+  return backRow('histmenu','Macros over time',macroRangeBtnHtml())
     +'<div id="health-summary">'+healthSummaryHtml(macroEntries())+'</div>'
-    +endBtn+periodsHtml();
+    +endBtn+periodsHtml()+macroRangeOverlayHtml();
 }
 // a period is the daily log condensed to one record when a goal changes —
 // same "commit a running total, then start clean" idea as End Day, one
@@ -3287,7 +3306,7 @@ function playPop(){
 }
 app.addEventListener('click',function(e){
   if(e.target.closest('button'))playPop();
-  if(e.target.classList.contains('settingsoverlay')){settingsOpen=false;foodAddOpen=false;mealAddOpen=false;confirmAsk=null;resetFoodDb();render();return;}
+  if(e.target.classList.contains('settingsoverlay')){settingsOpen=false;foodAddOpen=false;mealAddOpen=false;confirmAsk=null;macroRangeOpen=false;resetFoodDb();render();return;}
   var t=e.target.closest('[data-a]');if(!t)return;var a=t.dataset.a;
   if(a==='confirmno'){confirmAsk=null;render();return;}
   if(a==='confirmyes'){var c=confirmAsk;confirmAsk=null;if(c)runDestructive(c.a,c.ds);return;}
@@ -3349,8 +3368,10 @@ app.addEventListener('click',function(e){
   if(a==='addmenu'){addView='menu';window.scrollTo(0,0);render();return;}
   // opening and leaving both clear the range, so the page always starts on the
   // current period no matter how you left it last time
-  if(a==='histmacros'){historyView='macros';macroFrom=macroTo='';window.scrollTo(0,0);render();return;}
-  if(a==='histmenu'){historyView='menu';macroFrom=macroTo='';window.scrollTo(0,0);render();return;}
+  if(a==='histmacros'){historyView='macros';macroFrom=macroTo='';macroRangeOpen=false;window.scrollTo(0,0);render();return;}
+  if(a==='histmenu'){historyView='menu';macroFrom=macroTo='';macroRangeOpen=false;window.scrollTo(0,0);render();return;}
+  if(a==='macrorangeopen'){macroRangeOpen=true;render();return;}
+  if(a==='macrorangeclose'){macroRangeOpen=false;render();return;}
   if(a==='macrorangeclear'){macroFrom=macroTo='';render();return;}
   if(a==='opendetail'){
     if(t.dataset.kind==='db'){
