@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T17:44:23Z';
+  var PAGE_VERSION='2026-08-28T17:46:09Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -845,9 +845,7 @@ function streakCardHtml(){
     +'<div class="statrow">'
     +'<div class="stat neu"><div class="sl">Current</div><div class="sv">'+s.n+' day'+(s.n===1?'':'s')+'</div></div>'
     +'<div class="stat neu"><div class="sl">Longest</div><div class="sv">'+best+' day'+(best===1?'':'s')+'</div></div>'
-    +'</div>'+streakGridHtml()
-    +'<div class="gcheck">Ten weeks, a column per weekday. A day counts when you '
-    +'log on the day itself — filling one in afterwards fixes the numbers, not the streak.</div></div>';
+    +'</div>'+streakGridHtml()+'</div>';
 }
 // The only part of a streak that can't be recomputed: delete old log rows and
 // the record they set would vanish with them. So the high-water mark is kept,
