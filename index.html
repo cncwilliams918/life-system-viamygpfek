@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T18:26:26Z';
+  var PAGE_VERSION='2026-08-28T18:27:18Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -553,6 +553,10 @@ textarea{resize:vertical;min-height:52px}
 .cbtn.danger:hover{opacity:.9}
 /* which mode is currently on */
 .cbtn.pick{background:var(--accent-wash);color:var(--accent-2);font-weight:600}
+/* three across a phone-width card: the labels set the floor, so they shrink
+   rather than wrap */
+.confirmrow.triple{gap:6px}
+.confirmrow.triple .cbtn{font-size:12px;padding:11px 4px;white-space:nowrap}
 /* ── Add: a chooser of big targets, not a page of its own ── */
 .addmenu{display:grid;gap:12px}
 .addtile{display:grid;grid-template-columns:56px 1fr;grid-template-rows:auto auto;column-gap:15px;
@@ -3179,12 +3183,11 @@ function macroRangeOverlayHtml(){
     +'<label>From<input type="date" data-a="macrofrom" value="'+esc(macroFrom)+'"></label>'
     +'<label>To<input type="date" data-a="macroto" value="'+esc(macroTo)+'"></label>'
     +'</div>'
-    +'<div class="confirmrow">'
+    +'<div class="confirmrow triple">'
     +'<button type="button" class="cbtn'+(!macroRangeActive()?' pick':'')+'" data-a="macrorangeclear">This period</button>'
     +'<button type="button" class="cbtn'+(macroAll?' pick':'')+'" data-a="macrorangeall">All time</button>'
-    +'</div>'
-    +'<div class="confirmrow"><button type="button" class="cbtn" data-a="macrorangeclose">Done</button></div>'
-    +'</div></div>';
+    +'<button type="button" class="cbtn" data-a="macrorangeclose">Done</button>'
+    +'</div></div></div>';
 }
 function buildMacroHistory(){
   var all=(state.health.entries||[]).slice();
