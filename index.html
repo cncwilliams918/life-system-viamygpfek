@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T16:46:42Z';
+  var PAGE_VERSION='2026-08-28T16:52:04Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -222,16 +222,25 @@ textarea{resize:vertical;min-height:52px}
 .wcstaticon{flex:none;width:34px;height:34px;border-radius:50%;background:var(--surface);
   display:flex;align-items:center;justify-content:center;color:currentColor}
 .wcstaticon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.wcstat{flex:1 1 0;min-width:0}
+/* content-aware, not equal thirds: Average carries no date and needs less room
+   than the two that do, and equal columns made them collide on a small phone */
+.wcstat{flex:1 1 auto;min-width:0}
 .wcstat .wsl{font-family:var(--label);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--on-surface-faint);display:block;margin-bottom:2px}
-.wcstat .wsv{font-family:var(--label);font-size:14.5px;color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap}
-.wcstat .wsd{font-size:10.5px;color:var(--accent-2);margin-left:5px}
+.wcstat .wsv{font-family:var(--label);font-size:clamp(11.5px,3.5vw,14.5px);color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* the date rides beside the value, never under it: Average has no date, and a
+   date on its own line would make two of the three blocks a row taller than it */
+.wcstat .wsd{font-size:clamp(9px,2.7vw,10.5px);color:var(--accent-2);margin-left:5px;white-space:nowrap}
 .wcfoot{font-family:var(--label);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-faint);text-align:right;margin-top:8px;opacity:.75}
 @media(max-width:420px){
   .wcstats{gap:9px;padding:10px}
   .wcstaticon{display:none}
-  .wcstat .wsv{font-size:13px}
-  .wcstat .wsd{display:block;margin-left:0}
+  .wcstat .wsd{margin-left:4px}
+}
+@media(max-width:360px){
+  .wcstats{gap:6px;padding:9px}
+  .wcstat .wsl{font-size:8.5px}
+  .wcstat .wsv{font-size:11px}
+  .wcstat .wsd{font-size:8.5px;margin-left:3px}
 }
 .hdel{color:var(--on-surface-faint);font-size:15px;cursor:pointer;text-align:center}
 .hdel:hover{color:var(--negative)}
