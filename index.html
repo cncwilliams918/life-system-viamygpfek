@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T16:39:56Z';
+  var PAGE_VERSION='2026-08-28T16:43:24Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -162,9 +162,11 @@ textarea{resize:vertical;min-height:52px}
 .ph.sechead{cursor:pointer;user-select:none}
 .ph .sectoggle{margin-left:auto;font-family:var(--label);font-size:19px;color:var(--on-surface-dim)}
 .tempty{font-family:var(--label);font-size:12px;color:var(--on-surface-dim);padding:8px 0}
-.blockaddbtn{font-family:var(--label);font-size:12.5px;font-weight:500;background:var(--surface-2);border-radius:12px;padding:11px 0;color:var(--on-surface);width:100%;letter-spacing:.01em}
+.blockaddbtn{font-family:var(--label);font-size:12.5px;font-weight:500;background:var(--surface-2);border-radius:12px;padding:11px 0;color:var(--on-surface);width:100%;letter-spacing:.01em;box-shadow:var(--cardshadow)}
 .blockaddbtn:hover{background:var(--accent-wash)}
-.blockaddbtn.spaced{margin-bottom:14px}
+/* room on both sides — these end a section, so they need clearance above as
+   much as below, or they crowd whatever chart or card they follow */
+.blockaddbtn.spaced{margin:16px 0}
 /* the one call to action on a page gets the gold */
 /* The gradient is lit top to bottom so the button reads as a raised surface.
    Its shadow stays neutral rather than gold — a gold shadow under a gold button
@@ -353,7 +355,7 @@ textarea{resize:vertical;min-height:52px}
 /* macro donut */
 /* No card of its own — the depth belongs to the ring, which casts its own
    shadow onto whatever it's sitting on. */
-.piewrap{display:flex;align-items:center;gap:22px;margin-top:16px;padding-top:15px;flex-wrap:wrap}
+.piewrap{display:flex;align-items:center;gap:22px;margin:16px 0 18px;padding-top:15px;flex-wrap:wrap}
 .pie{flex:none;width:132px}
 .pie svg{width:100%;height:auto;display:block}
 .pietot{font-family:var(--sans);font-size:21px;font-weight:600;fill:var(--on-surface)}
