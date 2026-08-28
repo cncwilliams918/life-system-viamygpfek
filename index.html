@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T17:35:12Z';
+  var PAGE_VERSION='2026-08-28T17:44:23Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -2602,8 +2602,6 @@ function goalCheckHtml(){
     return '<div class="gcheck'+(off?' off':'')+'">Your macros come to <b>'+Math.round(fromMacros)+' cal</b> against a '+Math.round(cal)+' cal goal'
       +(off?' — that\'s '+(diff>0?'+':'')+Math.round(diff)+' out. Adjust one so the day adds up.':' — that adds up.')+'</div>';
   }
-  if(cal>0||fromMacros>0)
-    return '<div class="gcheck">Fill in all four and this checks that they add up (4 cal/g protein and carbs, 9 cal/g fat).</div>';
   return '';
 }
 function goalWeightNoteHtml(){
@@ -2637,7 +2635,6 @@ function buildGoals(){
       +'</div>';
   }).join('');
   return '<div class="hrow"><h1>Goals</h1></div>'
-    +'<div class="sub2">Everything else measures against these — the bars up top, and what Calc treats as "remaining today".</div>'
     +'<div class="fincard"><h3>Daily targets</h3><div class="goalgrid">'+macroFields+'</div>'
     +'<div id="goalcheck">'+goalCheckHtml()+'</div></div>'
     +'<div class="fincard"><h3>Goal weight</h3><div class="goalgrid">'
