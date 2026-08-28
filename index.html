@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T18:27:18Z';
+  var PAGE_VERSION='2026-08-28T18:32:03Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -557,6 +557,18 @@ textarea{resize:vertical;min-height:52px}
    rather than wrap */
 .confirmrow.triple{gap:6px}
 .confirmrow.triple .cbtn{font-size:12px;padding:11px 4px;white-space:nowrap}
+/* the period picker wears the same clothes as the buttons beside it */
+.periodsel{-webkit-appearance:none;appearance:none;text-align:center;text-align-last:center;
+  border:none;height:auto;line-height:1.2;font-family:var(--label);font-weight:500;
+  padding:11px 4px;font-size:12px;border-radius:12px;background:var(--surface-2);color:var(--on-surface)}
+.periodsel.pick{background:var(--accent-wash);color:var(--accent-2);font-weight:600}
+/* a date range needs more room than a one-word button, so it takes it */
+.confirmrow.triple .periodsel{flex:1.7;min-width:0;width:auto;font-size:11.5px}
+@media(max-width:360px){
+  .confirmrow.triple{gap:5px}
+  .confirmrow.triple .cbtn{font-size:11px;padding:11px 2px}
+  .confirmrow.triple .periodsel{font-size:10.5px}
+}
 /* ── Add: a chooser of big targets, not a page of its own ── */
 .addmenu{display:grid;gap:12px}
 .addtile{display:grid;grid-template-columns:56px 1fr;grid-template-rows:auto auto;column-gap:15px;
@@ -3174,6 +3186,28 @@ function macroRangeBtnHtml(){
   return '<button type="button" class="rangebtn'+(macroRangeActive()?' on':'')+'" data-a="macrorangeopen">'
     +esc(lab)+'</button>';
 }
+// Past periods are stored as summaries, but the food log they were rolled up
+// from is still there — so picking one just sets the range to its dates and the
+// charts rebuild the days. With no past periods there's nothing to choose from,
+// and it stays a plain button.
+function macroPeriodSelectHtml(){
+  var ps=(state.health.periods||[]).slice().sort(function(a,b){return a.endDate<b.endDate?1:-1;});
+  if(!ps.length)
+    return '<button type="button" class="cbtn'+(!macroRangeActive()?' pick':'')+'" data-a="macrorangeclear">This period</button>';
+  var sel='';
+  ps.forEach(function(p){if(macroFrom===p.startDate&&macroTo===p.endDate)sel=p.id;});
+  // the select has to be able to say "none of these" honestly, or it claims
+  // you're looking at the current period while you're looking at something else
+  var custom=macroRangeActive()&&!sel&&!macroAll;
+  return '<select class="cbtn periodsel'+(!macroRangeActive()||sel?' pick':'')+'" data-a="macroperiod">'
+    +(macroAll?'<option value="alltime" selected>All time</option>':'')
+    +(custom?'<option value="custom" selected>Custom</option>':'')
+    +'<option value=""'+(!macroRangeActive()?' selected':'')+'>This period</option>'
+    +ps.map(function(p){
+      return '<option value="'+p.id+'"'+(sel===p.id?' selected':'')+'>'
+        +esc(fmtShort(p.startDate)+' – '+fmtShort(p.endDate))+'</option>';
+    }).join('')+'</select>';
+}
 function macroRangeOverlayHtml(){
   if(!macroRangeOpen)return '';
   return '<div class="settingsoverlay"><div class="settingscard">'
@@ -3184,7 +3218,7 @@ function macroRangeOverlayHtml(){
     +'<label>To<input type="date" data-a="macroto" value="'+esc(macroTo)+'"></label>'
     +'</div>'
     +'<div class="confirmrow triple">'
-    +'<button type="button" class="cbtn'+(!macroRangeActive()?' pick':'')+'" data-a="macrorangeclear">This period</button>'
+    +macroPeriodSelectHtml()
     +'<button type="button" class="cbtn'+(macroAll?' pick':'')+'" data-a="macrorangeall">All time</button>'
     +'<button type="button" class="cbtn" data-a="macrorangeclose">Done</button>'
     +'</div></div></div>';
@@ -3641,6 +3675,17 @@ app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.
   // on change, not input: a date field fires input per keystroke and a render
   // mid-entry would take the focus with it
   // typing a date is choosing a custom range, so it drops out of All time
+  if(a==='macroperiod'){
+    var pv=t.value;
+    if(pv==='custom'||pv==='alltime')return;
+    macroAll=false;
+    if(!pv)macroFrom=macroTo='';
+    else{
+      var pp=(state.health.periods||[]).filter(function(x){return x.id===pv;})[0];
+      if(pp){macroFrom=pp.startDate;macroTo=pp.endDate;}
+    }
+    render();return;
+  }
   if(a==='macrofrom'){macroFrom=t.value;macroAll=false;render();return;}
   if(a==='macroto'){macroTo=t.value;macroAll=false;render();return;}
   if(a==='setfield'){state.settings[t.dataset.k]=t.value;save();return;}
