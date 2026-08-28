@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T16:20:23Z';
+  var PAGE_VERSION='2026-08-28T16:24:20Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -376,8 +376,14 @@ textarea{resize:vertical;min-height:52px}
 /* The bar's shadow is a real gradient rather than a blur: it starts dark where
    the bar meets the page and fades out going up. A box-shadow can't be tuned
    that far — it either stops too abruptly or grimes the whole screen. */
-.bottomnav:before{content:'';position:absolute;left:0;right:0;bottom:100%;height:44px;pointer-events:none;
-  background:linear-gradient(to top,rgba(5,31,32,.16),rgba(5,31,32,.06) 38%,rgba(5,31,32,0))}
+/* drop-shadow, not a pseudo-element. The overlay this replaces was absolutely
+   positioned while the buttons are static, so it painted OVER the Add button —
+   tinting exactly the 12px that stick up past the bar and stopping dead at the
+   bar's edge, which is why that button changed shading at the taskbar line. It
+   was also a straight rectangle against a rounded bar, so it filled in the
+   corners where the page should show through the bevel. A filter follows the
+   real silhouette and paints behind the element instead of over its children. */
+.bottomnav{filter:drop-shadow(0 -2px 4px rgba(5,31,32,.13)) drop-shadow(0 -9px 18px rgba(5,31,32,.20))}
 .navbtn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-radius:14px;color:var(--on-ink-faint)}
 .navbtn.on{color:var(--accent)}
 .navicon{display:flex;align-items:center;justify-content:center;width:44px;height:26px;border-radius:999px;transition:background .15s}
