@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T16:24:20Z';
+  var PAGE_VERSION='2026-08-28T16:25:57Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1496,10 +1496,6 @@ function macroPie(t,aria,capLead){
     shade+=arc(R,SW,'url(#pieLit)',dash,off);
     off+=pct;
   });
-  // the recess the cushions sit in — the arcs' own shadow falls onto it, which
-  // is what makes them read as set into a track rather than stuck onto a card
-  var track='<circle cx="60" cy="60" r="'+R+'" fill="none" stroke="var(--surface-2)" stroke-width="'+(SW+3.5)+'"/>'
-    +'<circle cx="60" cy="60" r="'+(R+(SW+3.5)/2-0.6)+'" fill="none" stroke="rgba(5,31,32,.07)" stroke-width="1.2"/>';
   var legend=segs.map(function(s){
     var pct=s.kcal/mk*100;
     return '<div class="plrow"><span class="plsw" style="background:var('+s.v+')"></span>'
@@ -1528,7 +1524,6 @@ function macroPie(t,aria,capLead){
     +'</filter></defs>'
     // the filter sits on an unrotated wrapper: dx/dy are read in the group's own
     // space, so inside the -90 rotation the shadow would fall to the upper right
-    +track
     +'<g filter="url(#pieDrop)"><g transform="rotate(-90 60 60)">'
     +arcs+bevelOut+bevelIn+shade+'</g></g>'
     +'<text class="pietot" x="60" y="59" text-anchor="middle">'+logged+'</text>'
