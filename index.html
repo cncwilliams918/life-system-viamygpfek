@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T16:43:24Z';
+  var PAGE_VERSION='2026-08-28T16:46:42Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -54,7 +54,6 @@
   --on-ground-wash:rgba(5,31,32,.07);
   --on-ground-negative:#9c4a36;
   --on-ground-negative-wash:rgba(156,74,54,.12);
-
   /* surface: cards. Lifted by shadow, never outlined, so the three tones must
      stay distinguishable: a card is lightest, a control inside it darker, a
      field darker still. */
@@ -73,7 +72,6 @@
   --cardshadow:0 1px 2px rgba(5,31,32,.05), 0 6px 16px -4px rgba(5,31,32,.10);
   --cardshadow-lg:0 2px 4px rgba(5,31,32,.05), 0 14px 30px -8px rgba(5,31,32,.13);
   --badgeshadow:0 1px 2px rgba(5,31,32,.06), 0 4px 10px -3px rgba(5,31,32,.12);
-
   /* ink: the deep greens, now reserved for chrome — the nav bar and the banners
      that have to read as a different layer from the page. */
   --ink:#163832;
@@ -81,7 +79,6 @@
   --on-ink:#daf1de;
   --on-ink-dim:rgba(218,241,222,.72);
   --on-ink-faint:rgba(218,241,222,.50);
-
   /* accent: gold leads every action. 2 and 3 are the alternates that carry data
      series — deep green and terracotta, both readable on a light card. */
   --accent:#c9a45c;              /* gold */
@@ -90,13 +87,11 @@
   --accent-wash:rgba(201,164,92,.20);
   --accent-lift:#d9ba7c;         /* the lit top edge of a gold gradient */
   --on-accent:#051f20;           /* gold is light — dark ink on it, not white */
-
   /* status — the board's palette can't signal good/bad on its own, and these now
      sit on LIGHT cards, so they run dark rather than pastel. */
   --positive:#2f7d5b;
   --negative:#9c4a36;
   --negative-wash:rgba(156,74,54,.12);
-
   --display:'Playfair Display',Georgia,'Times New Roman',serif;
   --label:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --sans:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -175,7 +170,6 @@ textarea{resize:vertical;min-height:52px}
   color:var(--on-accent);font-weight:600;font-size:13.5px;padding:13px 0;
   box-shadow:0 1px 2px rgba(5,31,32,.08), 0 6px 14px -5px rgba(5,31,32,.30)}
 .blockaddbtn.primary:hover{opacity:.92}
-
 .fincard{border-radius:20px;background:var(--surface);padding:16px;margin-top:14px;box-shadow:var(--cardshadow)}
 .fincard h3{font-family:var(--label);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-faint);font-weight:500;margin-bottom:12px}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -355,19 +349,28 @@ textarea{resize:vertical;min-height:52px}
 /* macro donut */
 /* No card of its own — the depth belongs to the ring, which casts its own
    shadow onto whatever it's sitting on. */
-.piewrap{display:flex;align-items:center;gap:22px;margin:16px 0 18px;padding-top:15px;flex-wrap:wrap}
-.pie{flex:none;width:132px}
+/* The ring stays beside its numbers at every width — it is the key to them,
+   and above them it reads as a separate thing. So no wrapping: the ring scales
+   with the viewport instead, and the legend takes whatever is left. */
+.piewrap{display:flex;align-items:center;gap:20px;margin:16px 0 18px;padding-top:15px;flex-wrap:nowrap}
+.pie{flex:0 0 auto;width:clamp(92px,29vw,132px)}
 .pie svg{width:100%;height:auto;display:block}
 .pietot{font-family:var(--sans);font-size:21px;font-weight:600;fill:var(--on-surface)}
 .pietotl{font-family:var(--label);font-size:9px;letter-spacing:.14em;text-transform:uppercase;fill:var(--on-surface-faint)}
-.pielegend{flex:1;min-width:190px;display:flex;flex-direction:column;gap:7px}
+.pielegend{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:7px}
 .plrow{display:grid;grid-template-columns:11px 1fr auto auto;gap:9px;align-items:center;font-family:var(--label);font-size:12px}
 .plsw{width:11px;height:11px;border-radius:50%}
 .pln{font-family:var(--sans);font-size:13px;color:var(--on-surface)}
 .plv{color:var(--on-surface-dim);font-variant-numeric:tabular-nums}
 .plp{color:var(--on-surface-faint);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
 .piecap{font-size:11.5px;color:var(--on-surface-faint);line-height:1.5;margin-top:3px}
-@media(max-width:680px){.piewrap{gap:16px}.pie{width:112px}}
+/* narrow: the row loses its padding before the ring loses its size */
+@media(max-width:430px){
+  .piewrap{gap:13px}
+  .plrow{gap:6px;grid-template-columns:10px 1fr auto auto}
+  .plsw{width:10px;height:10px}
+  .pln{font-size:12px}
+}
 @media(max-width:680px){.fsrow{grid-template-columns:1fr 46px 40px 40px 40px 18px;gap:4px;font-size:11px;padding:7px 8px}.fsname{font-size:12px}}
 /* ── bottom nav — the app is five pages now, and this is its spine.
    Fixed, so #app carries matching bottom padding; both overlays sit at
@@ -594,10 +597,8 @@ var KEY='lifesys';  // permanent — never bumped again
 var LEGACY=['lifesys_v12','lifesys_v11','lifesys_v10','lifesys_v9','lifesys_v8','lifesys_v7','lifesys_v6','lifesys_v5','lifesys_v4','lifesys_v3','lifesys_v2','lifesys_v1','goaltree_v4','goaltree_v3'];
 function uid(){return Math.random().toString(36).slice(2,9);}
 function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-
 function blankState(){return {health:{}};}
 var SEED=blankState();
-
 // Life System used to also cover Goals/Routines/Timeblock/To-dos/Finances;
 // this app is Health-only now. Any of those fields left over from an older
 // save are deliberately never read or touched here — they just sit inert
@@ -716,7 +717,6 @@ function dateOnly(x){var d=new Date(x+'T00:00:00');return isNaN(d)?null:d;}
 function todayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function fmtShort(dateStr){var d=new Date(dateStr+'T00:00:00');if(isNaN(d))return dateStr;return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});}
 function fmtFull(dateStr){var d=new Date(dateStr+'T00:00:00');if(isNaN(d))return dateStr;return d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});}
-
 function shiftDate(dateStr,days){
   var d=new Date(dateStr+'T00:00:00');
   d.setDate(d.getDate()+days);
@@ -836,7 +836,6 @@ function bottomNav(){
       +'<span class="navlab">'+p.label+'</span></button>';
   }).join('')+'</div>';
 }
-
 // Group each page's sections into bands, starting a new one at every .ph header.
 // These used to alternate mint/sage, with the colour change acting as the
 // divider; the ground is a single mint now, so all they contribute is the
@@ -854,7 +853,6 @@ function applyBands(){
     cur.appendChild(el);
   });
 }
-
 var PLUS_ICON='<span class="plusicon"></span>';
 var SETTINGS_ICON='<svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
 function topbar(){
@@ -892,7 +890,6 @@ function settingsHtml(){
     +data
     +'</div></div>';
 }
-
 // health
 function healthEntry(dateStr){return (state.health.entries||[]).filter(function(e){return e.date===dateStr;})[0];}
 function upsertHealth(dateStr,field,val){
@@ -1374,7 +1371,6 @@ function addMeal(){
   state.health.meals.push(nm);
   mealAddOpen=false;              // the dialog stayed open after creating before
   if(!dayAddOpen)page='add';      // stay put if we're inside the day-add overlay
-
   openItem={type:'meal',id:nm.id};
   save();render();
 }
@@ -2387,7 +2383,6 @@ var KIND_NEXT={eq:'min',min:'max',max:'eq'};
 // yours, the scope chip says whether the number is one meal or the whole batch,
 // which is the difference between 'fix' and 'have'.
 var CALC_MAX_MEALS=40;
-
 var calcTargets={calories:'',protein:'',carbs:'',fat:''};
 var calcKinds={calories:'eq',protein:'eq',carbs:'eq',fat:'eq'};
 var calcRows=[];     // {id, foodId, amount, have, mode}  mode: solve | fix | have
@@ -2395,7 +2390,6 @@ var calcMode='';     // which preset filled the targets, purely for button highl
 var calcMeals=1;     // how many meals this batch makes
 var calcAuto=true;   // calcMeals tracks the suggestion until you overrule it
 var calcInfo={suggest:null,cap:null};
-
 function calcRemaining(){
   var g=state.health.goals||{},t=logTotals(logFor(todayStr())),out={};
   MACROS.forEach(function(k){
@@ -2933,7 +2927,6 @@ function runDestructive(a,ds){
   save();render();
 }
 function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
-
 // events
 // iOS Safari only simulates :active state on a sustained touch, not a quick
 // tap, unless some element on the page has a touchstart listener. This one
@@ -3227,7 +3220,6 @@ app.addEventListener('click',function(e){
   else if(a==='emln'){state.editing='ml:'+t.dataset.id;render();}
   else if(a==='logmeal'){logMeal(t.dataset.id);}
 });
-
 app.addEventListener('keydown',function(e){var t=e.target,a=t.dataset&&t.dataset.a;
   if(e.key==='Enter'){
     if(a==='fnew'){e.preventDefault();addFood();}
@@ -3320,7 +3312,6 @@ app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.
 app.addEventListener('blur',function(e){var t=e.target,a=t.dataset&&t.dataset.a;if(!a)return;
   if(a==='cmln'){var ml=fMeal(t.dataset.id);var mv=t.value.trim();if(ml&&mv)ml.name=mv;state.editing=null;save();render();}
 },true);
-
 (async function(){state=await loadState();UNDO.push(JSON.stringify(state));render();})();
 })();
 </script>
