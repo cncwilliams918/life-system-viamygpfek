@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T18:24:02Z';
+  var PAGE_VERSION='2026-08-28T18:26:26Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -547,10 +547,12 @@ textarea{resize:vertical;min-height:52px}
 .unitsel{width:auto;flex:1;min-width:0;font-family:var(--label);font-size:12px;padding:6px 8px}
 .blockaddbtn.danger{color:var(--on-ground-negative);background:var(--on-ground-negative-wash)}
 /* ── confirm before anything is destroyed ── */
-.confirmrow{display:flex;gap:8px;margin-top:18px}
+.confirmrow{display:flex;gap:8px;margin-top:14px}
 .cbtn{flex:1;font-family:var(--label);font-size:13px;border-radius:12px;padding:11px 0;background:var(--surface-2);color:var(--on-surface)}
 .cbtn.danger{background:var(--negative);color:var(--on-accent);font-weight:600}
 .cbtn.danger:hover{opacity:.9}
+/* which mode is currently on */
+.cbtn.pick{background:var(--accent-wash);color:var(--accent-2);font-weight:600}
 /* ── Add: a chooser of big targets, not a page of its own ── */
 .addmenu{display:grid;gap:12px}
 .addtile{display:grid;grid-template-columns:56px 1fr;grid-template-rows:auto auto;column-gap:15px;
@@ -3152,18 +3154,21 @@ function entriesInRange(from,to){
   }).sort().reverse().map(function(d){return byDate[d];});
 }
 function macroEntries(){
+  if(macroAll)return entriesInRange('','');
   if(!macroFrom&&!macroTo)return (state.health.entries||[]).slice();
   return entriesInRange(macroFrom,macroTo);
 }
-var macroRangeOpen=false;
-function macroRangeActive(){return !!(macroFrom||macroTo);}
-// The button carries the range when one is set, so the page says what it's
-// showing without a second line of copy explaining it.
+var macroRangeOpen=false,macroAll=false;
+function macroRangeActive(){return !!(macroFrom||macroTo||macroAll);}
+// The button is the read-out, not a label: in every mode it says what you're
+// looking at, which is why the default reads "This period" rather than naming
+// the control that opens it.
 function macroRangeBtnHtml(){
-  var on=macroRangeActive();
-  return '<button type="button" class="rangebtn'+(on?' on':'')+'" data-a="macrorangeopen">'
-    +(on?esc((macroFrom?fmtShort(macroFrom):'start')+' – '+(macroTo?fmtShort(macroTo):'now'))
-        :'Date range')+'</button>';
+  var lab=macroAll?'All time'
+    :(macroFrom||macroTo)?((macroFrom?fmtShort(macroFrom):'start')+' – '+(macroTo?fmtShort(macroTo):'now'))
+    :'This period';
+  return '<button type="button" class="rangebtn'+(macroRangeActive()?' on':'')+'" data-a="macrorangeopen">'
+    +esc(lab)+'</button>';
 }
 function macroRangeOverlayHtml(){
   if(!macroRangeOpen)return '';
@@ -3175,9 +3180,11 @@ function macroRangeOverlayHtml(){
     +'<label>To<input type="date" data-a="macroto" value="'+esc(macroTo)+'"></label>'
     +'</div>'
     +'<div class="confirmrow">'
-    +'<button type="button" class="cbtn" data-a="macrorangeclear">This period</button>'
-    +'<button type="button" class="cbtn" data-a="macrorangeclose">Done</button>'
-    +'</div></div></div>';
+    +'<button type="button" class="cbtn'+(!macroRangeActive()?' pick':'')+'" data-a="macrorangeclear">This period</button>'
+    +'<button type="button" class="cbtn'+(macroAll?' pick':'')+'" data-a="macrorangeall">All time</button>'
+    +'</div>'
+    +'<div class="confirmrow"><button type="button" class="cbtn" data-a="macrorangeclose">Done</button></div>'
+    +'</div></div>';
 }
 function buildMacroHistory(){
   var all=(state.health.entries||[]).slice();
@@ -3368,11 +3375,12 @@ app.addEventListener('click',function(e){
   if(a==='addmenu'){addView='menu';window.scrollTo(0,0);render();return;}
   // opening and leaving both clear the range, so the page always starts on the
   // current period no matter how you left it last time
-  if(a==='histmacros'){historyView='macros';macroFrom=macroTo='';macroRangeOpen=false;window.scrollTo(0,0);render();return;}
-  if(a==='histmenu'){historyView='menu';macroFrom=macroTo='';macroRangeOpen=false;window.scrollTo(0,0);render();return;}
+  if(a==='histmacros'){historyView='macros';macroFrom=macroTo='';macroAll=false;macroRangeOpen=false;window.scrollTo(0,0);render();return;}
+  if(a==='histmenu'){historyView='menu';macroFrom=macroTo='';macroAll=false;macroRangeOpen=false;window.scrollTo(0,0);render();return;}
   if(a==='macrorangeopen'){macroRangeOpen=true;render();return;}
   if(a==='macrorangeclose'){macroRangeOpen=false;render();return;}
-  if(a==='macrorangeclear'){macroFrom=macroTo='';render();return;}
+  if(a==='macrorangeclear'){macroFrom=macroTo='';macroAll=false;render();return;}
+  if(a==='macrorangeall'){macroFrom=macroTo='';macroAll=true;render();return;}
   if(a==='opendetail'){
     if(t.dataset.kind==='db'){
       var hit=foodDbResults&&foodDbResults[parseInt(t.dataset.idx,10)];
@@ -3629,8 +3637,9 @@ app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.
   if(t.id==='importfile'){handleImportFile(t.files&&t.files[0]);return;}
   // on change, not input: a date field fires input per keystroke and a render
   // mid-entry would take the focus with it
-  if(a==='macrofrom'){macroFrom=t.value;render();return;}
-  if(a==='macroto'){macroTo=t.value;render();return;}
+  // typing a date is choosing a custom range, so it drops out of All time
+  if(a==='macrofrom'){macroFrom=t.value;macroAll=false;render();return;}
+  if(a==='macroto'){macroTo=t.value;macroAll=false;render();return;}
   if(a==='setfield'){state.settings[t.dataset.k]=t.value;save();return;}
   if(a==='fnew'&&t.dataset.f==='unit'){
     // switching to a countable unit (scoop/slice/bar/packet/serving) mid-entry — the macros
