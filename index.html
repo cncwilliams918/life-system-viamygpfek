@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T16:16:04Z';
+  var PAGE_VERSION='2026-08-28T16:20:23Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -392,8 +392,14 @@ textarea{resize:vertical;min-height:52px}
      A sheen concentrated at the top instead faded out around 55% of the height
      — which is almost exactly where the bar's edge crosses the button, so the
      falloff read as the button changing style at the taskbar line. Spanning the
-     full circle leaves no boundary for the edge to coincide with. */
-  background:linear-gradient(145deg, rgba(255,255,255,.48), rgba(255,255,255,0) 62%),
+     full circle leaves no boundary for the edge to coincide with.
+     The stops ease out to zero at the far corner rather than reaching it early:
+     where a gradient flattens abruptly the eye reads a Mach band, and that drew
+     a visible seam straight across the button. */
+  background:linear-gradient(145deg,
+      rgba(255,255,255,.50) 0%, rgba(255,255,255,.34) 22%,
+      rgba(255,255,255,.17) 46%, rgba(255,255,255,.06) 70%,
+      rgba(255,255,255,0) 100%),
     linear-gradient(180deg,var(--accent-lift),var(--accent));
   color:var(--on-accent);display:flex;align-items:center;justify-content:center;
   box-shadow:0 2px 4px rgba(5,31,32,.22), 0 8px 18px -4px rgba(5,31,32,.38)}
@@ -1458,20 +1464,36 @@ function macroPie(t,aria,capLead){
   // deep green / gold / terracotta — three of the board's tones, each readable
   // against a light card and distinguishable from the other two
   var segs=[{lab:'Protein',v:'--accent-2',g:t.protein,kcal:pk},{lab:'Carbs',v:'--accent',g:t.carbs,kcal:ck},{lab:'Fat',v:'--accent-3',g:t.fat,kcal:fk}];
-  var R=45,SW=17,GAP=0.75,off=0,arcs='',shade='';
+  // Each segment is a cushion sitting in a groove, so it takes four passes: the
+  // flat colour, a dark bevel hugging its outer edge, a light one on the inner
+  // edge, and finally the directional wash over the lot. Inner-light plus
+  // outer-dark is what domes the cross-section; the wash then says which side
+  // of the ring the light is actually on.
+  var R=45,SW=21,off=0,arcs='',bevelIn='',bevelOut='',shade='';
+  // round caps stick out half a stroke width past the dash, so the gap between
+  // segments has to pay for two of them before any visible gap is left over
+  var CAP=SW/2/(2*Math.PI*R)*100,GAP=2*CAP+1.3;
+  var BR=SW*0.36,BW=SW*0.18;
+  function arc(r,w,stroke,dash,offset,extra){
+    return '<circle cx="60" cy="60" r="'+r.toFixed(2)+'" fill="none" stroke="'+stroke
+      +'" stroke-width="'+w.toFixed(2)+'" stroke-linecap="round" pathLength="100"'
+      +' stroke-dasharray="'+dash.toFixed(2)+' '+(100-dash).toFixed(2)+'"'
+      +' stroke-dashoffset="'+(-offset).toFixed(2)+'">'+(extra||'')+'</circle>';
+  }
   segs.forEach(function(s){
     var pct=s.kcal/mk*100;if(pct<=0)return;
-    var dash=Math.max(pct-GAP,0.4);
-    // the same arc again in a light-to-dark wash, painted over the flat colour.
-    // One gradient across the whole ring means one light source, so every
-    // segment is lit from the same side instead of each shading itself.
-    shade+='<circle cx="60" cy="60" r="'+R+'" fill="none" stroke="url(#pieLit)" stroke-width="'+SW+'" pathLength="100"'
-      +' stroke-dasharray="'+dash.toFixed(2)+' '+(100-dash).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'"/>';
-    arcs+='<circle cx="60" cy="60" r="'+R+'" fill="none" stroke="var('+s.v+')" stroke-width="'+SW+'" pathLength="100"'
-      +' stroke-dasharray="'+dash.toFixed(2)+' '+(100-dash).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'">'
-      +'<title>'+s.lab+': '+Math.round(s.kcal)+' cal · '+Math.round(pct)+'%</title></circle>';
+    var dash=Math.max(pct-GAP,0.5);
+    arcs+=arc(R,SW,'var('+s.v+')',dash,off,
+      '<title>'+s.lab+': '+Math.round(s.kcal)+' cal · '+Math.round(pct)+'%</title>');
+    bevelOut+=arc(R+BR,BW,'rgba(5,31,32,.30)',dash,off);
+    bevelIn+=arc(R-BR,BW,'rgba(255,255,255,.20)',dash,off);
+    shade+=arc(R,SW,'url(#pieLit)',dash,off);
     off+=pct;
   });
+  // the recess the cushions sit in — the arcs' own shadow falls onto it, which
+  // is what makes them read as set into a track rather than stuck onto a card
+  var track='<circle cx="60" cy="60" r="'+R+'" fill="none" stroke="var(--surface-2)" stroke-width="'+(SW+3.5)+'"/>'
+    +'<circle cx="60" cy="60" r="'+(R+(SW+3.5)/2-0.6)+'" fill="none" stroke="rgba(5,31,32,.07)" stroke-width="1.2"/>';
   var legend=segs.map(function(s){
     var pct=s.kcal/mk*100;
     return '<div class="plrow"><span class="plsw" style="background:var('+s.v+')"></span>'
@@ -1490,17 +1512,19 @@ function macroPie(t,aria,capLead){
     // rather than diffuse — a hard edge is what says the ring is standing off
     // the page rather than glowing on it.
     +'<defs><linearGradient id="pieLit" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(90 .5 .5)">'
-    +'<stop offset="0" stop-color="#fff" stop-opacity=".46"/>'
+    +'<stop offset="0" stop-color="#fff" stop-opacity=".12"/>'
     +'<stop offset=".40" stop-color="#fff" stop-opacity="0"/>'
     +'<stop offset=".54" stop-color="#000" stop-opacity="0"/>'
-    +'<stop offset="1" stop-color="#000" stop-opacity=".34"/>'
+    +'<stop offset="1" stop-color="#000" stop-opacity=".28"/>'
     +'</linearGradient>'
     +'<filter id="pieDrop" x="-20%" y="-20%" width="145%" height="145%">'
     +'<feDropShadow dx="2.6" dy="3.2" stdDeviation="1.5" flood-color="#051f20" flood-opacity=".38"/>'
     +'</filter></defs>'
     // the filter sits on an unrotated wrapper: dx/dy are read in the group's own
     // space, so inside the -90 rotation the shadow would fall to the upper right
-    +'<g filter="url(#pieDrop)"><g transform="rotate(-90 60 60)">'+arcs+shade+'</g></g>'
+    +track
+    +'<g filter="url(#pieDrop)"><g transform="rotate(-90 60 60)">'
+    +arcs+bevelOut+bevelIn+shade+'</g></g>'
     +'<text class="pietot" x="60" y="59" text-anchor="middle">'+logged+'</text>'
     +'<text class="pietotl" x="60" y="72" text-anchor="middle">cal</text>'
     +'</svg></div>'
