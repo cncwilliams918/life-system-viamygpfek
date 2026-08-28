@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T17:30:11Z';
+  var PAGE_VERSION='2026-08-28T17:35:12Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -401,7 +401,17 @@ textarea{resize:vertical;min-height:52px}
    was also a straight rectangle against a rounded bar, so it filled in the
    corners where the page should show through the bevel. A filter follows the
    real silhouette and paints behind the element instead of over its children. */
-.bottomnav{filter:drop-shadow(0 -2px 4px rgba(5,31,32,.13)) drop-shadow(0 -9px 18px rgba(5,31,32,.20))}
+.bottomnav{filter:drop-shadow(0 -2px 4px rgba(5,31,32,.13)) drop-shadow(0 -8px 15px rgba(5,31,32,.16))}
+/* The long tail of that shadow. A blur can't carry this far without an enormous
+   radius, so the reach is a gradient over the whole viewport: almost all of the
+   darkening spent in the first tenth, then a trace that never quite finishes
+   before the top. Its own fixed layer, under the bar's z-index, so it can't
+   paint over the bar or its buttons. */
+.navshade{position:fixed;inset:0;z-index:890;pointer-events:none;
+  background:linear-gradient(to top,
+    rgba(5,31,32,.075) 0%, rgba(5,31,32,.040) 5%, rgba(5,31,32,.021) 12%,
+    rgba(5,31,32,.011) 24%, rgba(5,31,32,.005) 45%, rgba(5,31,32,.002) 70%,
+    rgba(5,31,32,0) 100%)}
 .navbtn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-radius:14px;color:var(--on-ink-faint)}
 .navbtn.on{color:var(--accent)}
 .navicon{display:flex;align-items:center;justify-content:center;width:44px;height:26px;border-radius:999px;transition:background .15s}
@@ -1002,7 +1012,10 @@ function goalBars(){
   }).join('')+'</div>';
 }
 function bottomNav(){
-  return '<div class="bottomnav">'+PAGES.map(function(p){
+  // A separate fixed layer, not a pseudo-element on the bar. A positioned
+  // pseudo-element paints after its static children, which is how a previous
+  // version of this ended up painting over the Add button.
+  return '<div class="navshade"></div><div class="bottomnav">'+PAGES.map(function(p){
     if(p.key==='add')
       return '<button type="button" class="navfab'+(page===p.key?' on':'')+'" data-a="nav" data-page="add" aria-label="Add">'
         +'<svg viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></svg></button>';
