@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T17:04:56Z';
+  var PAGE_VERSION='2026-08-28T17:15:21Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -461,6 +461,22 @@ textarea{resize:vertical;min-height:52px}
 .keylink{color:var(--accent-2);text-decoration:underline}
 /* ── day navigator: "‹  DATE  ›" ── */
 .datenav{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px;padding:14px 2px 10px}
+/* the streak sits under the date, quiet by default — it is encouragement, not
+   a score, and it should never outrank the day it belongs to */
+.streak{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;
+  margin:-2px 0 10px;font-family:var(--label);font-size:11.5px;color:var(--on-ground-outline)}
+.streak svg{width:15px;height:15px;fill:currentColor;flex:none;opacity:.55}
+.streak b{font-weight:600;color:var(--on-ground)}
+/* logged today: the flame gets its colour back */
+.streak.done{color:var(--accent-2)}
+.streak.done svg{color:var(--accent);opacity:1}
+.streaknote{opacity:.75}
+/* ten weeks, a column per weekday */
+.sgrid{display:grid;grid-template-columns:repeat(10,1fr);grid-auto-flow:column;
+  grid-template-rows:repeat(7,1fr);gap:4px;margin-top:14px}
+.sgd{aspect-ratio:1;border-radius:4px;background:var(--surface-3)}
+.sgd.on{background:var(--accent)}
+.sgd.fut{background:var(--surface-2);opacity:.5}
 .datearrow{width:44px;height:44px;border-radius:14px;font-size:26px;line-height:1;color:var(--on-ground);background:var(--on-ground-wash);display:flex;align-items:center;justify-content:center;padding:0}
 .datearrow:hover{background:var(--accent-wash)}
 .datelabel{text-align:center;min-width:0}
@@ -653,6 +669,7 @@ function fixState(d){
       });
     });
   })();
+  if(d.health.streakBest===undefined)d.health.streakBest=0;
   if(d.health.targetWeight===undefined)d.health.targetWeight=200;
   // daily targets — everything in the app now measures against these
   if(!d.health.goals)d.health.goals={};
@@ -734,6 +751,80 @@ function shiftDate(dateStr,days){
   var d=new Date(dateStr+'T00:00:00');
   d.setDate(d.getDate()+days);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// ── logging streak ──
+// A day counts only if something was logged on that day, not merely dated to it.
+// `at` is when the row was entered; `date` is the day the food belongs to.
+// Backfilling yesterday tomorrow fills the gap in your macros but not in the
+// streak, which is the point of a streak — it measures the habit, not the data.
+function stampDay(ms){
+  var d=new Date(ms);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function loggedOnTimeDays(){
+  var days={};
+  (state.health.log||[]).forEach(function(r){
+    // rows saved before streaks existed carry no timestamp; they're grandfathered
+    // in rather than guessed at, so an old log doesn't read as one long lapse
+    if(r.at===undefined||r.at===null||stampDay(r.at)===r.date)days[r.date]=1;
+  });
+  return days;
+}
+// Counts back from yesterday, then adds today if it's already been logged. A
+// streak that reset itself every morning before breakfast would be lying about
+// a day that hasn't finished happening yet.
+function streakInfo(){
+  var days=loggedOnTimeDays(),today=todayStr();
+  var todayDone=!!days[today],n=todayDone?1:0;
+  var cur=shiftDate(today,-1);
+  while(days[cur]){n++;cur=shiftDate(cur,-1);}
+  return {n:n,todayDone:todayDone};
+}
+// The longest run anywhere in the log, not just the best since streaks existed.
+// Without this a full history of logging would report its record as whatever
+// you happen to be on today.
+function longestRun(){
+  var days=loggedOnTimeDays(),keys=Object.keys(days).sort();
+  var best=0,run=0,prev=null;
+  keys.forEach(function(d){
+    run=(prev&&shiftDate(prev,1)===d)?run+1:1;
+    if(run>best)best=run;
+    prev=d;
+  });
+  return best;
+}
+// Ten weeks of days, most recent last, aligned so each column is a weekday. The
+// number says how long; the grid says what the habit actually looks like —
+// where the gaps fall, whether they cluster on weekends.
+function streakGridHtml(){
+  var days=loggedOnTimeDays(),today=todayStr();
+  // back up to the most recent Sunday so the rows line up as weeks
+  var end=shiftDate(today,6-dateOnly(today).getDay());
+  var cells='';
+  for(var i=69;i>=0;i--){
+    var ds=shiftDate(end,-i);
+    var future=ds>today;
+    cells+='<i class="sgd'+(future?' fut':(days[ds]?' on':''))+'"'
+      +(future?'':' title="'+esc(fmtShort(ds)+(days[ds]?' — logged':' — nothing logged'))+'"')+'></i>';
+  }
+  return '<div class="sgrid">'+cells+'</div>';
+}
+function streakCardHtml(){
+  var s=streakInfo(),best=Math.max(num(state.health.streakBest),longestRun(),s.n);
+  return '<div class="fincard"><h3>Logging streak</h3>'
+    +'<div class="statrow">'
+    +'<div class="stat neu"><div class="sl">Current</div><div class="sv">'+s.n+' day'+(s.n===1?'':'s')+'</div></div>'
+    +'<div class="stat neu"><div class="sl">Longest</div><div class="sv">'+best+' day'+(best===1?'':'s')+'</div></div>'
+    +'</div>'+streakGridHtml()
+    +'<div class="gcheck">Ten weeks, a column per weekday. A day counts when you '
+    +'log on the day itself — filling one in afterwards fixes the numbers, not the streak.</div></div>';
+}
+// The only part of a streak that can't be recomputed: delete old log rows and
+// the record they set would vanish with them. So the high-water mark is kept,
+// and it only ever climbs.
+function bumpStreakBest(){
+  var s=streakInfo();
+  if(s.n>num(state.health.streakBest))state.health.streakBest=s.n;
 }
 function fmtLong(dateStr){
   var d=new Date(dateStr+'T00:00:00');if(isNaN(d))return dateStr;
@@ -1457,7 +1548,7 @@ function logMeal(id){
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);if(!f)return;
     var r=resolveMealItem(f,mi,mult);if(!r)return;
-    state.health.log.push({id:uid(),date:addTarget,gid:gid,meal:m.name,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
+    state.health.log.push({id:uid(),at:Date.now(),date:addTarget,gid:gid,meal:m.name,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
     f.lastUsed=Date.now();
     any=true;
   });
@@ -1489,6 +1580,7 @@ function syncMacros(dateStr){
   upsertHealth(dateStr,'protein',Math.round(t.protein*10)/10);
   upsertHealth(dateStr,'carbs',Math.round(t.carbs*10)/10);
   upsertHealth(dateStr,'fat',Math.round(t.fat*10)/10);
+  bumpStreakBest();
 }
 function addFoodLog(id){
   var f=fFood(id);if(!f)return;
@@ -1502,7 +1594,7 @@ function addFoodLog(id){
   state.health.log=state.health.log||[];
   // record it in the unit you actually measured in — if you weighed out 6 oz,
   // the log should say 6 oz, not 170 g
-  state.health.log.push({id:uid(),date:addTarget,name:f.name,qty:Math.round(outAmount(f,r)*100)/100,unit:displayUnit(f),calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
+  state.health.log.push({id:uid(),at:Date.now(),date:addTarget,name:f.name,qty:Math.round(outAmount(f,r)*100)/100,unit:displayUnit(f),calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
   f.lastUsed=Date.now();  // drives the recents ordering
   syncMacros(addTarget);
   // Logging to today is usually one of several in a row, so it falls back to the
@@ -2371,13 +2463,26 @@ async function onBarcodeScanned(code){
     alert('Barcode lookup failed — check your connection and try again, or add it manually.');
   }
 }
+var ICON_FLAME='<path d="M12 21c3.6 0 6-2.4 6-5.6 0-4-3.2-5.9-3.2-9.4-2 .8-3 2.4-3 4.2 0 1.3.5 2 .5 2.8 0 .9-.6 1.5-1.4 1.5-1 0-1.6-.8-1.6-2.1 0-.7.2-1.4.2-1.4C7.6 12.2 6 13.9 6 16c0 2.9 2.5 5 6 5Z"/>';
+// Only from two days up. "1 day streak" is just "you logged today" wearing a
+// hat, and a counter that congratulates you for nothing devalues the one that
+// eventually means something.
+function streakLineHtml(){
+  var s=streakInfo();
+  if(s.n<2)return '';
+  return '<div class="streak'+(s.todayDone?' done':'')+'">'
+    +'<svg viewBox="0 0 24 24" aria-hidden="true">'+ICON_FLAME+'</svg>'
+    +'<span><b>'+s.n+'</b> day'+(s.n===1?'':'s')+' running</span>'
+    +(s.todayDone?'':'<span class="streaknote">log today to keep it</span>')
+    +'</div>';
+}
 function dateNavHtml(){
   return '<div class="datenav">'
     +'<button type="button" class="datearrow" data-a="dayshift" data-d="-1" aria-label="Previous day">‹</button>'
     +'<div class="datelabel"><span class="datemain">'+esc(fmtLong(viewDate))+'</span>'
     +'<span class="datesub">'+esc(fmtFull(viewDate))+'</span></div>'
     +'<button type="button" class="datearrow" data-a="dayshift" data-d="1" aria-label="Next day">›</button>'
-    +'</div>';
+    +'</div>'+(viewDate===todayStr()?streakLineHtml():'');
 }
 function buildDay(){
   if(dayAddOpen)return dayAddHtml();
@@ -2840,7 +2945,7 @@ function calcLogAll(){
     var f=calcFood(r),amt=rowPerMeal(r,n),m=calcRowMacros(r,n);
     if(!f||!m||!(amt>0))return;
     // log it in the unit you measured it in, same as logging from a food's page
-    state.health.log.push({id:uid(),date:todayStr(),gid:gid,meal:'Calc',name:f.name,
+    state.health.log.push({id:uid(),at:Date.now(),date:todayStr(),gid:gid,meal:'Calc',name:f.name,
       qty:num(toDisplayAmt(f,amt)),unit:displayUnit(f)||'g',
       calories:Math.round(m.calories),protein:Math.round(m.protein*10)/10,
       carbs:Math.round(m.carbs*10)/10,fat:Math.round(m.fat*10)/10});
@@ -2919,7 +3024,7 @@ function buildHistory(){
   return '<div class="hrow"><h1>History</h1></div>'
     +'<div class="addmenu">'
     +menuTile('histmacros',ICON_CHART,'Macros','Weight, calories and every macro over time')
-    +'</div>';
+    +'</div>'+streakCardHtml();
 }
 function buildMacroHistory(){
   var all=(state.health.entries||[]).slice();
