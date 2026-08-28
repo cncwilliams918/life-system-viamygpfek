@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-27T20:32:14Z';
+  var PAGE_VERSION='2026-08-28T15:09:04Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -192,12 +192,39 @@ textarea{resize:vertical;min-height:52px}
 .wcnow{font-family:var(--label);font-size:14px;color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap}
 .wcdelta{font-size:11px;color:var(--on-surface-faint);margin-left:7px}
 .wcempty{font-family:var(--label);font-size:12px;color:var(--on-surface-faint);padding:14px 0 4px;text-align:center}
-/* x labels live outside the stretched SVG; percentages mirror the plot's own x scale */
-.wxaxis{position:relative;height:13px;margin-top:6px}
+/* The plot is a fixed-height band that stretches to any width. Its SVG carries
+   only the gridlines and the curve; every dot and every label is HTML on top,
+   because the viewBox is stretched horizontally — text smears in there and a
+   circle comes out an ellipse. Percentages mirror the plot's own scales. */
+.wcplot{display:flex;gap:8px;align-items:stretch}
+.wcyax{flex:none;display:flex;flex-direction:column;justify-content:space-between;
+  font-family:var(--label);font-size:9.5px;color:var(--on-surface-faint);
+  font-variant-numeric:tabular-nums;text-align:right;padding:1px 0}
+.wcbody{position:relative;flex:1 1 auto;min-width:0;height:168px}
+.wcbody svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.wcdot{position:absolute;width:7px;height:7px;border-radius:50%;margin:-3.5px 0 0 -3.5px;
+  background:var(--surface);border:2px solid currentColor;box-sizing:border-box}
+/* the newest reading is the one you came to read — it gets filled in */
+.wcdot.last{width:9px;height:9px;margin:-4.5px 0 0 -4.5px;background:currentColor}
+.wxaxis{position:relative;height:13px;margin-top:7px}
 .wxaxis span{position:absolute;top:0;font-family:var(--label);font-size:10px;color:var(--on-surface-faint);white-space:nowrap}
-.wcfoot{font-family:var(--label);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-faint);text-align:right;margin-top:6px;opacity:.75}
-/* the dashed line's read-out — it earns full opacity, the day count doesn't */
-.wcavg{margin-left:9px;color:var(--on-surface);font-variant-numeric:tabular-nums}
+/* the read-out strip under the plot — average, and the two ends of the range */
+.wcstats{display:flex;align-items:center;gap:14px;margin-top:12px;padding:11px 14px;
+  border-radius:14px;background:var(--surface-2)}
+.wcstaticon{flex:none;width:34px;height:34px;border-radius:50%;background:var(--surface);
+  display:flex;align-items:center;justify-content:center;color:currentColor}
+.wcstaticon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.wcstat{flex:1 1 0;min-width:0}
+.wcstat .wsl{font-family:var(--label);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--on-surface-faint);display:block;margin-bottom:2px}
+.wcstat .wsv{font-family:var(--label);font-size:14.5px;color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap}
+.wcstat .wsd{font-size:10.5px;color:var(--accent-2);margin-left:5px}
+.wcfoot{font-family:var(--label);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-faint);text-align:right;margin-top:8px;opacity:.75}
+@media(max-width:420px){
+  .wcstats{gap:9px;padding:10px}
+  .wcstaticon{display:none}
+  .wcstat .wsv{font-size:13px}
+  .wcstat .wsd{display:block;margin-left:0}
+}
 .hdel{color:var(--on-surface-faint);font-size:15px;cursor:pointer;text-align:center}
 .hdel:hover{color:var(--negative)}
 .pdlist{display:flex;flex-direction:column;gap:5px}
@@ -829,52 +856,109 @@ function upsertHealth(dateStr,field,val){
   if(!e){e={id:uid(),date:dateStr,weight:'',calories:'',protein:'',carbs:'',fat:'',note:''};state.health.entries.push(e);}
   e[field]=val;
 }
+// Axis ticks a person would have chosen: round steps at 1/2/2.5/5/10 × a power
+// of ten, with the domain widened out to whole ticks so the curve sits inside
+// the grid instead of touching the top and bottom of the box.
+function niceTicks(min,max,count){
+  var span=max-min;
+  if(!(span>0))span=Math.abs(max)||1;
+  var raw=span/Math.max(1,count);
+  var mag=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10));
+  var norm=raw/mag,step;
+  if(norm<=1)step=1;else if(norm<=2)step=2;else if(norm<=2.5)step=2.5;else if(norm<=5)step=5;else step=10;
+  step*=mag;
+  var lo=Math.floor(min/step)*step,hi=Math.ceil(max/step)*step;
+  var out=[];
+  for(var v=lo;v<=hi+step*1e-9;v+=step)out.push(Math.round(v*1e6)/1e6);
+  return out;
+}
+// Catmull-Rom through the points, converted to cubic béziers. The control
+// points are clamped to each segment's own range, which is what keeps a spline
+// honest: an unclamped curve bulges past the values on either side of a dip and
+// draws a number you never recorded.
+function smoothPath(pts){
+  if(pts.length<2)return '';
+  var d='M'+pts[0].x.toFixed(2)+','+pts[0].y.toFixed(2);
+  for(var i=0;i<pts.length-1;i++){
+    var p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;
+    var lo=Math.min(p1.y,p2.y),hi=Math.max(p1.y,p2.y);
+    var c1y=Math.max(lo,Math.min(hi,p1.y+(p2.y-p0.y)/6));
+    var c2y=Math.max(lo,Math.min(hi,p2.y-(p3.y-p1.y)/6));
+    d+='C'+(p1.x+(p2.x-p1.x)/3).toFixed(2)+','+c1y.toFixed(2)
+      +' '+(p2.x-(p2.x-p1.x)/3).toFixed(2)+','+c2y.toFixed(2)
+      +' '+p2.x.toFixed(2)+','+p2.y.toFixed(2);
+  }
+  return d;
+}
+var ICON_TREND='<path d="M3 14.5c2.4 0 2.4-5 4.8-5s2.4 5 4.8 5 2.4-5 4.8-5 2.4 5 4.8 5"/>';
 function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel,title){
   var head='<div class="wchead"><h3>'+title+'</h3>';
   var pts=entriesDesc.filter(function(e){return e[field]!==''&&e[field]!=null&&!isNaN(parseFloat(e[field]));}).slice().reverse();
   if(pts.length<2)
     return '<div class="wchart empty">'+head+'</div><div class="wcempty">Log '+emptyLabel+' on at least two days to see the trend.</div></div>';
-  var last=pts.slice(-90);
-  var W=640,H=160,pad=30;
+  var last=pts.slice(-90),n=last.length;
   var vs=last.map(function(e){return parseFloat(e[field]);});
-  var sum=0;vs.forEach(function(v){sum+=v;});
-  var mean=sum/vs.length;
-  var min=Math.min.apply(null,vs),max=Math.max.apply(null,vs);
-  if(min===max){min-=1;max+=1;}
-  function xs(i){return pad+(i/(last.length-1))*(W-pad-10);}
-  function ys(v){return H-pad+8-((v-min)/(max-min))*(H-pad-16);}
-  var d=last.map(function(e,i){return (i===0?'M':'L')+xs(i).toFixed(1)+','+ys(parseFloat(e[field])).toFixed(1);}).join(' ');
-  var dots=last.map(function(e,i){return '<circle cx="'+xs(i).toFixed(1)+'" cy="'+ys(parseFloat(e[field])).toFixed(1)+'" r="2.5" fill="'+color+'"><title>'+fmtShort(e.date)+': '+e[field]+unitSuffix+'</title></circle>';}).join('');
-  var gridY=[min,(min+max)/2,max].map(function(v){var y=ys(v);return '<line x1="'+pad+'" x2="'+(W-4)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="var(--divider)" stroke-width="1"/><text x="2" y="'+(y+3).toFixed(1)+'" font-size="9" fill="var(--on-surface-faint)" font-family="ui-monospace,monospace">'+Math.round(v)+'</text>';}).join('');
+  var sum=0,hiI=0,loI=0;
+  vs.forEach(function(v,i){sum+=v;if(v>vs[hiI])hiI=i;if(v<vs[loI])loI=i;});
+  var mean=sum/n;
+  var ticks=niceTicks(Math.min.apply(null,vs),Math.max.apply(null,vs),4);
+  var dlo=ticks[0],dhi=ticks[ticks.length-1];
+  if(dhi===dlo){dhi=dlo+1;ticks=[dlo,dhi];}
+  // the plot is drawn in percent, so it stretches to whatever width it's given
+  function xs(i){return n===1?50:i/(n-1)*100;}
+  function ys(v){return 100-(v-dlo)/(dhi-dlo)*100;}
+  var grid=ticks.map(function(v){
+    return '<line x1="0" x2="100" y1="'+ys(v).toFixed(2)+'" y2="'+ys(v).toFixed(2)
+      +'" stroke="var(--divider)" stroke-width="1" vector-effect="non-scaling-stroke"/>';
+  }).join('');
+  var curve=smoothPath(last.map(function(e,i){return {x:xs(i),y:ys(vs[i])};}));
+  var avgY=ys(mean).toFixed(2);
+  var body='<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'+grid
+    +'<line x1="0" x2="100" y1="'+avgY+'" y2="'+avgY+'" stroke="'+color+'" stroke-width="1.5"'
+    +' stroke-dasharray="5 4" opacity=".45" vector-effect="non-scaling-stroke"/>'
+    +'<path d="'+curve+'" fill="none" stroke="'+color+'" stroke-width="2.2"'
+    +' stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>';
+  // Dots are HTML, not SVG circles: the viewBox is stretched horizontally, which
+  // would squash a circle into an ellipse and vary its width with the screen.
+  body+=last.map(function(e,i){
+    return '<i class="wcdot'+(i===n-1?' last':'')+'" style="color:'+color
+      +';left:'+xs(i).toFixed(2)+'%;top:'+ys(vs[i]).toFixed(2)+'%" title="'
+      +esc(fmtShort(e.date)+': '+trimNum(vs[i])+unitSuffix)+'"></i>';
+  }).join('');
+  var yax='<div class="wcyax">'+ticks.slice().reverse().map(function(v){
+    return '<span>'+trimNum(v)+'</span>';
+  }).join('')+'</div>';
   // Latest reading plus the swing across exactly the window drawn — direction is
   // reported, not judged: down is good for weight and bad for protein.
-  var v0=vs[0],v1=vs[vs.length-1],delta=v1-v0;
+  var v1=vs[n-1],delta=v1-vs[0];
   var dp=Math.abs(delta)<10?1:0;
   head+='<span class="wcnow">'+trimNum(v1)+unitSuffix
     +'<span class="wcdelta">'+(Math.abs(delta)<0.05?'no change':(delta>0?'▲':'▼')+' '+Math.abs(delta).toFixed(dp))+'</span></span></div>';
-  // x labels sit in HTML, not the SVG: preserveAspectRatio="none" stretches the
-  // viewBox horizontally, which would smear any text inside it. Percent
-  // positions mirror xs() exactly, so they stay pinned to their data points.
   function tick(i,align){
-    var pct=(xs(i)/W*100).toFixed(2);
     var shift=align==='start'?'0':align==='end'?'-100%':'-50%';
-    return '<span style="left:'+pct+'%;transform:translateX('+shift+')">'+esc(fmtShort(last[i].date))+'</span>';
+    return '<span style="left:'+xs(i).toFixed(2)+'%;transform:translateX('+shift+')">'+esc(fmtShort(last[i].date))+'</span>';
   }
   var axis='<div class="wxaxis">'+tick(0,'start')
-    +(last.length>=5?tick(Math.floor((last.length-1)/2),'mid'):'')
-    +tick(last.length-1,'end')+'</div>';
-  // The mean across the same window, drawn dashed so it never competes with the
-  // series itself. Its value goes in the footer rather than beside the line —
-  // preserveAspectRatio="none" stretches the viewBox, and text inside it smears.
-  var avgLine='<line x1="'+pad+'" x2="'+(W-4)+'" y1="'+ys(mean).toFixed(1)+'" y2="'+ys(mean).toFixed(1)
-    +'" stroke="'+color+'" stroke-width="1.5" stroke-dasharray="5 4" opacity=".5"/>';
+    +(n>=5?tick(Math.floor((n-1)/2),'mid'):'')
+    +tick(n-1,'end')+'</div>';
+  // Highest and lowest rather than best and worst: a heavy day is a win on the
+  // protein chart and a loss on the weight one, and the chart doesn't know which
+  // it's drawing.
+  function stat(lab,val,when){
+    return '<div class="wcstat"><span class="wsl">'+lab+'</span><span class="wsv">'+val
+      +(when?'<span class="wsd">'+esc(when)+'</span>':'')+'</span></div>';
+  }
   var meanTxt=mean.toFixed(Math.abs(mean)<1000?1:0).replace(/\.0$/,'');
+  var strip='<div class="wcstats" style="color:'+color+'">'
+    +'<span class="wcstaticon"><svg viewBox="0 0 24 24">'+ICON_TREND+'</svg></span>'
+    +stat('Average',meanTxt+unitSuffix,'')
+    +stat('Highest',trimNum(vs[hiI])+unitSuffix,fmtShort(last[hiI].date))
+    +stat('Lowest',trimNum(vs[loI])+unitSuffix,fmtShort(last[loI].date))
+    +'</div>';
   return '<div class="wchart">'+head
-    +'<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:160px">'+gridY+avgLine
-    +'<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'+dots+'</svg>'
-    +axis
-    +'<div class="wcfoot">'+last.length+' day'+(last.length===1?'':'s')+' logged'
-    +'<span class="wcavg">avg '+meanTxt+unitSuffix+'</span></div>'
+    +'<div class="wcplot">'+yax+'<div class="wcbody">'+body+'</div></div>'
+    +axis+strip
+    +'<div class="wcfoot">'+n+' day'+(n===1?'':'s')+' logged</div>'
     +'</div>';
 }
 function weightChart(entriesDesc){return metricChart(entriesDesc,'weight','var(--ink-2)',' lb','weight','Weight');}
