@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T18:32:03Z';
+  var PAGE_VERSION='2026-08-28T18:40:31Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -236,14 +236,21 @@ textarea{resize:vertical;min-height:52px}
 .wcstat .wsd{font-size:clamp(9px,2.7vw,10.5px);color:var(--accent-2);margin-left:5px;white-space:nowrap}
 .wcfoot{font-family:var(--label);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-faint);text-align:right;margin-top:8px;opacity:.75}
 @media(max-width:420px){
-  .wcstats{gap:9px;padding:10px}
-  .wcstaticon{display:none}
-  .wcstat .wsd{margin-left:4px}
+  .wcstats{gap:8px;padding:10px}
+  /* the badge shrinks rather than disappearing — it is the only thing marking
+     this strip as belonging to the chart above it */
+  .wcstaticon{width:27px;height:27px}
+  .wcstaticon svg{width:15px;height:15px}
+  .wcstat .wsl{font-size:8.5px}
+  .wcstat .wsv{font-size:12px}
+  .wcstat .wsd{font-size:9px;margin-left:4px}
 }
 @media(max-width:360px){
   .wcstats{gap:6px;padding:9px}
-  .wcstat .wsl{font-size:8.5px}
-  .wcstat .wsv{font-size:11px}
+  .wcstaticon{width:24px;height:24px}
+  .wcstaticon svg{width:13px;height:13px}
+  .wcstat .wsl{font-size:8px}
+  .wcstat .wsv{font-size:10.5px}
   .wcstat .wsd{font-size:8.5px;margin-left:3px}
 }
 .hdel{color:var(--on-surface-faint);font-size:15px;cursor:pointer;text-align:center}
@@ -312,14 +319,18 @@ textarea{resize:vertical;min-height:52px}
 .fshead{background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .fsname{font-family:var(--sans);font-size:13px;display:flex;align-items:baseline;gap:7px;min-width:0}
 .fsg{font-family:var(--label);font-size:10.5px;color:var(--on-surface-faint);flex:none}
+/* the icon is centred against the name's cap height, not sat on its baseline
+   the way the rest of this flex row is */
+.fsicon{flex:none;align-self:center;width:14px;height:14px;color:var(--on-surface-faint)}
+.fsicon svg{width:14px;height:14px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.fsparent .fsicon{color:var(--accent-2)}
 .fsdel{color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
 .fsdel:hover{color:var(--negative)}
 .fstot{background:var(--surface-2);color:var(--accent-2)}
 .fstot>span:first-child{font-family:var(--label);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
 .fsparent .fsname{font-weight:600;color:var(--on-surface)}
 .fsparent{background:var(--surface-2)}
-.fschild .fsname{padding-left:16px;position:relative;color:var(--on-surface-dim)}
-.fschild .fsname:before{content:'└';position:absolute;left:4px;color:var(--on-surface-faint);font-family:var(--label)}
+.fschild .fsname{padding-left:14px;color:var(--on-surface-dim)}
 /* meals */
 .mealadd{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:14px}
 .mealadd input{font-size:13px}
@@ -1714,8 +1725,10 @@ function addFoodLog(id){
   }
   save();render();
 }
+// a row says what kind of thing it is before it says its name
+function fsIcon(icon){return '<span class="fsicon"><svg viewBox="0 0 24 24">'+icon+'</svg></span>';}
 function fsRow(r,isChild){
-  return '<div class="fsrow'+(isChild?' fschild':'')+'"><span class="fsname">'+esc(r.name)+'<span class="fsg">'+esc(fmtQty(num(r.qty),r.unit))+'</span></span>'
+  return '<div class="fsrow'+(isChild?' fschild':'')+'"><span class="fsname">'+fsIcon(ICON_FOOD)+esc(r.name)+'<span class="fsg">'+esc(fmtQty(num(r.qty),r.unit))+'</span></span>'
     +'<span>'+num(r.calories)+'</span><span>'+num(r.protein)+'</span><span>'+num(r.carbs)+'</span><span>'+num(r.fat)+'</span>'
     +'<span class="fsdel" data-a="logdel" data-id="'+r.id+'">×</span></div>';
 }
@@ -1855,7 +1868,7 @@ function buildFoodSheet(dateStr){
   var body=blocks.map(function(b){
     if(b.row)return fsRow(b.row,false);
     var mt=logTotals(b.rows);
-    return '<div class="fsrow fsparent"><span class="fsname">'+esc(b.meal||'Meal')+'</span>'
+    return '<div class="fsrow fsparent"><span class="fsname">'+fsIcon(ICON_MEAL)+esc(b.meal||'Meal')+'</span>'
       +'<span>'+Math.round(mt.calories)+'</span><span>'+(Math.round(mt.protein*10)/10)+'</span><span>'+(Math.round(mt.carbs*10)/10)+'</span><span>'+(Math.round(mt.fat*10)/10)+'</span>'
       +'<span class="fsdel" data-a="logdelgroup" data-gid="'+b.gid+'">×</span></div>'
       +b.rows.map(function(r){return fsRow(r,true);}).join('');
