@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T16:00:41Z';
+  var PAGE_VERSION='2026-08-28T16:06:45Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -351,8 +351,9 @@ textarea{resize:vertical;min-height:52px}
   .mitem>:first-child{grid-column:1/-1}
 }
 /* macro donut */
-.piewrap{display:flex;align-items:center;gap:22px;margin-top:16px;padding:16px;flex-wrap:wrap;
-  background:var(--surface);border-radius:18px;box-shadow:var(--cardshadow)}
+/* No card of its own — the depth belongs to the ring, which casts its own
+   shadow onto whatever it's sitting on. */
+.piewrap{display:flex;align-items:center;gap:22px;margin-top:16px;padding-top:15px;flex-wrap:wrap}
 .pie{flex:none;width:132px}
 .pie svg{width:100%;height:auto;display:block}
 .pietot{font-family:var(--sans);font-size:21px;font-weight:600;fill:var(--on-surface)}
@@ -371,8 +372,12 @@ textarea{resize:vertical;min-height:52px}
    z-index 999 and must stay above it. ── */
 .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:900;display:flex;align-items:flex-start;gap:2px;
   background:var(--ink);padding:8px 6px calc(8px + env(safe-area-inset-bottom));
-  border-radius:22px 22px 0 0;
-  box-shadow:0 -2px 6px rgba(5,31,32,.10), 0 -14px 36px -6px rgba(5,31,32,.30)}
+  border-radius:22px 22px 0 0}
+/* The bar's shadow is a real gradient rather than a blur: it starts dark where
+   the bar meets the page and fades out going up. A box-shadow can't be tuned
+   that far — it either stops too abruptly or grimes the whole screen. */
+.bottomnav:before{content:'';position:absolute;left:0;right:0;bottom:100%;height:44px;pointer-events:none;
+  background:linear-gradient(to top,rgba(5,31,32,.16),rgba(5,31,32,.06) 38%,rgba(5,31,32,0))}
 .navbtn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-radius:14px;color:var(--on-ink-faint)}
 .navbtn.on{color:var(--accent)}
 .navicon{display:flex;align-items:center;justify-content:center;width:44px;height:26px;border-radius:999px;transition:background .15s}
@@ -385,11 +390,15 @@ textarea{resize:vertical;min-height:52px}
 .navfab{flex:none;width:54px;height:54px;border-radius:50%;margin:-20px 6px 0;
   background:linear-gradient(180deg,var(--accent-lift),var(--accent));
   color:var(--on-accent);display:flex;align-items:center;justify-content:center;
-  box-shadow:0 3px 8px rgba(5,31,32,.28)}
-/* on its own page it drops its shadow and sits flush in the bar. An inset
-   shadow was the first attempt at "pressed", but on a gold circle it just
-   reads as a smudge across the top — losing the height says it cleanly. */
-.navfab.on{box-shadow:none}
+  /* a lit top edge, then two layers of shadow underneath: contact, then lift.
+     The highlight is white and inset, not gold and outset — a gold ring around
+     a gold button is the halo this deliberately doesn't have. */
+  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.50),
+    0 2px 4px rgba(5,31,32,.22), 0 8px 18px -4px rgba(5,31,32,.38)}
+/* on its own page it drops the lift and sits flush in the bar, keeping only the
+   highlight. An inset shadow was the first attempt at "pressed", but on a gold
+   circle it just reads as a smudge across the top. */
+.navfab.on{box-shadow:inset 0 1.5px 0 rgba(255,255,255,.50)}
 .navfab svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
 /* ── today's goal bars — the "how much room is left" HUD ── */
 .goalbars{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:var(--surface);border-radius:18px;padding:12px 14px;margin-bottom:2px;box-shadow:var(--cardshadow);transition:transform .12s cubic-bezier(.34,1.56,.64,1)}
@@ -1469,7 +1478,12 @@ function macroPie(t,aria,capLead){
   var cap=capLead+(drift>0.05?' Macros account for '+Math.round(mk)+' of '+logged+' cal logged — the gap is normal for fiber-heavy or processed foods.':'');
   return '<div class="piewrap">'
     +'<div class="pie"><svg viewBox="0 0 120 120" role="img" aria-label="'+esc(aria)+'">'
-    +'<g transform="rotate(-90 60 60)">'+arcs+'</g>'
+    // the ring is lifted off the card, so it drops a soft shadow of its own —
+    // offset down rather than spread evenly, which is what reads as height
+    +'<defs><filter id="pieshade" x="-25%" y="-25%" width="150%" height="150%">'
+    +'<feDropShadow dx="0" dy="2.6" stdDeviation="2.4" flood-color="#051f20" flood-opacity=".24"/>'
+    +'</filter></defs>'
+    +'<g transform="rotate(-90 60 60)" filter="url(#pieshade)">'+arcs+'</g>'
     +'<text class="pietot" x="60" y="59" text-anchor="middle">'+logged+'</text>'
     +'<text class="pietotl" x="60" y="72" text-anchor="middle">cal</text>'
     +'</svg></div>'
