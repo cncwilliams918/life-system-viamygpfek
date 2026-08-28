@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T17:00:43Z';
+  var PAGE_VERSION='2026-08-28T17:04:56Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -218,8 +218,6 @@ textarea{resize:vertical;min-height:52px}
   background:var(--surface);border:2px solid currentColor;box-sizing:border-box}
 /* the newest reading is the one you came to read — it gets filled in */
 .wcdot.last{width:9px;height:9px;margin:-4.5px 0 0 -4.5px;background:currentColor}
-/* flecks off the brush — no border, no pointer target, purely texture */
-.wcfleck{position:absolute;border-radius:50%;pointer-events:none;margin:-1px 0 0 -1px}
 .wxaxis{position:relative;height:13px;margin-top:7px}
 .wxaxis span{position:absolute;top:0;font-family:var(--label);font-size:10px;color:var(--on-surface-faint);white-space:nowrap}
 /* the read-out strip under the plot — average, and the two ends of the range */
@@ -933,19 +931,35 @@ function niceTicks(min,max,count){
 // points are clamped to each segment's own range, which is what keeps a spline
 // honest: an unclamped curve bulges past the values on either side of a dip and
 // draws a number you never recorded.
-function smoothPath(pts){
-  if(pts.length<2)return '';
-  var d='M'+pts[0].x.toFixed(2)+','+pts[0].y.toFixed(2);
+function smoothSegments(pts){
+  var segs=[];
   for(var i=0;i<pts.length-1;i++){
     var p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;
     var lo=Math.min(p1.y,p2.y),hi=Math.max(p1.y,p2.y);
-    var c1y=Math.max(lo,Math.min(hi,p1.y+(p2.y-p0.y)/6));
-    var c2y=Math.max(lo,Math.min(hi,p2.y-(p3.y-p1.y)/6));
-    d+='C'+(p1.x+(p2.x-p1.x)/3).toFixed(2)+','+c1y.toFixed(2)
-      +' '+(p2.x-(p2.x-p1.x)/3).toFixed(2)+','+c2y.toFixed(2)
-      +' '+p2.x.toFixed(2)+','+p2.y.toFixed(2);
+    segs.push({p1:p1,p2:p2,
+      c1:{x:p1.x+(p2.x-p1.x)/3,y:Math.max(lo,Math.min(hi,p1.y+(p2.y-p0.y)/6))},
+      c2:{x:p2.x-(p2.x-p1.x)/3,y:Math.max(lo,Math.min(hi,p2.y-(p3.y-p1.y)/6))}});
   }
-  return d;
+  return segs;
+}
+// The same curve as a dense run of points. Drawing part of a stroke can't be
+// done with stroke-dasharray here: this viewBox is stretched horizontally and
+// the strokes are non-scaling, and in that combination the browser measures the
+// dash along the stretched screen path while pathLength normalises against the
+// unstretched one. The two disagree, and the line stops early. Sampling and
+// emitting a real sub-path sidesteps the whole question.
+function smoothSample(pts,per){
+  if(pts.length<2)return [];
+  var segs=smoothSegments(pts),out=[{x:pts[0].x,y:pts[0].y}];
+  segs.forEach(function(s){
+    for(var k=1;k<=per;k++){
+      var t=k/per,u=1-t;
+      out.push({
+        x:u*u*u*s.p1.x+3*u*u*t*s.c1.x+3*u*t*t*s.c2.x+t*t*t*s.p2.x,
+        y:u*u*u*s.p1.y+3*u*u*t*s.c1.y+3*u*t*t*s.c2.y+t*t*t*s.p2.y});
+    }
+  });
+  return out;
 }
 var ICON_TREND='<path d="M3 14.5c2.4 0 2.4-5 4.8-5s2.4 5 4.8 5 2.4-5 4.8-5 2.4 5 4.8 5"/>';
 // A chart's brushwork has to be the same on every render — the page repaints on
@@ -976,52 +990,53 @@ function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel,title){
     return '<line x1="0" x2="100" y1="'+ys(v).toFixed(2)+'" y2="'+ys(v).toFixed(2)
       +'" stroke="var(--divider)" stroke-width="1" vector-effect="non-scaling-stroke"/>';
   }).join('');
-  var curve=smoothPath(last.map(function(e,i){return {x:xs(i),y:ys(vs[i])};}));
   var avgY=ys(mean).toFixed(2);
   // Seeded off the field name, so a chart's brushwork is the same every render.
   // Real randomness would make the line crawl on every keystroke that repaints.
   var rand=seededRandom(field);
-  // A painted line is one stroke laid down unevenly, not several lines. Every
-  // pass follows the identical path; what differs is width and where it lifts.
-  // The base is the thinnest the brush ever gets, then two wider passes ride
-  // over it in long irregular runs, each slightly transparent so its edge stays
-  // soft and the overlaps pool a little darker. Widths are in screen units
-  // (non-scaling-stroke) or the horizontal stretch would flatten the brush; dash
-  // runs are in pathLength units for the same reason.
-  function pass(w,op,dash){
-    return '<path d="'+curve+'" fill="none" stroke="'+color+'" stroke-width="'+w+'"'
+  // A brush stroke is thin where it lands, swells under pressure, and draws out
+  // to a fine point as it lifts. SVG has no tapered stroke, and drawing one as a
+  // filled outline is out — this viewBox is stretched horizontally, so a filled
+  // shape would come out fat sideways and thin vertically. So the taper is built
+  // from stacked strokes: each wider pass covers a shorter run of the middle,
+  // and round caps round off every shoulder. Ten passes across two and a half
+  // pixels puts each step under a quarter pixel, which reads as one continuous
+  // swell rather than a stack.
+  var samples=smoothSample(last.map(function(e,i){return {x:xs(i),y:ys(vs[i])};}),14);
+  var SN=samples.length;
+  function sub(a,b,w,op,dx,dy){
+    var i0=Math.max(0,Math.round(a*(SN-1))),i1=Math.min(SN-1,Math.round(b*(SN-1)));
+    if(i1-i0<1)return '';
+    var d='M'+samples[i0].x.toFixed(2)+','+samples[i0].y.toFixed(2);
+    for(var k=i0+1;k<=i1;k++)d+='L'+samples[k].x.toFixed(2)+','+samples[k].y.toFixed(2);
+    return '<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="'+w.toFixed(2)+'"'
       +' stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"'
-      +(dash?' pathLength="1000" stroke-dasharray="'+dash+'" stroke-dashoffset="'+(rand()*400).toFixed(0)+'"':'')
-      +(op<1?' stroke-opacity="'+op+'"':'')+'/>';
+      +(op<1?' stroke-opacity="'+op.toFixed(2)+'"':'')
+      +((dx||dy)?' transform="translate('+dx+','+dy+')"':'')+'/>';
   }
-  // irregular runs of ink — long enough to read as pressure, never as a dashed line
-  function runs(lo,hi,count){
-    var d=[];
-    for(var i=0;i<count;i++)d.push(Math.round(lo+rand()*(hi-lo)));
-    return d.join(' ');
+  // The lift runs longer than the landing, the way a stroke trails off further
+  // than it starts, so the fat of the line sits a little before centre.
+  var LAYERS=10,WMIN=0.95,WMAX=3.4,LEAD=0.15,TRAIL=0.29;
+  var brush='';
+  for(var bi=0;bi<LAYERS;bi++){
+    var bf=bi/(LAYERS-1);
+    brush+=sub(bf*LEAD,1-bf*TRAIL,WMIN+(WMAX-WMIN)*bf,1);
+  }
+  // Bristle hairs: stray fibres that split off and run alongside, mostly near
+  // the two ends where the brush lands and lifts. Offset in user units, which
+  // suits a hair — it wants to sit a whisker off the line, not a fixed number
+  // of pixels.
+  var hairs='';
+  for(var hi=0;hi<6;hi++){
+    var hs=rand()<0.55?(0.68+rand()*0.25):(rand()*0.17);
+    hairs+=sub(hs,Math.min(hs+0.07+rand()*0.2,1),0.55+rand()*0.35,0.4+rand()*0.3,
+      (rand()*1.4-0.7).toFixed(2),(rand()*2.4-1.2).toFixed(2));
   }
   var body='<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'+grid
     +'<line x1="0" x2="100" y1="'+avgY+'" y2="'+avgY+'" stroke="'+color+'" stroke-width="1.5"'
     +' stroke-dasharray="5 4" opacity=".45" vector-effect="non-scaling-stroke"/>'
-    +pass(1.5,1)
-    +pass(2.9,.66,runs(26,105,8))
-    +pass(4.0,.34,runs(16,140,6))
+    +brush+hairs
     +'</svg>';
-  // Spatter: flecks thrown off the brush, sitting near the line rather than on
-  // it. HTML again, and offset in px rather than percent — a percentage offset
-  // would stretch with the box and the flecks would drift as the screen widens.
-  var flecks=Math.min(20,Math.round(n*1.3));
-  for(var fi=0;fi<flecks;fi++){
-    var t=rand()*(n-1),i0=Math.floor(t),f=t-i0;
-    var fx=xs(i0)+(xs(Math.min(i0+1,n-1))-xs(i0))*f;
-    var fy=ys(vs[i0])+(ys(vs[Math.min(i0+1,n-1)])-ys(vs[i0]))*f;
-    var sz=(1.2+rand()*2.1).toFixed(1);
-    body+='<i class="wcfleck" style="background:'+color
-      +';width:'+sz+'px;height:'+sz+'px'
-      +';left:'+fx.toFixed(2)+'%;top:'+fy.toFixed(2)+'%'
-      +';opacity:'+(0.3+rand()*0.34).toFixed(2)
-      +';transform:translate('+(rand()*16-8).toFixed(1)+'px,'+(rand()*16-8).toFixed(1)+'px)"></i>';
-  }
   // Dots are HTML, not SVG circles: the viewBox is stretched horizontally, which
   // would squash a circle into an ellipse and vary its width with the screen.
   body+=last.map(function(e,i){
