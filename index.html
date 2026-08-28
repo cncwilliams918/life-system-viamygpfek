@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T16:06:45Z';
+  var PAGE_VERSION='2026-08-28T16:11:07Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -388,17 +388,17 @@ textarea{resize:vertical;min-height:52px}
 /* it still sits proud of the bar, so it keeps a plain drop shadow — dark and
    short, reading as height rather than the gold halo it used to throw */
 .navfab{flex:none;width:54px;height:54px;border-radius:50%;margin:-20px 6px 0;
-  background:linear-gradient(180deg,var(--accent-lift),var(--accent));
+  /* The highlight is a soft sheen painted into the background, not an inset
+     box-shadow. On a circle an inset line becomes a hard-edged crescent that
+     reads as a seam across the top rather than as light. */
+  background:radial-gradient(115% 85% at 50% -12%, rgba(255,255,255,.60), rgba(255,255,255,0) 58%),
+    linear-gradient(180deg,var(--accent-lift),var(--accent));
   color:var(--on-accent);display:flex;align-items:center;justify-content:center;
-  /* a lit top edge, then two layers of shadow underneath: contact, then lift.
-     The highlight is white and inset, not gold and outset — a gold ring around
-     a gold button is the halo this deliberately doesn't have. */
-  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.50),
-    0 2px 4px rgba(5,31,32,.22), 0 8px 18px -4px rgba(5,31,32,.38)}
+  box-shadow:0 2px 4px rgba(5,31,32,.22), 0 8px 18px -4px rgba(5,31,32,.38)}
 /* on its own page it drops the lift and sits flush in the bar, keeping only the
    highlight. An inset shadow was the first attempt at "pressed", but on a gold
    circle it just reads as a smudge across the top. */
-.navfab.on{box-shadow:inset 0 1.5px 0 rgba(255,255,255,.50)}
+.navfab.on{box-shadow:none}
 .navfab svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
 /* ── today's goal bars — the "how much room is left" HUD ── */
 .goalbars{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:var(--surface);border-radius:18px;padding:12px 14px;margin-bottom:2px;box-shadow:var(--cardshadow);transition:transform .12s cubic-bezier(.34,1.56,.64,1)}
@@ -1456,10 +1456,15 @@ function macroPie(t,aria,capLead){
   // deep green / gold / terracotta — three of the board's tones, each readable
   // against a light card and distinguishable from the other two
   var segs=[{lab:'Protein',v:'--accent-2',g:t.protein,kcal:pk},{lab:'Carbs',v:'--accent',g:t.carbs,kcal:ck},{lab:'Fat',v:'--accent-3',g:t.fat,kcal:fk}];
-  var R=45,SW=17,GAP=0.75,off=0,arcs='';
+  var R=45,SW=17,GAP=0.75,off=0,arcs='',shade='';
   segs.forEach(function(s){
     var pct=s.kcal/mk*100;if(pct<=0)return;
     var dash=Math.max(pct-GAP,0.4);
+    // the same arc again in a light-to-dark wash, painted over the flat colour.
+    // One gradient across the whole ring means one light source, so every
+    // segment is lit from the same side instead of each shading itself.
+    shade+='<circle cx="60" cy="60" r="'+R+'" fill="none" stroke="url(#pieLit)" stroke-width="'+SW+'" pathLength="100"'
+      +' stroke-dasharray="'+dash.toFixed(2)+' '+(100-dash).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'"/>';
     arcs+='<circle cx="60" cy="60" r="'+R+'" fill="none" stroke="var('+s.v+')" stroke-width="'+SW+'" pathLength="100"'
       +' stroke-dasharray="'+dash.toFixed(2)+' '+(100-dash).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'">'
       +'<title>'+s.lab+': '+Math.round(s.kcal)+' cal · '+Math.round(pct)+'%</title></circle>';
@@ -1478,12 +1483,13 @@ function macroPie(t,aria,capLead){
   var cap=capLead+(drift>0.05?' Macros account for '+Math.round(mk)+' of '+logged+' cal logged — the gap is normal for fiber-heavy or processed foods.':'');
   return '<div class="piewrap">'
     +'<div class="pie"><svg viewBox="0 0 120 120" role="img" aria-label="'+esc(aria)+'">'
-    // the ring is lifted off the card, so it drops a soft shadow of its own —
-    // offset down rather than spread evenly, which is what reads as height
-    +'<defs><filter id="pieshade" x="-25%" y="-25%" width="150%" height="150%">'
-    +'<feDropShadow dx="0" dy="2.6" stdDeviation="2.4" flood-color="#051f20" flood-opacity=".24"/>'
-    +'</filter></defs>'
-    +'<g transform="rotate(-90 60 60)" filter="url(#pieshade)">'+arcs+'</g>'
+    +'<defs><linearGradient id="pieLit" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(90 .5 .5)">'
+    +'<stop offset="0" stop-color="#fff" stop-opacity=".32"/>'
+    +'<stop offset=".42" stop-color="#fff" stop-opacity="0"/>'
+    +'<stop offset=".58" stop-color="#000" stop-opacity="0"/>'
+    +'<stop offset="1" stop-color="#000" stop-opacity=".22"/>'
+    +'</linearGradient></defs>'
+    +'<g transform="rotate(-90 60 60)">'+arcs+shade+'</g>'
     +'<text class="pietot" x="60" y="59" text-anchor="middle">'+logged+'</text>'
     +'<text class="pietotl" x="60" y="72" text-anchor="middle">cal</text>'
     +'</svg></div>'
