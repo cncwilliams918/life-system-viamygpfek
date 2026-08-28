@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T17:46:09Z';
+  var PAGE_VERSION='2026-08-28T18:20:12Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -472,6 +472,11 @@ textarea{resize:vertical;min-height:52px}
 /* a range is two fields reading as one control */
 .rangepair{display:flex;align-items:center;gap:7px}
 .rangepair span{font-family:var(--label);font-size:11px;color:var(--on-surface-faint);flex:none}
+/* the macro range picker — two dates reading as one control */
+.mrange{padding:12px 14px}
+.mrrow{display:flex;gap:10px}
+.mrrow label{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;
+  font-family:var(--label);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--on-surface-faint)}
 .fld label .kindbtn{margin-left:7px;vertical-align:-1px}
 @media(max-width:680px){.goalgrid{grid-template-columns:1fr}}
 .gcheck{font-family:var(--label);font-size:11.5px;color:var(--on-surface-dim);margin-top:14px;line-height:1.6}
@@ -1254,8 +1259,8 @@ function metricChart(entriesDesc,field,color,unitSuffix,emptyLabel,title){
     +'</div>';
 }
 function weightChart(entriesDesc){return metricChart(entriesDesc,'weight','var(--ink-2)',' lb','weight','Weight');}
-function healthSummaryHtml(){
-  var entries=(state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
+function healthSummaryHtml(src){
+  var entries=(src||state.health.entries||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var latest=entries.filter(function(e){return e.weight!=='';})[0];
   var tw=parseFloat((state.health.goals||{}).weight)||parseFloat(state.health.targetWeight)||0;
   var curW=latest?parseFloat(latest.weight):null;
@@ -1270,16 +1275,13 @@ function healthSummaryHtml(){
   // more, so folding it into the average understates every day until bedtime
   var today=todayStr();
   var done=entries.filter(function(e){return e.date!==today;});
-  var week=done.slice(0,7);
-  function avg(field){var v=week.filter(function(e){return e[field]!=='';});if(!v.length)return null;var s=0;v.forEach(function(e){s+=parseFloat(e[field])||0;});return Math.round(s/v.length);}
-  var avgCal=avg('calories'),avgPro=avg('protein');
+  // The 7-day averages that used to sit here said the same thing as each chart's
+  // own strip, and once the window is yours to choose a fixed 7 days is just
+  // wrong about what you're looking at.
   var stats='<div class="statrow">'
     +'<div class="stat neu"><div class="sl">Current weight</div><div class="sv">'+(curW!==null?curW+' lb':'—')+'</div></div>'
     +'<div class="stat '+(delta30===null?'neu':(delta30<=0?'good':'bad'))+'"><div class="sl">30-day change</div><div class="sv">'+(delta30===null?'—':(delta30>0?'+':'')+delta30.toFixed(1)+' lb')+'</div></div>'
     +'<div class="stat neu"><div class="sl">To target ('+tw+' lb)</div><div class="sv">'+(curW!==null?(curW>tw?'-':'+')+Math.abs(curW-tw).toFixed(1)+' lb':'—')+'</div></div>'
-    +'</div><div class="statrow">'
-    +'<div class="stat neu"><div class="sl">Avg calories / day (7d)</div><div class="sv">'+(avgCal===null?'—':avgCal)+'</div></div>'
-    +'<div class="stat neu"><div class="sl">Avg protein / day (7d)</div><div class="sv">'+(avgPro===null?'—':avgPro+'g')+'</div></div>'
     // Every chart runs on `done`, not `entries`: today is still being logged,
     // so plotting it draws a day that always dips at breakfast and climbs until
     // bedtime — a trailing crash that isn't real, dragging the mean with it.
@@ -3123,15 +3125,52 @@ function buildHistory(){
     +menuTile('histmacros',ICON_CHART,'Macros','Weight, calories and every macro over time')
     +'</div>'+streakCardHtml();
 }
+// Deliberately not saved. The range is a question you're asking right now, not a
+// setting — leaving the page and coming back should put you back on the period
+// you're actually living in.
+var macroFrom='',macroTo='';
+// Ending a period empties `entries`, but never the food log — so days outside
+// the current period survive as macros even though their weight doesn't. Only
+// consulted when a range is set; the default view is the period itself.
+function entriesInRange(from,to){
+  var byDate={},logDays={};
+  (state.health.entries||[]).forEach(function(e){byDate[e.date]=e;});
+  (state.health.log||[]).forEach(function(r){(logDays[r.date]=logDays[r.date]||[]).push(r);});
+  Object.keys(logDays).forEach(function(d){
+    if(byDate[d])return;
+    var t=logTotals(logDays[d]);
+    byDate[d]={id:'log-'+d,date:d,weight:'',calories:Math.round(t.calories),
+      protein:Math.round(t.protein*10)/10,carbs:Math.round(t.carbs*10)/10,fat:Math.round(t.fat*10)/10};
+  });
+  return Object.keys(byDate).filter(function(d){
+    return (!from||d>=from)&&(!to||d<=to);
+  }).sort().reverse().map(function(d){return byDate[d];});
+}
+function macroEntries(){
+  if(!macroFrom&&!macroTo)return (state.health.entries||[]).slice();
+  return entriesInRange(macroFrom,macroTo);
+}
+function macroRangeHtml(){
+  var on=!!(macroFrom||macroTo);
+  return '<div class="fincard mrange"><div class="mrrow">'
+    +'<label>From<input type="date" data-a="macrofrom" value="'+esc(macroFrom)+'"></label>'
+    +'<label>To<input type="date" data-a="macroto" value="'+esc(macroTo)+'"></label>'
+    +'</div>'
+    +(on?'<button type="button" class="blockaddbtn spaced" data-a="macrorangeclear">Back to this period</button>':'')
+    +'</div>';
+}
 function buildMacroHistory(){
   var all=(state.health.entries||[]).slice();
   // The row-per-day editor used to live here, back when history was the only
   // place a past day could be corrected. The Log page navigates to any date and
   // edits it in the food rows themselves, which is the truer surface — so this
   // page is now purely the read-out.
+  // End period always acts on the period, never on whatever range you're
+  // looking through, so its count comes from the entries rather than the view.
   var endBtn=all.length?'<button type="button" class="blockaddbtn spaced" data-a="endperiod">End period — log average of '+all.length+' day'+(all.length===1?'':'s')+'</button>':'';
   return backRow('histmenu','Macros over time')
-    +'<div id="health-summary">'+healthSummaryHtml()+'</div>'
+    +macroRangeHtml()
+    +'<div id="health-summary">'+healthSummaryHtml(macroEntries())+'</div>'
     +endBtn+periodsHtml();
 }
 // a period is the daily log condensed to one record when a goal changes —
@@ -3205,7 +3244,7 @@ function runDestructive(a,ds){
   else if(a==='delperiod'){state.health.periods=(state.health.periods||[]).filter(function(x){return x.id!==ds.id;});}
   save();render();
 }
-function refreshHealth(){var el=document.getElementById('health-summary');if(el)el.innerHTML=healthSummaryHtml();}
+function refreshHealth(){var el=document.getElementById("health-summary");if(el)el.innerHTML=healthSummaryHtml(macroEntries());}
 // events
 // iOS Safari only simulates :active state on a sustained touch, not a quick
 // tap, unless some element on the page has a touchstart listener. This one
@@ -3308,8 +3347,11 @@ app.addEventListener('click',function(e){
   }
   if(a==='addweight'){addView='weight';window.scrollTo(0,0);render();return;}
   if(a==='addmenu'){addView='menu';window.scrollTo(0,0);render();return;}
-  if(a==='histmacros'){historyView='macros';window.scrollTo(0,0);render();return;}
-  if(a==='histmenu'){historyView='menu';window.scrollTo(0,0);render();return;}
+  // opening and leaving both clear the range, so the page always starts on the
+  // current period no matter how you left it last time
+  if(a==='histmacros'){historyView='macros';macroFrom=macroTo='';window.scrollTo(0,0);render();return;}
+  if(a==='histmenu'){historyView='menu';macroFrom=macroTo='';window.scrollTo(0,0);render();return;}
+  if(a==='macrorangeclear'){macroFrom=macroTo='';render();return;}
   if(a==='opendetail'){
     if(t.dataset.kind==='db'){
       var hit=foodDbResults&&foodDbResults[parseInt(t.dataset.idx,10)];
@@ -3564,6 +3606,10 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
   return;});
 app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.a;
   if(t.id==='importfile'){handleImportFile(t.files&&t.files[0]);return;}
+  // on change, not input: a date field fires input per keystroke and a render
+  // mid-entry would take the focus with it
+  if(a==='macrofrom'){macroFrom=t.value;render();return;}
+  if(a==='macroto'){macroTo=t.value;render();return;}
   if(a==='setfield'){state.settings[t.dataset.k]=t.value;save();return;}
   if(a==='fnew'&&t.dataset.f==='unit'){
     // switching to a countable unit (scoop/slice/bar/packet/serving) mid-entry — the macros
