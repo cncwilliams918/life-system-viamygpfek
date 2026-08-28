@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T17:15:21Z';
+  var PAGE_VERSION='2026-08-28T17:27:16Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -441,8 +441,13 @@ textarea{resize:vertical;min-height:52px}
 .goalbars.empty:hover{color:var(--accent-2)}
 .gb{display:flex;flex-direction:column;gap:5px;min-width:0}
 .gblab{font-family:var(--label);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-faint)}
-.gbtrack{height:5px;border-radius:999px;background:var(--surface-3);overflow:hidden}
-.gbtrack span{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .25s}
+.gbtrack{position:relative;height:5px;border-radius:999px;background:var(--surface-3);overflow:hidden}
+/* the band you are aiming to land in — behind the fill, so a range reads as a
+   target with width rather than a line you either hit or miss */
+.gbzone{position:absolute;top:0;bottom:0;background:var(--surface-wash);border-radius:999px}
+.gbtrack span{position:relative;display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .25s}
+.gb.met .gbtrack span{background:var(--positive)}
+.gb.met .gbnum{color:var(--positive)}
 .gb.over .gbtrack span{background:var(--negative)}
 .gb.over .gbnum{color:var(--negative)}
 .gbnum{font-family:var(--label);font-size:12.5px;color:var(--on-surface);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -454,6 +459,10 @@ textarea{resize:vertical;min-height:52px}
 .tab.on{background:var(--surface);color:var(--on-surface)}
 /* ── goals page ── */
 .goalgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+/* a range is two fields reading as one control */
+.rangepair{display:flex;align-items:center;gap:7px}
+.rangepair span{font-family:var(--label);font-size:11px;color:var(--on-surface-faint);flex:none}
+.fld label .kindbtn{margin-left:7px;vertical-align:-1px}
 @media(max-width:680px){.goalgrid{grid-template-columns:1fr}}
 .gcheck{font-family:var(--label);font-size:11.5px;color:var(--on-surface-dim);margin-top:14px;line-height:1.6}
 .gcheck b{color:var(--on-surface)}
@@ -677,7 +686,18 @@ function fixState(d){
   // the old lone weight target becomes one goal among five; the original field
   // is left in place rather than deleted, same non-destructive rule as above
   if(g.weight===undefined||g.weight==='')g.weight=d.health.targetWeight;
-  ['calories','protein','carbs','fat'].forEach(function(k){if(g[k]===undefined)g[k]='';});
+  // A goal is a number and the kind of bound it is. The number keeps its old
+  // field, so existing goals survive; the kind rides alongside, and `hi` is only
+  // read for a range. Protein defaults to a floor and everything else to a
+  // ceiling — that's how these are used, and it's the reading under which a bar
+  // going past protein is a success rather than an alarm.
+  if(!g.kind)g.kind={};
+  if(!g.hi)g.hi={};
+  ['calories','protein','carbs','fat'].forEach(function(k){
+    if(g[k]===undefined)g[k]='';
+    if(g.kind[k]===undefined)g.kind[k]=(k==='protein')?'min':'max';
+    if(g.hi[k]===undefined)g.hi[k]='';
+  });
   // USDA FoodData Central key. Deliberately per-device in localStorage and never
   // in the source: USDA deactivates any key it finds in a public repo, and this
   // repo is public.
@@ -910,6 +930,43 @@ function render(){
 // It rides above every page you'd log or calculate from; Goals and History are
 // about other days, so it's omitted there rather than showing a number that
 // doesn't apply.
+var GOAL_KIND_SYM={min:'≥',max:'≤',eq:'=',range:'↔'};
+var GOAL_KIND_WORD={min:'at least',max:'at most',eq:'about',range:'between'};
+var GOAL_KIND_NEXT={max:'min',min:'range',range:'eq',eq:'max'};
+// Every goal resolves to a floor, a ceiling, or both, and everything downstream
+// reads that instead of the raw number. `=` becomes a narrow band rather than a
+// point, because no day lands on a number exactly and a target you can never
+// satisfy is worse than no target.
+function goalBounds(k){
+  var g=state.health.goals||{};
+  var kind=(g.kind||{})[k]||'max',a=num(g[k]),b=num((g.hi||{})[k]);
+  if(kind==='range'){
+    if(a>0&&b>0)return {kind:'range',lo:Math.min(a,b),hi:Math.max(a,b)};
+    // half a range is still a bound worth honouring rather than discarding
+    if(a>0)return {kind:'min',lo:a,hi:0};
+    if(b>0)return {kind:'max',lo:0,hi:b};
+    return null;
+  }
+  if(!(a>0))return null;
+  if(kind==='min')return {kind:'min',lo:a,hi:0};
+  if(kind==='eq')return {kind:'eq',lo:a*0.97,hi:a*1.03,mid:a};
+  return {kind:'max',lo:0,hi:a};
+}
+// one number standing in for the goal, for arithmetic that can't take a band
+function goalMid(k){
+  var b=goalBounds(k);
+  if(!b)return 0;
+  if(b.mid)return b.mid;
+  if(b.lo&&b.hi)return (b.lo+b.hi)/2;
+  return b.lo||b.hi;
+}
+function goalText(k,u){
+  var b=goalBounds(k);
+  if(!b)return '—';
+  if(b.kind==='range')return trimNum(b.lo)+'–'+trimNum(b.hi)+u;
+  if(b.kind==='eq')return trimNum(b.mid)+u;
+  return GOAL_KIND_SYM[b.kind]+trimNum(b.kind==='min'?b.lo:b.hi)+u;
+}
 function goalBars(){
   if(page==='goals'||page==='history')return '';
   var g=state.health.goals||{};
@@ -918,16 +975,30 @@ function goalBars(){
             {k:'protein',lab:'Protein',v:t.protein,u:'g',dp:1},
             {k:'carbs',lab:'Carbs',v:t.carbs,u:'g',dp:1},
             {k:'fat',lab:'Fat',v:t.fat,u:'g',dp:1}];
-  if(!defs.some(function(d){return num(g[d.k])>0;}))
+  // Only the macros you've actually set a goal for. A bar reading "—" is a row
+  // of furniture asking to be ignored, and four of them buries the two you care
+  // about.
+  var shown=defs.filter(function(d){return !!goalBounds(d.k);});
+  if(!shown.length)
     return '<div class="goalbars empty" data-a="nav" data-page="goals">Set your daily targets to track against them →</div>';
-  return '<div class="goalbars">'+defs.map(function(d){
-    var goal=num(g[d.k]),have=d.dp?Math.round(d.v*10)/10:Math.round(d.v);
-    if(goal<=0)return '<div class="gb"><div class="gblab">'+d.lab+'</div><div class="gbtrack"></div>'
-      +'<div class="gbnum">'+have+d.u+'<small>/—</small></div></div>';
-    var over=d.v>goal*1.02;
-    return '<div class="gb'+(over?' over':'')+'"><div class="gblab">'+d.lab+'</div>'
-      +'<div class="gbtrack"><span style="width:'+Math.min(d.v/goal*100,100).toFixed(1)+'%"></span></div>'
-      +'<div class="gbnum">'+have+'<small>/'+trimNum(goal)+d.u+'</small></div></div>';
+  return '<div class="goalbars" style="grid-template-columns:repeat('+shown.length+',1fr)">'+shown.map(function(d){
+    var b=goalBounds(d.k),have=d.dp?Math.round(d.v*10)/10:Math.round(d.v);
+    // The track is scaled past the goal so there's somewhere for an overshoot to
+    // show. A floor-only goal gets less headroom — clearing it is the point, and
+    // the bar shouldn't look half-empty the moment you succeed.
+    var scale=b.hi>0?b.hi*1.15:b.lo*1.15;
+    var pct=Math.min(d.v/scale,1)*100;
+    var over=b.hi>0&&d.v>b.hi;
+    // green means a floor was cleared. A ceiling-only goal has no floor to
+    // clear, so it stays gold until it's broken — nothing has been achieved by
+    // eating 200 of a 2300 calorie budget.
+    var met=!over&&b.lo>0&&d.v>=b.lo;
+    var zoneL=(b.lo/scale*100).toFixed(1),zoneR=((b.hi>0?b.hi:scale)/scale*100).toFixed(1);
+    return '<div class="gb'+(over?' over':'')+(met?' met':'')+'"><div class="gblab">'+d.lab+'</div>'
+      +'<div class="gbtrack">'
+      +(b.lo>0||b.hi>0?'<i class="gbzone" style="left:'+zoneL+'%;right:'+(100-zoneR).toFixed(1)+'%"></i>':'')
+      +'<span style="width:'+pct.toFixed(1)+'%"></span></div>'
+      +'<div class="gbnum">'+have+'<small>/'+goalText(d.k,d.u)+'</small></div></div>';
   }).join('')+'</div>';
 }
 function bottomNav(){
@@ -2498,17 +2569,22 @@ function buildDay(){
 // Goals are the spine of the whole app now — the bars up top, Calc's targets,
 // and "remaining today" all read from here.
 var GOAL_FIELDS=[
-  {k:'calories',lab:'Calories',step:'1',ph:'2200'},
-  {k:'protein',lab:'Protein (g)',step:'1',ph:'180'},
-  {k:'carbs',lab:'Carbs (g)',step:'1',ph:'220'},
-  {k:'fat',lab:'Fat (g)',step:'1',ph:'70'}
+  {k:'calories',lab:'Calories',step:'1',ph:'2000',ph2:'2300'},
+  {k:'protein',lab:'Protein (g)',step:'1',ph:'160',ph2:'200'},
+  {k:'carbs',lab:'Carbs (g)',step:'1',ph:'220',ph2:'260'},
+  {k:'fat',lab:'Fat (g)',step:'1',ph:'70',ph2:'90'}
 ];
 // 4/4/9 is the only arithmetic tying the four macro goals together, so surfacing
 // the mismatch is what stops you setting targets that can't all be met at once.
 function goalCheckHtml(){
-  var g=state.health.goals||{};
-  var cal=num(g.calories),fromMacros=num(g.protein)*4+num(g.carbs)*4+num(g.fat)*9;
-  if(cal>0&&fromMacros>0){
+  // Bands can't be added up, so the check runs on the middle of each — close
+  // enough to catch targets that can't all be met, which is all it's for.
+  var cal=goalMid('calories'),fromMacros=goalMid('protein')*4+goalMid('carbs')*4+goalMid('fat')*9;
+  // Only when all four exist. Three of them can't add up to a calorie goal, and
+  // running the check anyway reported a wild shortfall for a deliberate choice
+  // not to track carbs and fat.
+  var all=cal>0&&['protein','carbs','fat'].every(function(k){return goalMid(k)>0;});
+  if(all){
     var diff=fromMacros-cal,off=Math.abs(diff)>cal*0.03;
     return '<div class="gcheck'+(off?' off':'')+'">Your macros come to <b>'+Math.round(fromMacros)+' cal</b> against a '+Math.round(cal)+' cal goal'
       +(off?' — that\'s '+(diff>0?'+':'')+Math.round(diff)+' out. Adjust one so the day adds up.':' — that adds up.')+'</div>';
@@ -2533,7 +2609,19 @@ function refreshGoalCheck(){
 function buildGoals(){
   var g=state.health.goals||{};
   var macroFields=GOAL_FIELDS.map(function(f){
-    return '<div class="fld"><label>'+f.lab+'</label><input type="number" step="'+f.step+'" placeholder="'+f.ph+'" data-a="goalfield" data-k="'+f.k+'" value="'+esc(g[f.k]===undefined?'':g[f.k])+'"></div>';
+    var kind=(g.kind||{})[f.k]||'max';
+    var lab='<label>'+f.lab
+      +'<button type="button" class="kindbtn set" data-a="goalkind" data-k="'+f.k+'"'
+      +' title="'+GOAL_KIND_WORD[kind]+' — tap to change">'+GOAL_KIND_SYM[kind]+'</button></label>';
+    var one=function(b,ph){
+      return '<input type="number" step="'+f.step+'" placeholder="'+ph+'" data-a="goalfield" data-k="'+f.k+'"'
+        +(b?' data-b="hi"':'')+' value="'+esc((b?(g.hi||{})[f.k]:g[f.k])||'')+'">';
+    };
+    return '<div class="fld">'+lab
+      +(kind==='range'
+        ? '<div class="rangepair">'+one(0,f.ph)+'<span>to</span>'+one(1,f.ph2)+'</div>'
+        : one(0,f.ph))
+      +'</div>';
   }).join('');
   return '<div class="hrow"><h1>Goals</h1></div>'
     +'<div class="sub2">Everything else measures against these — the bars up top, and what Calc treats as "remaining today".</div>'
@@ -2573,16 +2661,17 @@ var calcMeals=1;     // how many meals this batch makes
 var calcAuto=true;   // calcMeals tracks the suggestion until you overrule it
 var calcInfo={suggest:null,cap:null};
 function calcRemaining(){
-  var g=state.health.goals||{},t=logTotals(logFor(todayStr())),out={};
+  var t=logTotals(logFor(todayStr())),out={};
+  // the middle of a band is what's left to aim at; a ceiling is what's left to spend
   MACROS.forEach(function(k){
-    var goal=num(g[k]);
+    var goal=goalMid(k);
     out[k]=goal>0?Math.max(Math.round((goal-t[k])*10)/10,0):'';
   });
   return out;
 }
 function calcShareOfDay(fr){
-  var g=state.health.goals||{},out={};
-  MACROS.forEach(function(k){var goal=num(g[k]);out[k]=goal>0?Math.round(goal*fr):'';});
+  var out={};
+  MACROS.forEach(function(k){var goal=goalMid(k);out[k]=goal>0?Math.round(goal*fr):'';});
   return out;
 }
 function r2(x){return Math.round(x*100)/100;}
@@ -3250,6 +3339,11 @@ app.addEventListener('click',function(e){
     calcKinds[kk]=KIND_NEXT[calcKinds[kk]||'eq'];
     render();return;
   }
+  if(a==='goalkind'){
+    var gk=t.dataset.k,gkinds=state.health.goals.kind;
+    gkinds[gk]=GOAL_KIND_NEXT[gkinds[gk]||'max'];
+    save();render();return;
+  }
   if(a==='calclock'){
     var pr=calcRows.filter(function(x){return x.id===t.dataset.id;})[0];
     // locking keeps whatever the solver had just worked out, so the number
@@ -3444,8 +3538,10 @@ app.addEventListener('input',function(e){var t=e.target,a=t.dataset&&t.dataset.a
   if(a==='goalfield'){
     // refresh only the bars, not the whole page — a render() here would pull
     // focus out of the field mid-keystroke
-    state.health.goals[t.dataset.k]=t.value===''?'':parseFloat(t.value);
-    if(t.dataset.k==='weight')state.health.targetWeight=t.value===''?'':parseFloat(t.value);
+    var gv=t.value===''?'':parseFloat(t.value);
+    if(t.dataset.b==='hi')state.health.goals.hi[t.dataset.k]=gv;
+    else state.health.goals[t.dataset.k]=gv;
+    if(t.dataset.k==='weight')state.health.targetWeight=gv;
     save();refreshGoalCheck();
     return;
   }
