@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T16:11:07Z';
+  var PAGE_VERSION='2026-08-28T16:16:04Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -388,10 +388,12 @@ textarea{resize:vertical;min-height:52px}
 /* it still sits proud of the bar, so it keeps a plain drop shadow — dark and
    short, reading as height rather than the gold halo it used to throw */
 .navfab{flex:none;width:54px;height:54px;border-radius:50%;margin:-20px 6px 0;
-  /* The highlight is a soft sheen painted into the background, not an inset
-     box-shadow. On a circle an inset line becomes a hard-edged crescent that
-     reads as a seam across the top rather than as light. */
-  background:radial-gradient(115% 85% at 50% -12%, rgba(255,255,255,.60), rgba(255,255,255,0) 58%),
+  /* Lit from the top-left across the whole face, same light as the macro ring.
+     A sheen concentrated at the top instead faded out around 55% of the height
+     — which is almost exactly where the bar's edge crosses the button, so the
+     falloff read as the button changing style at the taskbar line. Spanning the
+     full circle leaves no boundary for the edge to coincide with. */
+  background:linear-gradient(145deg, rgba(255,255,255,.48), rgba(255,255,255,0) 62%),
     linear-gradient(180deg,var(--accent-lift),var(--accent));
   color:var(--on-accent);display:flex;align-items:center;justify-content:center;
   box-shadow:0 2px 4px rgba(5,31,32,.22), 0 8px 18px -4px rgba(5,31,32,.38)}
@@ -1483,13 +1485,22 @@ function macroPie(t,aria,capLead){
   var cap=capLead+(drift>0.05?' Macros account for '+Math.round(mk)+' of '+logged+' cal logged — the gap is normal for fiber-heavy or processed foods.':'');
   return '<div class="piewrap">'
     +'<div class="pie"><svg viewBox="0 0 120 120" role="img" aria-label="'+esc(aria)+'">'
+    // One light, up and to the left. The wash lifts the near side and deepens
+    // the far one; the shadow is thrown down-right to match, and kept tight
+    // rather than diffuse — a hard edge is what says the ring is standing off
+    // the page rather than glowing on it.
     +'<defs><linearGradient id="pieLit" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(90 .5 .5)">'
-    +'<stop offset="0" stop-color="#fff" stop-opacity=".32"/>'
-    +'<stop offset=".42" stop-color="#fff" stop-opacity="0"/>'
-    +'<stop offset=".58" stop-color="#000" stop-opacity="0"/>'
-    +'<stop offset="1" stop-color="#000" stop-opacity=".22"/>'
-    +'</linearGradient></defs>'
-    +'<g transform="rotate(-90 60 60)">'+arcs+shade+'</g>'
+    +'<stop offset="0" stop-color="#fff" stop-opacity=".46"/>'
+    +'<stop offset=".40" stop-color="#fff" stop-opacity="0"/>'
+    +'<stop offset=".54" stop-color="#000" stop-opacity="0"/>'
+    +'<stop offset="1" stop-color="#000" stop-opacity=".34"/>'
+    +'</linearGradient>'
+    +'<filter id="pieDrop" x="-20%" y="-20%" width="145%" height="145%">'
+    +'<feDropShadow dx="2.6" dy="3.2" stdDeviation="1.5" flood-color="#051f20" flood-opacity=".38"/>'
+    +'</filter></defs>'
+    // the filter sits on an unrotated wrapper: dx/dy are read in the group's own
+    // space, so inside the -90 rotation the shadow would fall to the upper right
+    +'<g filter="url(#pieDrop)"><g transform="rotate(-90 60 60)">'+arcs+shade+'</g></g>'
     +'<text class="pietot" x="60" y="59" text-anchor="middle">'+logged+'</text>'
     +'<text class="pietotl" x="60" y="72" text-anchor="middle">cal</text>'
     +'</svg></div>'
