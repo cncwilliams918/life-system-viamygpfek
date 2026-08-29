@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T19:01:17Z';
+  var PAGE_VERSION='2026-08-29T19:05:21Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -2249,18 +2249,24 @@ function foodDetailHtml(){
       +'<input type="number" step="any" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="1">'
       +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,displayUnit(f)))+'</span></div>';
   }else{
+    // one button that flips. A lit one of two reads as a choice already made
+    // rather than something you can press.
     modeTog='<div class="fcmodetog">'
-      +'<button type="button" class="fcmodebtn'+(mode==='want'?' on':'')+'" data-a="foodmode" data-id="'+f.id+'" data-mode="want">I want</button>'
-      +'<button type="button" class="fcmodebtn'+(mode==='have'?' on':'')+'" data-a="foodmode" data-id="'+f.id+'" data-mode="have">I have</button>'
+      +'<button type="button" class="fcmodebtn on" data-a="foodmode" data-id="'+f.id+'"'
+      +' data-mode="'+(mode==='have'?'want':'have')+'"'
+      +' title="Tap to switch to '+(mode==='have'?'I want':'I have')+'">'
+      +(mode==='have'?'I have':'I want')+'</button>'
       +'</div>';
     if(mode==='have'){
-      inputRow='<div class="fcrow"><span class="fclbl">I have</span>'
+      // the toggle above already says which mode this is; repeating it here just
+      // read as "I have I have"
+      inputRow='<div class="fcrow">'
         +'<input type="number" step="any" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="0">'
         +'<span class="fcunit2" id="fcunit-'+f.id+'">'+esc(unitLabel(num(amt)||1,displayUnit(f)))+'</span></div>';
     }else{
       var tk=f.tmac||'protein';
       var opts=TARGETS.map(function(t){return '<option value="'+t.key+'"'+(t.key===tk?' selected':'')+'>'+t.label+'</option>';}).join('');
-      inputRow='<div class="fcrow"><span class="fclbl">I want</span>'
+      inputRow='<div class="fcrow">'
         +'<input type="number" step="0.1" data-a="foodamt" data-id="'+f.id+'" value="'+esc(amt===undefined?'':amt)+'" placeholder="0">'
         +'<span class="fcunit2" id="fcunit-'+f.id+'">'+(tk==='calories'?'cal':'g')+'</span><span class="fclbl">of</span>'
         +'<select data-a="foodmac" data-id="'+f.id+'">'+opts+'</select></div>';
