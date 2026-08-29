@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T17:57:19Z';
+  var PAGE_VERSION='2026-08-29T18:03:16Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -2102,16 +2102,15 @@ function recentFoods(){
     return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});
   });
 }
-// Where a food came from, at a glance: one you typed in yourself versus one
-// pulled from USDA or Open Food Facts. They sit in the same list once logged,
-// so the row itself has to say which is which.
-var ICON_PEN='<path d="M4 20h4L18 10a2.47 2.47 0 0 0-3.5-3.5L4.5 16.5z"/><path d="M13.6 7.6l3 3"/>';
-var ICON_DB='<ellipse cx="12" cy="6.4" rx="7" ry="2.8"/><path d="M5 6.4v11.2c0 1.55 3.13 2.8 7 2.8s7-1.25 7-2.8V6.4"/><path d="M5 12c0 1.55 3.13 2.8 7 2.8s7-1.25 7-2.8"/>';
+// A food wears the food glyph everywhere — the same one the Add menu uses —
+// rather than a different picture in each list. Where it came from still shows,
+// in the badge's tint rather than its shape: gold for the database, plain for
+// one you typed yourself.
 function isDbFood(f){return f&&(f.source==='usda'||f.source==='off');}
 function sourceBadge(f){
   var db=isDbFood(f);
   return '<span class="srcbadge'+(db?' db':'')+'" title="'+(db?'From the food database':'You entered this yourself')+'">'
-    +'<svg viewBox="0 0 24 24">'+(db?ICON_DB:ICON_PEN)+'</svg></span>';
+    +'<svg viewBox="0 0 24 24">'+ICON_FOOD+'</svg></span>';
 }
 function foodRow(f,attrs){
   return '<button type="button" class="frow" '+attrs+'>'
