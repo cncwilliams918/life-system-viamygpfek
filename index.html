@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T19:05:21Z';
+  var PAGE_VERSION='2026-08-29T19:10:30Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1640,7 +1640,7 @@ function refreshMeal(id){
   var mult=num(m.mult)||1;
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);
-    var r=resolveMealItem(f,mi,1,mi.scope==='batch');
+    var r=resolveMealItem(f,mi,mult,true);
     setTxt('miq-'+mi.id,r?fmtQty(num(toDisplayAmt(f,r.grams)),displayUnit(f)):'—');
     setTxt('mio-'+mi.id+'-cal',r?String(Math.round(r.calories)):'—');
     setTxt('mio-'+mi.id+'-p',r?String(Math.round(r.protein*10)/10):'—');
@@ -1658,21 +1658,17 @@ function refreshMeal(id){
 function mealItemRow(m,mi){
   var f=fFood(mi.foodId);
   if(!f)return '<div class="mitem gone"><span class="miname">food deleted</span><span></span><span></span><span></span><span></span><span></span><span class="midel" data-a="midel" data-mid="'+m.id+'" data-iid="'+mi.id+'">×</span></div>';
-  var batch=mi.scope==='batch';
-  // The row reports the amount exactly as you entered it — three pounds of beef
-  // stays three pounds however many meals it's split into. The tag says which
-  // that number was: one meal's worth, or the whole batch's.
-  var r=resolveMealItem(f,mi,1,batch);
-  var chip='<span class="scopechip'+(batch?' total':'')+'"'
-    +' title="'+(batch?'This amount is the whole batch — change it on the food’s page':'This amount is one meal’s worth — change it on the food’s page')+'">'
-    +(batch?'whole batch':'a meal')+'</span>';
+  // Every row reports the whole batch, so the card reads as a recipe: this is
+  // what goes in the pan. Whether the number was entered per meal or per batch
+  // is settled on the food's page and doesn't need repeating here.
+  var r=resolveMealItem(f,mi,num(m.mult)||1,true);
   // A meal is a recipe: it says what to put in, not how the amount was arrived
   // at. The target that produced it lives on the food's own page, one tap away
   // through the name, which is the only place an amount is editable now.
   return '<div class="mitem">'
     +'<span class="minamewrap">'
       +'<button type="button" class="miname" data-a="mitemopen" data-mid="'+m.id+'" data-iid="'+mi.id+'">'
-        +esc(f.name)+'<span class="calcchev">›</span></button>'+chip+'</span>'
+        +esc(f.name)+'<span class="calcchev">›</span></button></span>'
     +'<span class="miqty" id="miq-'+mi.id+'">'+(r?esc(fmtQty(num(toDisplayAmt(f,r.grams)),displayUnit(f))):'—')+'</span>'
     +'<span id="mio-'+mi.id+'-cal">'+(r?Math.round(r.calories):'—')+'</span>'
     +'<span id="mio-'+mi.id+'-p">'+(r?Math.round(r.protein*10)/10:'—')+'</span>'
@@ -1708,7 +1704,7 @@ function mealCard(m){
       +'<span class="fclbl">per meal</span></div>'
       +(mealWantNote(m)?'<div class="gcheck">'+mealWantNote(m)+'</div>':'');
     body='<div class="mitems">'
-      +'<div class="mitem mihead"><span>Food</span><span>Amount</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
+      +'<div class="mitem mihead"><span>Food</span><span>Batch</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
       +(items||'<div class="tempty">No foods in this meal yet.</div>')
       +'<div class="mitem mitot"><span>Total per meal</span><span></span>'
         +'<span id="mtot-'+m.id+'-cal">'+Math.round(one.calories)+'</span>'
@@ -1744,7 +1740,7 @@ function logMeal(id){
   var mult=num(m.mult)||1,gid=uid(),any=false;
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);if(!f)return;
-    var r=resolveMealItem(f,mi,mult,false);if(!r)return;
+    var r=resolveMealItem(f,mi,mult,true);if(!r)return;
     state.health.log.push({id:uid(),at:Date.now(),date:addTarget,gid:gid,meal:m.name,foodId:f.id,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
     f.lastUsed=Date.now();
     any=true;
@@ -2091,7 +2087,7 @@ function buildMeals(){
   var cards=recentMeals().map(mealCard).join('');
   return backRow('addmenu','Meals')
     +'<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Create a meal</button>'
-    +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
+    +'<div class="sub2">A recipe and how far it goes. Amounts are the whole batch; set how many meals it makes and the total below tells you what one comes to.</div>'
     +(cards||'<div class="tempty">No meals yet.</div>')
     +(mealAddOpen?mealAddHtml():'');
 }
