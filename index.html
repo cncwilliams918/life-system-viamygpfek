@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T17:43:53Z';
+  var PAGE_VERSION='2026-08-29T17:57:19Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -314,33 +314,36 @@ textarea{resize:vertical;min-height:52px}
 .derived{background:var(--surface-2);color:var(--on-surface-dim);cursor:default}
 /* food sheet — 1px flex gaps stand in for the row rules */
 .fsheet{border-radius:16px;overflow:hidden;box-shadow:var(--cardshadow);display:flex;flex-direction:column;gap:1px;background:var(--divider)}
-/* Two rows: the glyph spans both on the left, the name takes the whole left
-   side across both, the amount sits top right and the figures bottom right in a
+/* Two rows: the glyph spans both on the left, the name and its amount take the
+   whole left side across both, and the four figures sit bottom right in a
    fixed-width column. Fixed is what makes them line up down the sheet — a
    content-sized column would be a different width on every row. */
-.fsrow{display:grid;grid-template-columns:20px minmax(0,1fr) 132px 18px;
-  grid-template-areas:"icon name amt del" "icon name nums del";
-  gap:2px 6px;align-items:center;padding:8px 10px;
+.fsrow{display:grid;grid-template-columns:30px minmax(0,1fr) 120px 16px;
+  grid-template-areas:"icon name . del" "icon name nums del";
+  gap:2px 5px;align-items:center;padding:8px 10px;
   font-family:var(--label);font-size:12px;color:var(--on-surface);background:var(--surface)}
 .fsnums{grid-area:nums;display:grid;grid-template-columns:repeat(4,1fr);gap:5px;
   font-variant-numeric:tabular-nums;text-align:right}
 .fshead{grid-template-areas:"icon name nums del";background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.fsname{grid-area:name;align-self:center;display:flex;align-items:center;gap:7px;min-width:0}
+/* the row is the way into the amount, so it has to look touchable */
+.fstap{cursor:pointer}
+.fstap:hover{background:var(--surface-2)}
+.fsparent.fstap:hover,.fschild.fstap:hover{background:var(--surface-3)}
 /* two lines, then cut. A name is an identifier, not something worth reflowing
    the row for. */
-.fsname{grid-area:name;align-self:center;font-family:var(--sans);font-size:13px;min-width:0;
+.fsnm{font-family:var(--sans);font-size:13px;min-width:0;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   overflow-wrap:anywhere;line-height:1.3}
-.fsg{grid-area:amt;align-self:center;font-family:var(--label);font-size:10.5px;
-  color:var(--on-surface-faint);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* the icon is centred against the name's cap height, not sat on its baseline
    the way the rest of this flex row is */
-.fsicon{grid-area:icon;align-self:center;justify-self:center;width:14px;height:14px;color:var(--on-surface-faint)}
-.fsicon svg{width:14px;height:14px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.fsicon{grid-area:icon;align-self:center;justify-self:center;width:28px;height:28px;color:var(--on-surface-faint)}
+.fsicon svg{width:28px;height:28px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .fsparent .fsicon{color:var(--accent-2)}
 .fsdel{grid-area:del;align-self:center;color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
 .fsdel:hover{color:var(--negative)}
 .fstot{grid-template-areas:"icon name nums del";background:var(--surface-2);color:var(--accent-2)}
-.fstot .fsname{font-family:var(--label);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
+.fstot .fsnm{font-family:var(--label);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
 .fsparent .fsname{font-weight:600;color:var(--on-surface)}
 .fsparent{background:var(--surface-2)}
 /* only the name indents — the numbers stay in their columns, which is the
@@ -1692,7 +1695,7 @@ function logMeal(id){
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);if(!f)return;
     var r=resolveMealItem(f,mi,mult);if(!r)return;
-    state.health.log.push({id:uid(),at:Date.now(),date:addTarget,gid:gid,meal:m.name,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
+    state.health.log.push({id:uid(),at:Date.now(),date:addTarget,gid:gid,meal:m.name,foodId:f.id,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
     f.lastUsed=Date.now();
     any=true;
   });
@@ -1739,7 +1742,7 @@ function addFoodLog(id){
   state.health.log=state.health.log||[];
   // record it in the unit you actually measured in — if you weighed out 6 oz,
   // the log should say 6 oz, not 170 g
-  state.health.log.push({id:uid(),at:Date.now(),date:addTarget,name:f.name,qty:Math.round(outAmount(f,r)*100)/100,unit:displayUnit(f),calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
+  state.health.log.push({id:uid(),at:Date.now(),date:addTarget,foodId:f.id,name:f.name,qty:Math.round(outAmount(f,r)*100)/100,unit:displayUnit(f),calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
   f.lastUsed=Date.now();  // drives the recents ordering
   syncMacros(addTarget);
   // Logging to today is usually one of several in a row, so it falls back to the
@@ -1761,10 +1764,12 @@ function fsNums(c,p,cb,f){
   return '<span class="fsnums"><span>'+c+'</span><span>'+p+'</span><span>'+cb+'</span><span>'+f+'</span></span>';
 }
 function fsRow(r,isChild){
-  return '<div class="fsrow'+(isChild?' fschild':'')+'">'
+  // the whole row opens the food, where the amount is edited and saved back —
+  // rows logged before foodId was recorded have nothing to open, so they don't
+  var open=r.foodId?' data-a="logedit" data-id="'+r.id+'"':'';
+  return '<div class="fsrow'+(isChild?' fschild':'')+(r.foodId?' fstap':'')+'"'+open+'>'
     +fsIcon(ICON_FOOD)
-    +'<span class="fsname">'+esc(r.name)+'</span>'
-    +'<span class="fsg">'+esc(fmtQty(num(r.qty),r.unit))+'</span>'
+    +'<span class="fsname"><span class="fsnm">'+esc(r.name)+'</span></span>'
     +'<span class="fsdel" data-a="logdel" data-id="'+r.id+'">×</span>'
     +fsNums(num(r.calories),num(r.protein),num(r.carbs),num(r.fat))+'</div>';
 }
@@ -1906,13 +1911,13 @@ function buildFoodSheet(dateStr){
     var mt=logTotals(b.rows);
     return '<div class="fsrow fsparent">'
       +fsIcon(ICON_MEAL)
-      +'<span class="fsname">'+esc(b.meal||'Meal')+'</span><span class="fsg"></span>'
+      +'<span class="fsname"><span class="fsnm">'+esc(b.meal||'Meal')+'</span></span>'
       +'<span class="fsdel" data-a="logdelgroup" data-gid="'+b.gid+'">×</span>'
       +fsNums(Math.round(mt.calories),Math.round(mt.protein*10)/10,Math.round(mt.carbs*10)/10,Math.round(mt.fat*10)/10)+'</div>'
       +b.rows.map(function(r){return fsRow(r,true);}).join('');
   }).join('');
   var t=logTotals(rows);
-  var tot='<div class="fsrow fstot"><span class="fsname">Total</span>'
+  var tot='<div class="fsrow fstot"><span class="fsname"><span class="fsnm">Total</span></span>'
     +fsNums(Math.round(t.calories),Math.round(t.protein*10)/10,Math.round(t.carbs*10)/10,Math.round(t.fat*10)/10)+'</div>';
   // End day only makes sense for the day actually in progress
   var endBtn=isToday
@@ -2126,7 +2131,9 @@ function pickAction(){
 }
 // Opened to feed a Calc row or a meal item, the food page isn't logging
 // anything — it's dialling in a number that belongs to something else.
-function detailFeeds(){return pickerFor==='calc'||pickerFor==='meal';}
+// contexts where the detail page edits something that already exists, so its
+// action reads Save and returns you where you came from
+function detailFeeds(){return pickerFor==='calc'||pickerFor==='meal'||pickerFor==='logedit';}
 function localFoodsHtml(){
   var q=foodQuery.trim().toLowerCase();
   var foods=recentFoods().filter(function(f){return !q||f.name.toLowerCase().indexOf(q)>-1;});
@@ -2162,6 +2169,7 @@ function foodPickerHtml(){
 // browsing results doesn't litter the list.
 var draftFood=null;
 var pickDetail=null;   // null | {kind:'saved',id} | {kind:'db'}
+var logEditId=null;    // the logged row being edited, when pickerFor==='logedit'
 function detailFood(){
   if(!pickDetail)return null;
   return pickDetail.kind==='db'?draftFood:fFood(pickDetail.id);
@@ -2211,7 +2219,7 @@ function foodDetailHtml(){
   // opened from a Calc row or a meal item you're here to set a number that
   // belongs to that list, not to log anything
   var note=detailFeeds()
-    ?'Editing <b>'+esc(f.name)+'</b> — Save returns to '+(pickerFor==='calc'?'Calc':'the meal')
+    ?'Editing <b>'+esc(f.name)+'</b> — Save returns to '+(pickerFor==='calc'?'Calc':pickerFor==='logedit'?'the log':'the meal')
     :'Logging to <b>'+esc(where)+'</b>';
   return backRow('detailback',note)
     +'<div class="fdhead">'+sourceBadge(f)
@@ -3132,7 +3140,7 @@ function calcLogAll(){
     var f=calcFood(r),amt=rowPerMeal(r,n),m=calcRowMacros(r,n);
     if(!f||!m||!(amt>0))return;
     // log it in the unit you measured it in, same as logging from a food's page
-    state.health.log.push({id:uid(),at:Date.now(),date:todayStr(),gid:gid,meal:'Calc',name:f.name,
+    state.health.log.push({id:uid(),at:Date.now(),date:todayStr(),gid:gid,meal:'Calc',foodId:f.id,name:f.name,
       qty:num(toDisplayAmt(f,amt)),unit:displayUnit(f)||'g',
       calories:Math.round(m.calories),protein:Math.round(m.protein*10)/10,
       carbs:Math.round(m.carbs*10)/10,fat:Math.round(m.fat*10)/10});
@@ -3158,9 +3166,42 @@ function addMealItem(m,f){
 // Save hands the number back to whatever opened this page. A Calc row holds a
 // settled amount, so the target gets resolved into one; a meal item holds the
 // target itself, so it's copied across and stays live against the multiplier.
+// Opening a logged row: the food's own page, primed with what you logged, so
+// the amount is edited in the one place that knows how to convert it.
+function openLogEdit(rowId){
+  var r=(state.health.log||[]).filter(function(x){return x.id===rowId;})[0];
+  if(!r||!r.foodId)return;
+  var f=fFood(r.foodId);
+  if(!f){alert('That food has been deleted, so there\'s nothing left to edit it against.');return;}
+  logEditId=rowId;pickerFor='logedit';
+  // the row stores what you actually measured, so the page opens on "I have"
+  // with that number rather than re-solving for a macro target
+  f.mode='have';
+  f.dunit=r.unit||f.dunit;
+  f.tamt=r.qty;
+  backScrollY=window.scrollY;
+  pickDetail={kind:'saved',id:f.id};dayAddOpen=true;addTarget=r.date;
+  save();window.scrollTo(0,0);render();
+}
+function saveLogEdit(f){
+  var r=(state.health.log||[]).filter(function(x){return x.id===logEditId;})[0];
+  var res=r&&foodResolved(f);
+  if(r&&res){
+    r.qty=Math.round(outAmount(f,res)*100)/100;
+    r.unit=displayUnit(f);
+    r.name=f.name;
+    r.calories=Math.round(res.calories);
+    r.protein=Math.round(res.protein*10)/10;
+    r.carbs=Math.round(res.carbs*10)/10;
+    r.fat=Math.round(res.fat*10)/10;
+    syncMacros(r.date);
+  }
+  logEditId=null;dayAddOpen=false;
+}
 function saveDetailBack(id){
   var f=fFood(id);if(!f)return;
-  if(pickerFor==='calc'){
+  if(pickerFor==='logedit'){saveLogEdit(f);}
+  else if(pickerFor==='calc'){
     var row=calcRows.filter(function(x){return x.foodId===id;})[0];
     var r=foodResolved(f);
     if(row&&r){
@@ -3500,6 +3541,8 @@ app.addEventListener('click',function(e){
     // opened from a Calc row or a meal item, so back is that list — not the
     // picker you'd land on coming from a day — and at the offset you left it
     if(detailFeeds()){
+      // backing out of a log edit changes nothing — the row is written on Save
+      if(pickerFor==='logedit'){logEditId=null;dayAddOpen=false;}
       calcPickOpen=false;mealPickId=null;mealItemEdit=null;pickerFor='log';
       resetFoodDb();restoreScroll=backScrollY;
     }else{
@@ -3653,6 +3696,7 @@ app.addEventListener('click',function(e){
     // (grams needed vs. grams on hand) — clear it rather than carry over a stale value
     if(fmd&&fmd.mode!==t.dataset.mode){fmd.mode=t.dataset.mode;fmd.tamt='';save();render();}
   }
+  else if(a==='logedit'){openLogEdit(t.dataset.id);}
   else if(a==='foodlog'){addFoodLog(t.dataset.id);}
   else if(a==='endday'){
     syncMacros(todayStr());
