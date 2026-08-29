@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T15:28:30Z';
+  var PAGE_VERSION='2026-08-29T17:26:06Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1682,6 +1682,7 @@ function logMeal(id){
     any=true;
   });
   if(any){
+    m.lastUsed=Date.now();
     syncMacros(addTarget);
     if(dayAddOpen)closeDayAdd();
     save();render();
@@ -1993,7 +1994,7 @@ function buildMeals(){
     return backRow('mealpickclose','Adding to <b>'+esc(pm?pm.name:'meal')+'</b>')
       +foodPickerHtml()+(foodAddOpen?foodAddHtml():'');
   }
-  var cards=(state.health.meals||[]).map(mealCard).join('');
+  var cards=recentMeals().map(mealCard).join('');
   return backRow('addmenu','Meals')
     +'<button type="button" class="blockaddbtn spaced" data-a="openmealadd">'+PLUS_ICON+' Create a meal</button>'
     +'<div class="sub2">Group foods that go together. Each food keeps its own target; the × multiplier scales the whole meal at once without touching those targets.</div>'
@@ -2047,6 +2048,19 @@ function dayAddHtml(){
 }
 // Recency, not the alphabet: what you ate yesterday is overwhelmingly what
 // you're about to eat again, and alphabetical order buries it.
+// Meals sort the way foods do, on when you last reached for one. Opening a meal
+// counts, and so does logging it from the collapsed card — otherwise a meal you
+// logged an hour ago without expanding would sit below one you merely glanced
+// at. Meals never touched fall back to alphabetical.
+function recentMeals(){
+  return (state.health.meals||[]).slice().sort(function(a,b){
+    var d=num(b.lastUsed)-num(a.lastUsed);
+    if(d)return d;
+    if(a.lastUsed&&!b.lastUsed)return -1;
+    if(b.lastUsed&&!a.lastUsed)return 1;
+    return (a.name||'').localeCompare(b.name||'',undefined,{sensitivity:'base'});
+  });
+}
 function recentFoods(){
   return (state.health.foods||[]).slice().sort(function(a,b){
     var d=num(b.lastUsed)-num(a.lastUsed);
@@ -3632,7 +3646,13 @@ app.addEventListener('click',function(e){
   else if(a==='openmealadd'){mealAddOpen=true;render();}
   else if(a==='closemealadd'){mealAddOpen=false;render();}
   else if(a==='addmeal'){addMeal();}
-  else if(a==='togglemeal'){openItem=isOpenItem('meal',t.dataset.id)?null:{type:'meal',id:t.dataset.id};render();}
+  else if(a==='togglemeal'){
+    var wasOpen=isOpenItem('meal',t.dataset.id);
+    openItem=wasOpen?null:{type:'meal',id:t.dataset.id};
+    // stamped on opening, not on closing, so collapsing one doesn't re-bump it
+    if(!wasOpen){var om=fMeal(t.dataset.id);if(om){om.lastUsed=Date.now();save();}}
+    render();
+  }
   else if(a==='emln'){state.editing='ml:'+t.dataset.id;render();}
   else if(a==='logmeal'){logMeal(t.dataset.id);}
 });
