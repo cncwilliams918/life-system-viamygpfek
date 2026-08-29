@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T18:08:54Z';
+  var PAGE_VERSION='2026-08-29T18:29:33Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1611,7 +1611,9 @@ function refreshMeal(id){
     setTxt('mio-'+mi.id+'-c',r?String(Math.round(r.carbs*10)/10):'—');
     setTxt('mio-'+mi.id+'-f',r?String(Math.round(r.fat*10)/10):'—');
   });
-  var t=mealTotals(m);
+  // per meal, not per batch — the multiplier moves the ingredient amounts above,
+  // not what one meal comes to
+  var t=mealTotalsAtMult(m,1);
   setTxt('mtot-'+id+'-cal',Math.round(t.calories));
   setTxt('mtot-'+id+'-p',Math.round(t.protein*10)/10);
   setTxt('mtot-'+id+'-c',Math.round(t.carbs*10)/10);
@@ -1642,6 +1644,10 @@ function mealCard(m){
     ?'<input class="mlname" data-e="1" data-a="cmln" data-id="'+m.id+'" value="'+esc(m.name)+'">'
     :'<span class="mlname" data-a="emln" data-id="'+m.id+'">'+esc(m.name)+'</span>';
   var t=mealTotals(m);
+  // what one meal comes to, whatever the multiplier is set to. The multiplier
+  // scales the ingredient amounts in the rows above; it shouldn't change the
+  // answer to "how big is this meal".
+  var one=mealTotalsAtMult(m,1);
   var quickAction=open
     ?'<span class="mldel" data-a="dmeal" data-id="'+m.id+'">×</span>'
     // no items yet means nothing to log — fall back to opening the card instead
@@ -1665,11 +1671,11 @@ function mealCard(m){
     body='<div class="mitems">'
       +'<div class="mitem mihead"><span>Food</span><span>Needed</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
       +(items||'<div class="tempty">No foods in this meal yet.</div>')
-      +'<div class="mitem mitot"><span>Total</span><span></span>'
-        +'<span id="mtot-'+m.id+'-cal">'+Math.round(t.calories)+'</span>'
-        +'<span id="mtot-'+m.id+'-p">'+(Math.round(t.protein*10)/10)+'</span>'
-        +'<span id="mtot-'+m.id+'-c">'+(Math.round(t.carbs*10)/10)+'</span>'
-        +'<span id="mtot-'+m.id+'-f">'+(Math.round(t.fat*10)/10)+'</span><span></span></div>'
+      +'<div class="mitem mitot"><span>Total per meal</span><span></span>'
+        +'<span id="mtot-'+m.id+'-cal">'+Math.round(one.calories)+'</span>'
+        +'<span id="mtot-'+m.id+'-p">'+(Math.round(one.protein*10)/10)+'</span>'
+        +'<span id="mtot-'+m.id+'-c">'+(Math.round(one.carbs*10)/10)+'</span>'
+        +'<span id="mtot-'+m.id+'-f">'+(Math.round(one.fat*10)/10)+'</span><span></span></div>'
       +'</div>'
       +wantRow
       +'<div class="mlfoot">'+adder+'<button class="mllog" data-a="logmeal" data-id="'+m.id+'">'+PLUS_ICON+' Log meal</button></div>';
