@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T18:32:25Z';
+  var PAGE_VERSION='2026-08-29T18:48:09Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -370,7 +370,10 @@ textarea{resize:vertical;min-height:52px}
 .mldel:hover{color:var(--negative)}
 .mitems{margin-top:12px;border-radius:16px;overflow:hidden;box-shadow:var(--cardshadow);display:flex;flex-direction:column;gap:1px;background:var(--divider)}
 .mitem{display:grid;grid-template-columns:1fr 84px 50px 44px 44px 44px 18px;gap:6px;align-items:center;padding:7px 10px;font-family:var(--label);font-size:12px;background:var(--surface)}
-.mitem>span:not(.miname):not(.midel){text-align:right;font-variant-numeric:tabular-nums}
+.mitem>span:not(.miname):not(.midel):not(.minamewrap){text-align:right;font-variant-numeric:tabular-nums}
+/* the name and its scope chip read as one cell */
+.minamewrap{display:flex;align-items:center;gap:8px;min-width:0}
+.minamewrap .miname{min-width:0}
 /* the first cell of the header and the total labels the name column, so it
    lines up with the names rather than with the figures on its right */
 .mitems .mitem.mihead>span:first-child,.mitems .mitem.mitot>span:first-child{text-align:left}
@@ -1533,7 +1536,17 @@ function foodResolved(f){
 function outAmount(f,r){return displayFromServings(f,r.grams/(num(f.serving)||1));}
 // a meal item's food may be measured in servings/scoops (quantity) or grams/oz (macro target) —
 // same branch the standalone food card already uses, now applied inside meals too
-function resolveMealItem(f,mi,mult){return f&&(isCountableUnit(f.unit)||mi.mode==='have')?resolveFoodQty(f,mi.tamt,mult):resolveFood(f,mi.tmac,mi.tamt,mult);}
+// An item's amount is either one meal's worth or the whole batch's. A batch
+// amount is a stock — three pounds of beef is three pounds however many meals
+// you split it into — so the meal count divides it per meal and leaves the total
+// alone. A meal amount does the opposite: it's fixed per meal and multiplies up.
+function resolveMealItem(f,mi,mult,batch){
+  if(!f)return null;
+  var n=Math.max(1,num(mult)||1);
+  if(mi.scope==='batch')return resolveFoodQty(f,mi.tamt,batch?1:1/n);
+  var k=batch?n:1;
+  return (isCountableUnit(f.unit)||mi.mode==='have')?resolveFoodQty(f,mi.tamt,k):resolveFood(f,mi.tmac,mi.tamt,k);
+}
 function foodOutHtml(f){
   var tk=f.tmac||'protein',amt=f.tamt;
   var per=num(f[tk]);
@@ -1580,26 +1593,46 @@ function defaultTarget(f){
   if(opts[0][1]>0)return {tmac:opts[0][0],tamt:opts[0][1]};
   return {tmac:'calories',tamt:num(f.calories)};
 }
-function mealTotalsAtMult(m,mult){
-  var t={calories:0,protein:0,carbs:0,fat:0};
+function mealSum(m,batch){
+  var t={calories:0,protein:0,carbs:0,fat:0},mult=num(m.mult)||1;
   (m.items||[]).forEach(function(mi){
-    var r=resolveMealItem(fFood(mi.foodId),mi,mult);
+    var r=resolveMealItem(fFood(mi.foodId),mi,mult,batch);
     if(r){t.calories+=r.calories;t.protein+=r.protein;t.carbs+=r.carbs;t.fat+=r.fat;}
   });
   return t;
 }
-function mealTotals(m){return mealTotalsAtMult(m,num(m.mult)||1);}
-// "I want X calories/protein/carbs/fat FROM this meal" — solves for the ×
-// multiplier that hits that target, using the meal's per-unit-mult totals
-// (mult=1) as the baseline. Leaves mult untouched if the chosen macro is
-// zero for this meal (nothing to solve against).
+// what one meal comes to, and what the whole batch does
+function mealPerMeal(m){return mealSum(m,false);}
+function mealTotals(m){return mealSum(m,true);}
+// "I want each meal to be X" — solves for how many meals the batch makes.
+// One meal comes to A + B/n: A is everything stated per meal, which the count
+// can't touch, and B is the stock, which it divides. So n = B / (want - A), and
+// the question only has an answer when there's stock to split and the target
+// sits above what the per-meal items already contribute. Whole meals only —
+// there's no such thing as 3.4 portions of a batch.
+function mealSplit(m){
+  var A={calories:0,protein:0,carbs:0,fat:0},B={calories:0,protein:0,carbs:0,fat:0};
+  (m.items||[]).forEach(function(mi){
+    var f=fFood(mi.foodId);if(!f)return;
+    var into=mi.scope==='batch'?B:A;
+    var r=resolveMealItem(f,mi,1,mi.scope==='batch');
+    if(r){into.calories+=r.calories;into.protein+=r.protein;into.carbs+=r.carbs;into.fat+=r.fat;}
+  });
+  return {fixed:A,stock:B};
+}
+function mealWantNote(m){
+  var s=mealSplit(m),mac=m.wantMac||'calories',want=num(m.wantAmt);
+  if(!(s.stock[mac]>0))
+    return 'Mark a food <b>whole batch</b> to work this out — with everything stated per meal, the count can’t change what one meal comes to.';
+  if(!(want>0))return '';
+  if(want<=s.fixed[mac])
+    return 'The per-meal foods already come to '+Math.round(s.fixed[mac])+', so no number of meals gets down to '+Math.round(want)+'.';
+  return '';
+}
 function applyMealWant(m){
-  var mac=m.wantMac||'calories';
-  var base=mealTotalsAtMult(m,1);
-  var per=base[mac];
-  if(per>0&&m.wantAmt!==''&&m.wantAmt!=null&&m.wantAmt!==undefined){
-    m.mult=Math.round((num(m.wantAmt)/per)*10000)/10000;
-  }
+  var s=mealSplit(m),mac=m.wantMac||'calories',want=num(m.wantAmt);
+  if(!(s.stock[mac]>0)||!(want>s.fixed[mac]))return;
+  m.mult=Math.max(1,Math.round(s.stock[mac]/(want-s.fixed[mac])));
 }
 function setTxt(id,v){var el=document.getElementById(id);if(el)el.textContent=v;}
 function refreshMeal(id){
@@ -1607,16 +1640,14 @@ function refreshMeal(id){
   var mult=num(m.mult)||1;
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);
-    var r=resolveMealItem(f,mi,mult);
+    var r=resolveMealItem(f,mi,mult,false);
     setTxt('miq-'+mi.id,r?fmtQty(num(toDisplayAmt(f,r.grams)),displayUnit(f)):'—');
     setTxt('mio-'+mi.id+'-cal',r?String(Math.round(r.calories)):'—');
     setTxt('mio-'+mi.id+'-p',r?String(Math.round(r.protein*10)/10):'—');
     setTxt('mio-'+mi.id+'-c',r?String(Math.round(r.carbs*10)/10):'—');
     setTxt('mio-'+mi.id+'-f',r?String(Math.round(r.fat*10)/10):'—');
   });
-  // per meal, not per batch — the multiplier moves the ingredient amounts above,
-  // not what one meal comes to
-  var t=mealTotalsAtMult(m,1);
+  var t=mealPerMeal(m);
   setTxt('mtot-'+id+'-cal',Math.round(t.calories));
   setTxt('mtot-'+id+'-p',Math.round(t.protein*10)/10);
   setTxt('mtot-'+id+'-c',Math.round(t.carbs*10)/10);
@@ -1627,13 +1658,21 @@ function refreshMeal(id){
 function mealItemRow(m,mi){
   var f=fFood(mi.foodId);
   if(!f)return '<div class="mitem gone"><span class="miname">food deleted</span><span></span><span></span><span></span><span></span><span></span><span class="midel" data-a="midel" data-mid="'+m.id+'" data-iid="'+mi.id+'">×</span></div>';
-  var r=resolveMealItem(f,mi,num(m.mult)||1);
+  var batch=mi.scope==='batch';
+  // the row always reports one meal's worth; the chip says how the number you
+  // typed was meant, not what the row shows
+  var r=resolveMealItem(f,mi,num(m.mult)||1,false);
+  var chip='<button type="button" class="scopechip'+(batch?' total':'')+'" data-a="mealscope"'
+    +' data-mid="'+m.id+'" data-iid="'+mi.id+'"'
+    +' title="'+(batch?'That amount is your whole stock — tap for one meal’s worth':'That amount is one meal’s worth — tap for the whole batch')+'">'
+    +(batch?'whole batch':'a meal')+'</button>';
   // A meal is a recipe: it says what to put in, not how the amount was arrived
   // at. The target that produced it lives on the food's own page, one tap away
   // through the name, which is the only place an amount is editable now.
   return '<div class="mitem">'
-    +'<button type="button" class="miname" data-a="mitemopen" data-mid="'+m.id+'" data-iid="'+mi.id+'">'
-      +esc(f.name)+'<span class="calcchev">›</span></button>'
+    +'<span class="minamewrap">'
+      +'<button type="button" class="miname" data-a="mitemopen" data-mid="'+m.id+'" data-iid="'+mi.id+'">'
+        +esc(f.name)+'<span class="calcchev">›</span></button>'+chip+'</span>'
     +'<span class="miqty" id="miq-'+mi.id+'">'+(r?esc(fmtQty(num(toDisplayAmt(f,r.grams)),displayUnit(f))):'—')+'</span>'
     +'<span id="mio-'+mi.id+'-cal">'+(r?Math.round(r.calories):'—')+'</span>'
     +'<span id="mio-'+mi.id+'-p">'+(r?Math.round(r.protein*10)/10:'—')+'</span>'
@@ -1646,19 +1685,15 @@ function mealCard(m){
   var te=state.editing==='ml:'+m.id
     ?'<input class="mlname" data-e="1" data-a="cmln" data-id="'+m.id+'" value="'+esc(m.name)+'">'
     :'<span class="mlname" data-a="emln" data-id="'+m.id+'">'+esc(m.name)+'</span>';
-  var t=mealTotals(m);
-  // what one meal comes to, whatever the multiplier is set to. The multiplier
-  // scales the ingredient amounts in the rows above; it shouldn't change the
-  // answer to "how big is this meal".
-  var one=mealTotalsAtMult(m,1);
+  var one=mealPerMeal(m);
   var quickAction=open
     ?'<span class="mldel" data-a="dmeal" data-id="'+m.id+'">×</span>'
     // no items yet means nothing to log — fall back to opening the card instead
     :((m.items||[]).length?'<button class="flogbtn" data-a="logmeal" data-id="'+m.id+'">'+PLUS_ICON+' Log</button>'
       :'<button class="flogbtn" data-a="togglemeal" data-id="'+m.id+'">'+PLUS_ICON+' Log</button>');
   var head='<div class="mltop" data-a="togglemeal" data-id="'+m.id+'"><span class="mlcaret">'+(open?'▾':'▸')+'</span>'+te
-    +(open?'':'<span class="mlmini">'+Math.round(t.calories)+' cal</span>')
-    +'<span class="mlmult"><label>×</label><input type="number" step="0.05" min="0" id="mlmultinput-'+m.id+'" data-a="mealmult" data-id="'+m.id+'" value="'+esc(m.mult)+'"></span>'
+    +(open?'':'<span class="mlmini">'+Math.round(one.calories)+' cal</span>')
+    +'<span class="mlmult"><label>makes</label><input type="number" step="1" min="1" id="mlmultinput-'+m.id+'" data-a="mealmult" data-id="'+m.id+'" value="'+esc(m.mult)+'"></span>'
     +quickAction+'</div>';
   var body='';
   if(open){
@@ -1670,9 +1705,10 @@ function mealCard(m){
       +'<input type="number" step="any" data-a="mealwant" data-id="'+m.id+'" value="'+esc(m.wantAmt===undefined?'':m.wantAmt)+'" placeholder="0">'
       +'<span class="fcunit2">'+(wantMac==='calories'?'cal':'g')+'</span><span class="fclbl">of</span>'
       +'<select data-a="mealwantmac" data-id="'+m.id+'">'+wantOpts+'</select>'
-      +'<span class="fclbl">from this meal</span></div>';
+      +'<span class="fclbl">per meal</span></div>'
+      +(mealWantNote(m)?'<div class="gcheck">'+mealWantNote(m)+'</div>':'');
     body='<div class="mitems">'
-      +'<div class="mitem mihead"><span>Food</span><span>Needed</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
+      +'<div class="mitem mihead"><span>Food</span><span>Per meal</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
       +(items||'<div class="tempty">No foods in this meal yet.</div>')
       +'<div class="mitem mitot"><span>Total per meal</span><span></span>'
         +'<span id="mtot-'+m.id+'-cal">'+Math.round(one.calories)+'</span>'
@@ -1708,7 +1744,7 @@ function logMeal(id){
   var mult=num(m.mult)||1,gid=uid(),any=false;
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);if(!f)return;
-    var r=resolveMealItem(f,mi,mult);if(!r)return;
+    var r=resolveMealItem(f,mi,mult,false);if(!r)return;
     state.health.log.push({id:uid(),at:Date.now(),date:addTarget,gid:gid,meal:m.name,foodId:f.id,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
     f.lastUsed=Date.now();
     any=true;
@@ -3742,6 +3778,11 @@ app.addEventListener('click',function(e){
   else if(a==='openmealadd'){mealAddOpen=true;render();}
   else if(a==='closemealadd'){mealAddOpen=false;render();}
   else if(a==='addmeal'){addMeal();}
+  else if(a==='mealscope'){
+    var sm=fMeal(t.dataset.mid);
+    var smi=sm&&(sm.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];
+    if(smi){smi.scope=smi.scope==='batch'?'meal':'batch';save();render();}
+  }
   else if(a==='togglemeal'){
     var wasOpen=isOpenItem('meal',t.dataset.id);
     openItem=wasOpen?null:{type:'meal',id:t.dataset.id};
