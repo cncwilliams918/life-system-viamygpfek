@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T17:34:20Z';
+  var PAGE_VERSION='2026-08-29T17:43:53Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -314,26 +314,32 @@ textarea{resize:vertical;min-height:52px}
 .derived{background:var(--surface-2);color:var(--on-surface-dim);cursor:default}
 /* food sheet — 1px flex gaps stand in for the row rules */
 .fsheet{border-radius:16px;overflow:hidden;box-shadow:var(--cardshadow);display:flex;flex-direction:column;gap:1px;background:var(--divider)}
-/* Two lines per entry: the name gets the first and may run as long as it likes,
-   the four figures get the second in fixed columns. They used to share one row,
-   so a long name squeezed the numbers and no two rows lined up. */
-.fsrow{display:grid;grid-template-columns:20px 1fr 20px;
-  grid-template-areas:"icon name del" "nums nums nums";
-  gap:3px 6px;align-items:center;padding:8px 10px;
+/* Two rows: the glyph spans both on the left, the name takes the whole left
+   side across both, the amount sits top right and the figures bottom right in a
+   fixed-width column. Fixed is what makes them line up down the sheet — a
+   content-sized column would be a different width on every row. */
+.fsrow{display:grid;grid-template-columns:20px minmax(0,1fr) 132px 18px;
+  grid-template-areas:"icon name amt del" "icon name nums del";
+  gap:2px 6px;align-items:center;padding:8px 10px;
   font-family:var(--label);font-size:12px;color:var(--on-surface);background:var(--surface)}
-.fsnums{grid-area:nums;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+.fsnums{grid-area:nums;display:grid;grid-template-columns:repeat(4,1fr);gap:5px;
   font-variant-numeric:tabular-nums;text-align:right}
-.fshead{grid-template-areas:"nums nums nums";background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
-.fsname{grid-area:name;font-family:var(--sans);font-size:13px;display:flex;align-items:baseline;gap:7px;min-width:0;overflow-wrap:anywhere}
-.fsg{font-family:var(--label);font-size:10.5px;color:var(--on-surface-faint);flex:none}
+.fshead{grid-template-areas:"icon name nums del";background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+/* two lines, then cut. A name is an identifier, not something worth reflowing
+   the row for. */
+.fsname{grid-area:name;align-self:center;font-family:var(--sans);font-size:13px;min-width:0;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  overflow-wrap:anywhere;line-height:1.3}
+.fsg{grid-area:amt;align-self:center;font-family:var(--label);font-size:10.5px;
+  color:var(--on-surface-faint);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* the icon is centred against the name's cap height, not sat on its baseline
    the way the rest of this flex row is */
-.fsicon{grid-area:icon;align-self:center;width:14px;height:14px;color:var(--on-surface-faint)}
+.fsicon{grid-area:icon;align-self:center;justify-self:center;width:14px;height:14px;color:var(--on-surface-faint)}
 .fsicon svg{width:14px;height:14px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .fsparent .fsicon{color:var(--accent-2)}
 .fsdel{grid-area:del;align-self:center;color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
 .fsdel:hover{color:var(--negative)}
-.fstot{background:var(--surface-2);color:var(--accent-2)}
+.fstot{grid-template-areas:"icon name nums del";background:var(--surface-2);color:var(--accent-2)}
 .fstot .fsname{font-family:var(--label);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
 .fsparent .fsname{font-weight:600;color:var(--on-surface)}
 .fsparent{background:var(--surface-2)}
@@ -1748,16 +1754,17 @@ function addFoodLog(id){
 }
 // a row says what kind of thing it is before it says its name
 function fsIcon(icon){return '<span class="fsicon"><svg viewBox="0 0 24 24">'+icon+'</svg></span>';}
-// The four figures live on their own line in fixed columns, so they line up down
-// the sheet no matter how long the name above them runs. A name is free to be
-// any length precisely because it no longer shares a row with the numbers.
+// The four figures sit in a fixed-width column so they line up down the whole
+// sheet. The name takes the space to their left across both lines and is cut
+// off after two rather than being allowed to push anything around.
 function fsNums(c,p,cb,f){
   return '<span class="fsnums"><span>'+c+'</span><span>'+p+'</span><span>'+cb+'</span><span>'+f+'</span></span>';
 }
 function fsRow(r,isChild){
   return '<div class="fsrow'+(isChild?' fschild':'')+'">'
     +fsIcon(ICON_FOOD)
-    +'<span class="fsname">'+esc(r.name)+'<span class="fsg">'+esc(fmtQty(num(r.qty),r.unit))+'</span></span>'
+    +'<span class="fsname">'+esc(r.name)+'</span>'
+    +'<span class="fsg">'+esc(fmtQty(num(r.qty),r.unit))+'</span>'
     +'<span class="fsdel" data-a="logdel" data-id="'+r.id+'">×</span>'
     +fsNums(num(r.calories),num(r.protein),num(r.carbs),num(r.fat))+'</div>';
 }
@@ -1899,7 +1906,7 @@ function buildFoodSheet(dateStr){
     var mt=logTotals(b.rows);
     return '<div class="fsrow fsparent">'
       +fsIcon(ICON_MEAL)
-      +'<span class="fsname">'+esc(b.meal||'Meal')+'</span>'
+      +'<span class="fsname">'+esc(b.meal||'Meal')+'</span><span class="fsg"></span>'
       +'<span class="fsdel" data-a="logdelgroup" data-gid="'+b.gid+'">×</span>'
       +fsNums(Math.round(mt.calories),Math.round(mt.protein*10)/10,Math.round(mt.carbs*10)/10,Math.round(mt.fat*10)/10)+'</div>'
       +b.rows.map(function(r){return fsRow(r,true);}).join('');
