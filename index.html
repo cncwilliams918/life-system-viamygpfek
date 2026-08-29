@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T19:10:30Z';
+  var PAGE_VERSION='2026-08-29T19:13:11Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -345,6 +345,9 @@ textarea{resize:vertical;min-height:52px}
 .fsicon.c{color:var(--accent)}
 .fsicon.f{color:var(--accent-3)}
 .fsicon svg{width:28px;height:28px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+/* a food inside a meal sits under it, so its glyph does too. A food logged on
+   its own keeps full size — it is not subordinate to anything. */
+.fschild .fsicon,.fschild .fsicon svg{width:19px;height:19px}
 .fsdel{grid-area:del;align-self:center;color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
 .fsdel:hover{color:var(--negative)}
 .fstot{grid-template-areas:"icon name nums del";background:var(--surface-2);color:var(--accent-2)}
