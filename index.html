@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T17:26:06Z';
+  var PAGE_VERSION='2026-08-29T17:34:20Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -314,23 +314,32 @@ textarea{resize:vertical;min-height:52px}
 .derived{background:var(--surface-2);color:var(--on-surface-dim);cursor:default}
 /* food sheet — 1px flex gaps stand in for the row rules */
 .fsheet{border-radius:16px;overflow:hidden;box-shadow:var(--cardshadow);display:flex;flex-direction:column;gap:1px;background:var(--divider)}
-.fsrow{display:grid;grid-template-columns:1fr 58px 52px 52px 52px 20px;gap:6px;align-items:center;padding:8px 10px;font-family:var(--label);font-size:12px;color:var(--on-surface);background:var(--surface)}
-.fsrow>span:not(.fsname):not(.fsdel){text-align:right;font-variant-numeric:tabular-nums}
-.fshead{background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
-.fsname{font-family:var(--sans);font-size:13px;display:flex;align-items:baseline;gap:7px;min-width:0}
+/* Two lines per entry: the name gets the first and may run as long as it likes,
+   the four figures get the second in fixed columns. They used to share one row,
+   so a long name squeezed the numbers and no two rows lined up. */
+.fsrow{display:grid;grid-template-columns:20px 1fr 20px;
+  grid-template-areas:"icon name del" "nums nums nums";
+  gap:3px 6px;align-items:center;padding:8px 10px;
+  font-family:var(--label);font-size:12px;color:var(--on-surface);background:var(--surface)}
+.fsnums{grid-area:nums;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+  font-variant-numeric:tabular-nums;text-align:right}
+.fshead{grid-template-areas:"nums nums nums";background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.fsname{grid-area:name;font-family:var(--sans);font-size:13px;display:flex;align-items:baseline;gap:7px;min-width:0;overflow-wrap:anywhere}
 .fsg{font-family:var(--label);font-size:10.5px;color:var(--on-surface-faint);flex:none}
 /* the icon is centred against the name's cap height, not sat on its baseline
    the way the rest of this flex row is */
-.fsicon{flex:none;align-self:center;width:14px;height:14px;color:var(--on-surface-faint)}
+.fsicon{grid-area:icon;align-self:center;width:14px;height:14px;color:var(--on-surface-faint)}
 .fsicon svg{width:14px;height:14px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .fsparent .fsicon{color:var(--accent-2)}
-.fsdel{color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
+.fsdel{grid-area:del;align-self:center;color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
 .fsdel:hover{color:var(--negative)}
 .fstot{background:var(--surface-2);color:var(--accent-2)}
-.fstot>span:first-child{font-family:var(--label);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
+.fstot .fsname{font-family:var(--label);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
 .fsparent .fsname{font-weight:600;color:var(--on-surface)}
 .fsparent{background:var(--surface-2)}
-.fschild .fsname{padding-left:14px;color:var(--on-surface-dim)}
+/* only the name indents — the numbers stay in their columns, which is the
+   whole point of splitting the row */
+.fschild .fsname{padding-left:10px;color:var(--on-surface-dim)}
 /* meals */
 .mealadd{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:14px}
 .mealadd input{font-size:13px}
@@ -395,7 +404,7 @@ textarea{resize:vertical;min-height:52px}
   .plsw{width:10px;height:10px}
   .pln{font-size:12px}
 }
-@media(max-width:680px){.fsrow{grid-template-columns:1fr 46px 40px 40px 40px 18px;gap:4px;font-size:11px;padding:7px 8px}.fsname{font-size:12px}}
+@media(max-width:680px){.fsrow{gap:3px 4px;font-size:11px;padding:7px 8px}.fsname{font-size:12px}}
 /* ── bottom nav — the app is five pages now, and this is its spine.
    Fixed, so #app carries matching bottom padding; both overlays sit at
    z-index 999 and must stay above it. ── */
@@ -1739,10 +1748,18 @@ function addFoodLog(id){
 }
 // a row says what kind of thing it is before it says its name
 function fsIcon(icon){return '<span class="fsicon"><svg viewBox="0 0 24 24">'+icon+'</svg></span>';}
+// The four figures live on their own line in fixed columns, so they line up down
+// the sheet no matter how long the name above them runs. A name is free to be
+// any length precisely because it no longer shares a row with the numbers.
+function fsNums(c,p,cb,f){
+  return '<span class="fsnums"><span>'+c+'</span><span>'+p+'</span><span>'+cb+'</span><span>'+f+'</span></span>';
+}
 function fsRow(r,isChild){
-  return '<div class="fsrow'+(isChild?' fschild':'')+'"><span class="fsname">'+fsIcon(ICON_FOOD)+esc(r.name)+'<span class="fsg">'+esc(fmtQty(num(r.qty),r.unit))+'</span></span>'
-    +'<span>'+num(r.calories)+'</span><span>'+num(r.protein)+'</span><span>'+num(r.carbs)+'</span><span>'+num(r.fat)+'</span>'
-    +'<span class="fsdel" data-a="logdel" data-id="'+r.id+'">×</span></div>';
+  return '<div class="fsrow'+(isChild?' fschild':'')+'">'
+    +fsIcon(ICON_FOOD)
+    +'<span class="fsname">'+esc(r.name)+'<span class="fsg">'+esc(fmtQty(num(r.qty),r.unit))+'</span></span>'
+    +'<span class="fsdel" data-a="logdel" data-id="'+r.id+'">×</span>'
+    +fsNums(num(r.calories),num(r.protein),num(r.carbs),num(r.fat))+'</div>';
 }
 function macroPieHtml(dateStr){
   return macroPie(logTotals(logFor(dateStr)),'Macro split of the day\'s calories',
@@ -1869,7 +1886,7 @@ function macroPie(t,aria,capLead){
 }
 function buildFoodSheet(dateStr){
   var rows=logFor(dateStr),isToday=dateStr===todayStr();
-  var head='<div class="fsrow fshead"><span>Food</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>';
+  var head='<div class="fsrow fshead">'+fsNums('Cal','P','C','F')+'</div>';
   var blocks=[],seen={};
   rows.forEach(function(r){
     if(r.gid){
@@ -1880,13 +1897,16 @@ function buildFoodSheet(dateStr){
   var body=blocks.map(function(b){
     if(b.row)return fsRow(b.row,false);
     var mt=logTotals(b.rows);
-    return '<div class="fsrow fsparent"><span class="fsname">'+fsIcon(ICON_MEAL)+esc(b.meal||'Meal')+'</span>'
-      +'<span>'+Math.round(mt.calories)+'</span><span>'+(Math.round(mt.protein*10)/10)+'</span><span>'+(Math.round(mt.carbs*10)/10)+'</span><span>'+(Math.round(mt.fat*10)/10)+'</span>'
-      +'<span class="fsdel" data-a="logdelgroup" data-gid="'+b.gid+'">×</span></div>'
+    return '<div class="fsrow fsparent">'
+      +fsIcon(ICON_MEAL)
+      +'<span class="fsname">'+esc(b.meal||'Meal')+'</span>'
+      +'<span class="fsdel" data-a="logdelgroup" data-gid="'+b.gid+'">×</span>'
+      +fsNums(Math.round(mt.calories),Math.round(mt.protein*10)/10,Math.round(mt.carbs*10)/10,Math.round(mt.fat*10)/10)+'</div>'
       +b.rows.map(function(r){return fsRow(r,true);}).join('');
   }).join('');
   var t=logTotals(rows);
-  var tot='<div class="fsrow fstot"><span>Total</span><span>'+Math.round(t.calories)+'</span><span>'+(Math.round(t.protein*10)/10)+'</span><span>'+(Math.round(t.carbs*10)/10)+'</span><span>'+(Math.round(t.fat*10)/10)+'</span><span></span></div>';
+  var tot='<div class="fsrow fstot"><span class="fsname">Total</span>'
+    +fsNums(Math.round(t.calories),Math.round(t.protein*10)/10,Math.round(t.carbs*10)/10,Math.round(t.fat*10)/10)+'</div>';
   // End day only makes sense for the day actually in progress
   var endBtn=isToday
     ?'<button type="button" class="blockaddbtn spaced" data-a="endday">End day — save '+Math.round(t.calories)+' cal / '+(Math.round(t.protein*10)/10)+'g protein</button>'
