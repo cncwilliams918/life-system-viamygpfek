@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-28T18:40:31Z';
+  var PAGE_VERSION='2026-08-29T15:28:30Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -433,18 +433,11 @@ textarea{resize:vertical;min-height:52px}
 /* it still sits proud of the bar, so it keeps a plain drop shadow — dark and
    short, reading as height rather than the gold halo it used to throw */
 .navfab{flex:none;width:54px;height:54px;border-radius:50%;margin:-20px 6px 0;
-  /* Shaded like the macro ring, and by the same light: a highlight rim on the
-     near top-left edge, a shadow rim on the far bottom-right, and the middle
-     left as flat accent. Each rim is a radial gradient centred outside the
-     circle, which is what puts the value at the edge and lets it fall away
-     before the centre — the same shape as the ring's masked bevels.
-     Both fade out to nothing rather than flattening early: where a gradient's
-     slope changes abruptly the eye reads a Mach band, and an earlier version of
-     this drew a visible seam across the button. */
-  background:
-    radial-gradient(ellipse 88% 88% at 108% 114%, rgba(5,31,32,.46), rgba(5,31,32,0) 72%),
-    radial-gradient(ellipse 88% 88% at -8% -14%, rgba(255,255,255,.78), rgba(255,255,255,0) 72%),
-    var(--accent);
+  /* Flat accent. All the modelling is in the two rims below, so the middle of
+     the face is the colour and nothing else — the same rule the macro ring
+     follows. Corner-centred gradients couldn't do this: they carry value all
+     the way across, so the centre was tinted everywhere and pure nowhere. */
+  position:relative;background:var(--accent);
   color:var(--on-accent);display:flex;align-items:center;justify-content:center;
   /* thrown down and to the right, away from the same light */
   box-shadow:2px 3px 4px rgba(5,31,32,.26), 3px 8px 16px -4px rgba(5,31,32,.34)}
@@ -452,7 +445,25 @@ textarea{resize:vertical;min-height:52px}
    highlight. An inset shadow was the first attempt at "pressed", but on a gold
    circle it just reads as a smudge across the top. */
 .navfab.on{box-shadow:none}
-.navfab svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+/* Two rims, each a ring that is transparent through the middle two-thirds of the
+   radius and only rises near the edge — that's the clear core. Each is then
+   masked to one side of the diagonal, so one lights the near edge and the other
+   darkens the far one. Two gradients, because a stroke of paint can only carry
+   one: the radial says where across the face, the mask says where around it. */
+.navfab:before,.navfab:after{content:'';position:absolute;inset:0;border-radius:50%;pointer-events:none}
+.navfab:before{
+  background:radial-gradient(circle closest-side,
+    rgba(255,255,255,0) 0 67%, rgba(255,255,255,.42) 84%, rgba(255,255,255,.92) 100%);
+  -webkit-mask-image:linear-gradient(145deg,#000 0 26%,transparent 62%);
+  mask-image:linear-gradient(145deg,#000 0 26%,transparent 62%)}
+.navfab:after{
+  background:radial-gradient(circle closest-side,
+    rgba(5,31,32,0) 0 67%, rgba(5,31,32,.26) 84%, rgba(5,31,32,.62) 100%);
+  -webkit-mask-image:linear-gradient(145deg,transparent 40%,#000 76%);
+  mask-image:linear-gradient(145deg,transparent 40%,#000 76%)}
+/* the glyph is a static child, so it would paint under those positioned rims —
+   the same trap the nav bar's shadow fell into */
+.navfab svg{position:relative;z-index:1;width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
 /* ── today's goal bars — the "how much room is left" HUD ── */
 .goalbars{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:var(--surface);border-radius:18px;padding:12px 14px;margin-bottom:2px;box-shadow:var(--cardshadow);transition:transform .12s cubic-bezier(.34,1.56,.64,1)}
 /* smaller than a button's 1.08 on purpose — the same spring reads as a much
