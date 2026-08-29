@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T18:48:09Z';
+  var PAGE_VERSION='2026-08-29T18:58:49Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1640,7 +1640,7 @@ function refreshMeal(id){
   var mult=num(m.mult)||1;
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);
-    var r=resolveMealItem(f,mi,mult,false);
+    var r=resolveMealItem(f,mi,1,mi.scope==='batch');
     setTxt('miq-'+mi.id,r?fmtQty(num(toDisplayAmt(f,r.grams)),displayUnit(f)):'—');
     setTxt('mio-'+mi.id+'-cal',r?String(Math.round(r.calories)):'—');
     setTxt('mio-'+mi.id+'-p',r?String(Math.round(r.protein*10)/10):'—');
@@ -1659,13 +1659,13 @@ function mealItemRow(m,mi){
   var f=fFood(mi.foodId);
   if(!f)return '<div class="mitem gone"><span class="miname">food deleted</span><span></span><span></span><span></span><span></span><span></span><span class="midel" data-a="midel" data-mid="'+m.id+'" data-iid="'+mi.id+'">×</span></div>';
   var batch=mi.scope==='batch';
-  // the row always reports one meal's worth; the chip says how the number you
-  // typed was meant, not what the row shows
-  var r=resolveMealItem(f,mi,num(m.mult)||1,false);
-  var chip='<button type="button" class="scopechip'+(batch?' total':'')+'" data-a="mealscope"'
-    +' data-mid="'+m.id+'" data-iid="'+mi.id+'"'
-    +' title="'+(batch?'That amount is your whole stock — tap for one meal’s worth':'That amount is one meal’s worth — tap for the whole batch')+'">'
-    +(batch?'whole batch':'a meal')+'</button>';
+  // The row reports the amount exactly as you entered it — three pounds of beef
+  // stays three pounds however many meals it's split into. The tag says which
+  // that number was: one meal's worth, or the whole batch's.
+  var r=resolveMealItem(f,mi,1,batch);
+  var chip='<span class="scopechip'+(batch?' total':'')+'"'
+    +' title="'+(batch?'This amount is the whole batch — change it on the food’s page':'This amount is one meal’s worth — change it on the food’s page')+'">'
+    +(batch?'whole batch':'a meal')+'</span>';
   // A meal is a recipe: it says what to put in, not how the amount was arrived
   // at. The target that produced it lives on the food's own page, one tap away
   // through the name, which is the only place an amount is editable now.
@@ -1708,7 +1708,7 @@ function mealCard(m){
       +'<span class="fclbl">per meal</span></div>'
       +(mealWantNote(m)?'<div class="gcheck">'+mealWantNote(m)+'</div>':'');
     body='<div class="mitems">'
-      +'<div class="mitem mihead"><span>Food</span><span>Per meal</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
+      +'<div class="mitem mihead"><span>Food</span><span>Amount</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span></div>'
       +(items||'<div class="tempty">No foods in this meal yet.</div>')
       +'<div class="mitem mitot"><span>Total per meal</span><span></span>'
         +'<span id="mtot-'+m.id+'-cal">'+Math.round(one.calories)+'</span>'
@@ -2277,6 +2277,19 @@ function foodDetailHtml(){
       +choices.map(function(u){return '<option value="'+esc(u)+'"'+(u===du?' selected':'')+'>'+esc(u==='serving'?'servings ('+fmtQty(num(f.serving),f.unit)+' each)':u)+'</option>';}).join('')
       +'</select></div>'
     :'';
+  // Editing a meal's food: say whether the amount is one meal's worth or the
+  // whole batch's. The number itself never moves — three pounds of beef is three
+  // pounds either way. What changes is how the meal divides it up.
+  var scopeRow='';
+  if(pickerFor==='meal'&&mealItemEdit){
+    var emi=(fMeal(mealItemEdit.mid)||{}).items;
+    emi=emi&&emi.filter(function(x){return x.id===mealItemEdit.iid;})[0];
+    var isBatch=emi&&emi.scope==='batch';
+    scopeRow='<div class="fcrow"><span class="fclbl">This amount is</span>'
+      +'<button type="button" class="fcmodebtn'+(isBatch?'':' on')+'" data-a="mealscope" data-scope="meal">a meal</button>'
+      +'<button type="button" class="fcmodebtn'+(isBatch?' on':'')+'" data-a="mealscope" data-scope="batch">the whole batch</button>'
+      +'</div>';
+  }
   // opened from a Calc row or a meal item you're here to set a number that
   // belongs to that list, not to log anything
   var note=detailFeeds()
@@ -2288,7 +2301,7 @@ function foodDetailHtml(){
     +(f.brand?'<div class="fdbrand">'+esc(f.brand)+'</div>':'')
     +'</div>'
     +'<div class="ph"><h3>Log settings</h3></div>'
-    +'<div class="fincard">'+unitRow+modeTog+inputRow
+    +'<div class="fincard">'+unitRow+modeTog+inputRow+scopeRow
     +'<div id="fcout-'+f.id+'">'+(qtyMode?foodOutQtyHtml(f):foodOutHtml(f))+'</div></div>'
     +nutritionHtml(f)
     +(pickDetail.kind==='saved'
@@ -3779,9 +3792,9 @@ app.addEventListener('click',function(e){
   else if(a==='closemealadd'){mealAddOpen=false;render();}
   else if(a==='addmeal'){addMeal();}
   else if(a==='mealscope'){
-    var sm=fMeal(t.dataset.mid);
-    var smi=sm&&(sm.items||[]).filter(function(x){return x.id===t.dataset.iid;})[0];
-    if(smi){smi.scope=smi.scope==='batch'?'meal':'batch';save();render();}
+    var smm=fMeal(mealItemEdit&&mealItemEdit.mid);
+    var smi=smm&&(smm.items||[]).filter(function(x){return x.id===mealItemEdit.iid;})[0];
+    if(smi){smi.scope=t.dataset.scope;save();render();}
   }
   else if(a==='togglemeal'){
     var wasOpen=isOpenItem('meal',t.dataset.id);
