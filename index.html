@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T18:58:49Z';
+  var PAGE_VERSION='2026-08-29T19:01:17Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -2285,10 +2285,13 @@ function foodDetailHtml(){
     var emi=(fMeal(mealItemEdit.mid)||{}).items;
     emi=emi&&emi.filter(function(x){return x.id===mealItemEdit.iid;})[0];
     var isBatch=emi&&emi.scope==='batch';
+    // one button that flips, not a pair — it reads as the thing you press, and
+    // it says what the amount currently is rather than what it might become
     scopeRow='<div class="fcrow"><span class="fclbl">This amount is</span>'
-      +'<button type="button" class="fcmodebtn'+(isBatch?'':' on')+'" data-a="mealscope" data-scope="meal">a meal</button>'
-      +'<button type="button" class="fcmodebtn'+(isBatch?' on':'')+'" data-a="mealscope" data-scope="batch">the whole batch</button>'
-      +'</div>';
+      +'<button type="button" class="fcmodebtn on" data-a="mealscope"'
+      +' data-scope="'+(isBatch?'meal':'batch')+'"'
+      +' title="Tap to make it '+(isBatch?'one meal’s worth':'the whole batch')+'">'
+      +(isBatch?'the whole batch':'a meal')+'</button></div>';
   }
   // opened from a Calc row or a meal item you're here to set a number that
   // belongs to that list, not to log anything
