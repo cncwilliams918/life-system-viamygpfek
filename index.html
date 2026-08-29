@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T18:29:33Z';
+  var PAGE_VERSION='2026-08-29T18:32:25Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -371,6 +371,9 @@ textarea{resize:vertical;min-height:52px}
 .mitems{margin-top:12px;border-radius:16px;overflow:hidden;box-shadow:var(--cardshadow);display:flex;flex-direction:column;gap:1px;background:var(--divider)}
 .mitem{display:grid;grid-template-columns:1fr 84px 50px 44px 44px 44px 18px;gap:6px;align-items:center;padding:7px 10px;font-family:var(--label);font-size:12px;background:var(--surface)}
 .mitem>span:not(.miname):not(.midel){text-align:right;font-variant-numeric:tabular-nums}
+/* the first cell of the header and the total labels the name column, so it
+   lines up with the names rather than with the figures on its right */
+.mitems .mitem.mihead>span:first-child,.mitems .mitem.mitot>span:first-child{text-align:left}
 .mihead{background:var(--surface-2);color:var(--on-surface-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .mitot{background:var(--surface-2);color:var(--accent-2)}
 .mitot>span:first-child{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-faint)}
