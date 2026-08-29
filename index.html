@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T18:05:43Z';
+  var PAGE_VERSION='2026-08-29T18:08:54Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -337,11 +337,14 @@ textarea{resize:vertical;min-height:52px}
   overflow-wrap:anywhere;line-height:1.3}
 /* the icon is centred against the name's cap height, not sat on its baseline
    the way the rest of this flex row is */
-/* a solid colour, not a translucent ink. --on-surface-faint is 44% alpha, which
-   at this size reads as a washed-out drawing rather than a quiet one. */
-.fsicon{grid-area:icon;align-self:center;justify-self:center;width:28px;height:28px;color:var(--accent)}
+/* Solid colours, never a translucent ink: --on-surface-faint is 44% alpha, and
+   at this size that reads as a washed-out drawing rather than a quiet one.
+   The colour says which macro the row mostly is, in the macro ring's palette. */
+.fsicon{grid-area:icon;align-self:center;justify-self:center;width:28px;height:28px;color:var(--ink)}
+.fsicon.p{color:var(--accent-2)}
+.fsicon.c{color:var(--accent)}
+.fsicon.f{color:var(--accent-3)}
 .fsicon svg{width:28px;height:28px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.fsparent .fsicon{color:var(--accent-2)}
 .fsdel{grid-area:del;align-self:center;color:var(--on-surface-faint);font-size:14px;cursor:pointer;text-align:center}
 .fsdel:hover{color:var(--negative)}
 .fstot{grid-template-areas:"icon name nums del";background:var(--surface-2);color:var(--accent-2)}
@@ -1758,7 +1761,19 @@ function addFoodLog(id){
   save();render();
 }
 // a row says what kind of thing it is before it says its name
-function fsIcon(icon){return '<span class="fsicon"><svg viewBox="0 0 24 24">'+icon+'</svg></span>';}
+function fsIcon(icon,cls){
+  return '<span class="fsicon'+(cls||'')+'"><svg viewBox="0 0 24 24">'+icon+'</svg></span>';
+}
+// Which macro this mostly is, in the ring's colours. Judged on calories rather
+// than grams: at 9 a gram, fat is half again as much food as its number
+// suggests, and whole milk reads as a carb by weight and a fat by energy. The
+// ring beside it already splits the day by calories, so this agrees with it.
+function macroClass(p,c,f){
+  var pk=num(p)*4,ck=num(c)*4,fk=num(f)*9;
+  if(pk<=0&&ck<=0&&fk<=0)return ' n';   // water, coffee — none of the three
+  if(pk>=ck&&pk>=fk)return ' p';
+  return ck>=fk?' c':' f';
+}
 // The four figures sit in a fixed-width column so they line up down the whole
 // sheet. The name takes the space to their left across both lines and is cut
 // off after two rather than being allowed to push anything around.
@@ -1770,7 +1785,7 @@ function fsRow(r,isChild){
   // rows logged before foodId was recorded have nothing to open, so they don't
   var open=r.foodId?' data-a="logedit" data-id="'+r.id+'"':'';
   return '<div class="fsrow'+(isChild?' fschild':'')+(r.foodId?' fstap':'')+'"'+open+'>'
-    +fsIcon(ICON_FOOD)
+    +fsIcon(ICON_FOOD,macroClass(r.protein,r.carbs,r.fat))
     +'<span class="fsname"><span class="fsnm">'+esc(r.name)+'</span></span>'
     +'<span class="fsdel" data-a="logdel" data-id="'+r.id+'">×</span>'
     +fsNums(num(r.calories),num(r.protein),num(r.carbs),num(r.fat))+'</div>';
@@ -1912,7 +1927,7 @@ function buildFoodSheet(dateStr){
     if(b.row)return fsRow(b.row,false);
     var mt=logTotals(b.rows);
     return '<div class="fsrow fsparent">'
-      +fsIcon(ICON_MEAL)
+      +fsIcon(ICON_MEAL,macroClass(mt.protein,mt.carbs,mt.fat))
       +'<span class="fsname"><span class="fsnm">'+esc(b.meal||'Meal')+'</span></span>'
       +'<span class="fsdel" data-a="logdelgroup" data-gid="'+b.gid+'">×</span>'
       +fsNums(Math.round(mt.calories),Math.round(mt.protein*10)/10,Math.round(mt.carbs*10)/10,Math.round(mt.fat*10)/10)+'</div>'
