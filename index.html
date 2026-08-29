@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-08-29T19:13:11Z';
+  var PAGE_VERSION='2026-08-29T19:14:41Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -1740,10 +1740,12 @@ function addMeal(){
 }
 function logMeal(id){
   var m=fMeal(id);if(!m)return;
+  // one meal, not the batch. The card is a recipe — the rows say what to cook,
+  // the total says what one comes to, and this logs what you eat.
   var mult=num(m.mult)||1,gid=uid(),any=false;
   (m.items||[]).forEach(function(mi){
     var f=fFood(mi.foodId);if(!f)return;
-    var r=resolveMealItem(f,mi,mult,true);if(!r)return;
+    var r=resolveMealItem(f,mi,mult,false);if(!r)return;
     state.health.log.push({id:uid(),at:Date.now(),date:addTarget,gid:gid,meal:m.name,foodId:f.id,name:f.name,qty:Math.round(r.grams*100)/100,unit:f.unit||'g',calories:Math.round(r.calories),protein:Math.round(r.protein*10)/10,carbs:Math.round(r.carbs*10)/10,fat:Math.round(r.fat*10)/10});
     f.lastUsed=Date.now();
     any=true;
