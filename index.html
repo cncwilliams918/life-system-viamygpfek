@@ -20,7 +20,7 @@
 // this is the real fallback: fetch the version marker with cache explicitly disabled
 // (which IS reliably honored), and self-reload once if this page is stale.
 (function(){
-  var PAGE_VERSION='2026-10-10T11:10:46Z';
+  var PAGE_VERSION='2026-10-18T20:09:10Z';
   try{
     if(sessionStorage.getItem('lifesys_reloaded_for')===PAGE_VERSION)return;
     fetch('version.txt',{cache:'no-store'}).then(function(r){return r.text();}).then(function(v){
@@ -807,6 +807,8 @@ function fixState(d){
   // in the source: USDA deactivates any key it finds in a public repo, and this
   // repo is public.
   if(d.settings.fdcKey===undefined)d.settings.fdcKey='';
+  // 0 means midnight — the old behaviour, so nobody's days move on upgrade
+  if(d.settings.dayStart===undefined)d.settings.dayStart=0;
   return d;
 }
 async function loadState(){
@@ -869,23 +871,29 @@ function handleImportFile(file){
   reader.readAsText(file);
 }
 function dateOnly(x){var d=new Date(x+'T00:00:00');return isNaN(d)?null:d;}
-function todayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+// When your day rolls over. Eat at 2am with this set to 4 and the food belongs
+// to the day you have been awake for, not the one the clock just started —
+// which is the difference between logging a meal and navigating to yesterday to
+// log it. Everything that turns a clock time into a date goes through here, so
+// one setting moves the whole app's idea of today.
+function dayStartHour(){var h=num((state&&state.settings||{}).dayStart);return h>0&&h<12?h:0;}
+function dayOf(d){var x=new Date(d);x.setHours(x.getHours()-dayStartHour());return ymd(x);}
+function todayStr(){return dayOf(new Date());}
 function fmtShort(dateStr){var d=new Date(dateStr+'T00:00:00');if(isNaN(d))return dateStr;return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});}
 function fmtFull(dateStr){var d=new Date(dateStr+'T00:00:00');if(isNaN(d))return dateStr;return d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});}
 function shiftDate(dateStr,days){
   var d=new Date(dateStr+'T00:00:00');
   d.setDate(d.getDate()+days);
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return ymd(d);
 }
 // ── logging streak ──
 // A day counts only if something was logged on that day, not merely dated to it.
 // `at` is when the row was entered; `date` is the day the food belongs to.
 // Backfilling yesterday tomorrow fills the gap in your macros but not in the
 // streak, which is the point of a streak — it measures the habit, not the data.
-function stampDay(ms){
-  var d=new Date(ms);
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
+// the same boundary, so a 2am entry counts toward the day it felt like
+function stampDay(ms){return dayOf(new Date(ms));}
 function loggedOnTimeDays(){
   var days={};
   (state.health.log||[]).forEach(function(r){
@@ -1156,11 +1164,18 @@ function settingsHtml(){
     +'<button class="rst'+(state._rst?' arm':'')+'" data-a="reset">'+(state._rst?'Really reset? click again':'reset to default')+'</button></div>';
   return '<div class="settingsoverlay"><div class="settingscard">'
     +'<div class="settingshead"><h3>Settings</h3><button class="settingsclose" data-a="closesettings">×</button></div>'
-    +'<div class="settingsnote">Sound and volume control the button pop — everything else here is still cosmetic.</div>'
+    +'<div class="settingsnote">Sound and volume control the button pop. Day starts at changes which day your food lands on; the rest is cosmetic.</div>'
     +'<div class="setrow"><div class="setlbl"><span>Theme</span><small>How the app looks</small></div>'
     +'<select data-a="setfield" data-k="theme"><option value="system"'+(s.theme==='system'||!s.theme?' selected':'')+'>System</option><option value="light"'+(s.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(s.theme==='dark'?' selected':'')+'>Dark</option></select></div>'
     +'<div class="setrow"><div class="setlbl"><span>Volume</span><small>Button-press sound</small></div>'
     +'<input class="setrange" type="range" min="0" max="100" value="'+(s.volume==null?70:s.volume)+'" data-a="setrange" data-k="volume"></div>'
+    +'<div class="setrow"><div class="setlbl"><span>Day starts at</span>'
+    +'<small>Eat past midnight and the food lands on the day you have been awake for, not the next one.</small></div>'
+    +'<select data-a="setfield" data-k="dayStart">'
+    +[0,1,2,3,4,5,6,7,8].map(function(h){
+      return '<option value="'+h+'"'+(num(s.dayStart)===h?' selected':'')+'>'
+        +(h===0?'Midnight':(h===12?'Noon':h+' AM'))+'</option>';
+    }).join('')+'</select></div>'
     +swtch(s.sound!==false,'Sound effects','Pop on every button press','sound')
     +swtch(!!s.haptics,'Haptics','Vibrate on key actions','haptics')
     +swtch(!!s.notifications,'Notifications','Daily reminder to open the app','notifications')
@@ -3949,7 +3964,14 @@ app.addEventListener('change',function(e){var t=e.target,a=t.dataset&&t.dataset.
   }
   if(a==='macrofrom'){macroFrom=t.value;macroAll=false;render();return;}
   if(a==='macroto'){macroTo=t.value;macroAll=false;render();return;}
-  if(a==='setfield'){state.settings[t.dataset.k]=t.value;save();return;}
+  if(a==='setfield'){
+    // dayStart moves what counts as today, so the whole page has to be rebuilt
+    var wasToday=t.dataset.k==='dayStart'?todayStr():null;
+    state.settings[t.dataset.k]=t.dataset.k==='dayStart'?parseInt(t.value,10):t.value;
+    save();
+    if(wasToday!==null){viewDate=todayStr();addTarget=viewDate;render();}
+    return;
+  }
   if(a==='fnew'&&t.dataset.f==='unit'){
     // switching to a countable unit (scoop/slice/bar/packet/serving) mid-entry — the macros
     // already scanned/typed represent whatever the old serving was, so just re-anchor the
